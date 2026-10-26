@@ -38,6 +38,8 @@ import { isUsableRect, useProgressiveFocusTransition, type AnchorWindowRect } fr
 import { predictProgressAnchorRect, resolveAnchorDetailsHeroGeometry } from '@/navigation/v2/anchorHeroGeometry';
 import { playCreationSound } from '@/services/CreationSounds';
 import { useAuthStore } from '@/stores/authStore';
+import { discoverGuidance } from '@/hooks/v2/guidance/guidanceRuntime';
+import { beginGuidanceAction } from '@/hooks/v2/guidance/guidanceActions';
 import { useTeachingQueue } from '@/hooks/v2/teaching/useTeachingQueue';
 import { useTeachingFocus } from '@/hooks/v2/teaching/useTeachingFocus';
 import { homeTeachingBeats } from '@/hooks/v2/teaching/homeTeaching';
@@ -492,7 +494,8 @@ export function V2HomeScreen() {
     !veilSwapPending.current && !carouselMoving && !homeMotionActive && !focusTransition.active && !threadEvents.active &&
     model.anchorState === 'ready' && Boolean(selectedId) && model.today.state !== 'loading' && !model.progressLoading &&
     model.vision.state !== 'loading' && model.chart.state !== 'loading' && model.chart.state !== 'resolving';
-  const teachingQueue = useTeachingQueue({ screenId: 'home', accountId: teachingAccountId,
+  useEffect(() => { if (homeIsIdle && hasCompletedPractice) discoverGuidance(teachingAccountId ?? 'guest', 'today.recommended'); }, [homeIsIdle, hasCompletedPractice, teachingAccountId]);
+  const teachingQueue = useTeachingQueue({ screenId: 'home', accountId: teachingAccountId, contextKey: selectedId ?? undefined,
     eligible: homeTeachingBeats({ hasAnchor: Boolean(selectedId), todayReady: todayForDisplay.state === 'ready',
       doneToday: todayForDisplay.state === 'ready' && Boolean(todayForDisplay.doneToday),
       mode: todayForDisplay.state === 'ready' ? todayForDisplay.mode : undefined, hasCompletedPractice }), cap: 1, blocked: !homeIsIdle, isFocused: teachingFocus.isFocused });
@@ -558,11 +561,13 @@ export function V2HomeScreen() {
   const handleBeginToday = useCallback(() => {
     track('v2_home_practice_tapped');
     if (selectedId && todayForDisplay.state === 'ready') {
+      const confirmGuidance = beginGuidanceAction(teachingAccountId ?? 'guest', 'today.recommended', 'target:today');
       if (todayForDisplay.doneToday?.nextMode) intents.onOpenPractice(selectedId, todayForDisplay.doneToday.nextMode);
       else if (todayForDisplay.doneToday) intents.onOpenPractice(selectedId);
       else intents.onOpenPractice(selectedId, todayForDisplay.mode);
+      confirmGuidance(true);
     }
-  }, [intents, selectedId, todayForDisplay]);
+  }, [intents, selectedId, todayForDisplay, teachingAccountId]);
 
   const handleOpenAllPractices = useCallback(() => {
     track('v2_home_all_practices_tapped');

@@ -32,6 +32,7 @@ import { V2WeeklyInsightEntry } from '@/screens/v2/weeklyInsight/V2WeeklyInsight
 import { SettingsScreen } from '@/screens/settings';
 import { LoginScreen } from '@/screens/auth';
 import { useAnchorStore } from '@/stores/anchorStore';
+import { useGuidanceLifecycle } from '@/hooks/v2/guidance/useGuidanceLifecycle';
 import { useAuthStore } from '@/stores/authStore';
 import { useFirstRunStore } from '@/stores/v2/firstRunStore';
 import { useSettingsStore } from '@/stores/settingsStore';
@@ -567,6 +568,7 @@ function V2AuthRouteScreen() {
  * Anchor 2.0 central stack navigator.
  */
 export function AnchorV2Navigator() {
+  useGuidanceLifecycle();
   useEffect(() => {
     let cleared = false;
     const clearLegacyBacklog = () => {

@@ -37,8 +37,8 @@ export const PracticeSubscreen: React.FC<Props> = ({ onBack }) => {
 
   const traceDefaultEnabled = useSettingsStore((s) => s.traceDefaultEnabled ?? true);
   const setTraceDefaultEnabled = useSettingsStore((s) => s.setTraceDefaultEnabled);
-  const guideMode = useSettingsStore((s) => s.guideMode ?? true);
-  const setGuideMode = useSettingsStore((s) => s.setGuideMode);
+  const showTips = useSettingsStore((s) => s.showTips ?? true);
+  const setShowTips = useSettingsStore((s) => s.setShowTips);
   const reduceIntentionVisibility = useSettingsStore((s) => s.reduceIntentionVisibility ?? false);
   const setReduceIntentionVisibility = useSettingsStore((s) => s.setReduceIntentionVisibility);
   const dailyPracticeGoal = useSettingsStore((s) => s.dailyPracticeGoal ?? 1);
@@ -117,11 +117,11 @@ export const PracticeSubscreen: React.FC<Props> = ({ onBack }) => {
       <GroupLabel>During practice</GroupLabel>
       <SettingsGroup>
         <SwitchRow
-          title="Guide mode"
-          subtitle="Show guidance while you create and practice"
-          on={guideMode}
-          onChange={setGuideMode}
-          testID="settings-row-Guide mode"
+          title="Show tips"
+          subtitle="Short pointers the first time you use something"
+          on={showTips}
+          onChange={setShowTips}
+          testID="settings-row-Show tips"
         />
         <SwitchRow
           title="Hide intention text"

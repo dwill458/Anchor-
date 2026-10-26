@@ -1,6 +1,5 @@
 import React, { useState } from 'react';
-import { Alert, DeviceEventEmitter, Linking, StyleSheet, Text } from 'react-native';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import { Alert, Linking, StyleSheet, Text } from 'react-native';
 import Constants from 'expo-constants';
 import {
   GroupLabel,
@@ -14,8 +13,7 @@ import { settingsTypography } from '@/components/settings/settingsTheme';
 import { useToast } from '@/components/ToastProvider';
 import { LEGAL_URLS, SUPPORT_EMAIL_URL } from '@/constants/legal';
 import { TEACHING_COPY } from '@/constants/v2/teachingCopy';
-import { resetChartTaughtState } from '@/hooks/v2/chart/chartTaughtState';
-import { resetAllTeachingSeen } from '@/hooks/v2/teaching/teachingSeen';
+import { replayGuidance } from '@/hooks/v2/guidance/guidanceRuntime';
 import { AnalyticsService } from '@/services/AnalyticsService';
 import { openStoreListing } from '@/services/reviewPromptService';
 import { useAuthStore } from '@/stores/authStore';
@@ -54,16 +52,9 @@ export const HelpAboutSubscreen: React.FC<Props> = ({ onBack }) => {
 
   const handleReplayTips = async () => {
     useTeachingStore.getState().resetTeachingRecords();
-    const resetSeen = resetAllTeachingSeen(teachingAccountId);
-    const resetChart = resetChartTaughtState(teachingAccountId);
-    const clearPractice = Promise.resolve(
-      AsyncStorage.removeItem('practice_teaching_auto_seen_v2')
-    ).catch(() => undefined);
-    DeviceEventEmitter.emit('replayAppTeaching');
-    DeviceEventEmitter.emit('chartReplayOneMoveTeaching');
+    await replayGuidance(teachingAccountId ?? 'guest');
     AnalyticsService.track('teaching_reset');
     toast.info(TEACHING_COPY.replay.confirmation);
-    await Promise.all([resetSeen, resetChart, clearPractice]);
   };
 
   return (

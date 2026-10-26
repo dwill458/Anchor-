@@ -20,6 +20,7 @@ type Props = {
   onAdvance: (stepId: BeatId) => void;
   onDismiss: (reason: string) => void;
   onReady: (stepId: BeatId) => void;
+  onHidden?: () => void;
   onSkip?: (stepId: BeatId) => void;
 };
 const PAD = 8;
@@ -46,6 +47,7 @@ export function SpotlightCoach(props: Props) {
 
   useEffect(() => {
     setGeometry(null);
+    latest.current.onHidden?.();
     if (!visible || !current) return;
     let cancelled = false;
     const skipCurrent = () => {

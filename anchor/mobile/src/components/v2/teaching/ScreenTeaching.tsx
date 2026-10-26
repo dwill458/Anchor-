@@ -7,7 +7,7 @@ import { TeachingWhisper } from './TeachingWhisper';
 export type TeachingTarget = Pick<TeachingStep, 'targetRef' | 'getRect'> & { title?: string; body?: string; accessibilityLabel?: string };
 export function ScreenTeaching({ screen, queue, targets, reducedMotion }: {
   screen: string;
-  queue: { steps: BeatId[]; ready: boolean; markShown: (beat?: BeatId) => void; dismiss: (beatsToCommit?: BeatId[]) => void };
+  queue: { steps: BeatId[]; ready: boolean; markShown: (beat?: BeatId) => void; markHidden?: () => void; dismiss: (beatsToCommit?: BeatId[], reason?: string) => void };
   targets: Partial<Record<BeatId, TeachingTarget>>;
   reducedMotion: boolean;
 }) {
@@ -40,12 +40,12 @@ export function ScreenTeaching({ screen, queue, targets, reducedMotion }: {
       if (active.current) {
         trackTeaching('teaching_beat_dismissed', { screen, beat: active.current, step: queue.steps.indexOf(active.current) + 1, total: queue.steps.length, reason });
       }
-      queue.dismiss(Array.from(shown.current));
+      queue.dismiss(Array.from(shown.current), reason);
       return;
     }
     const beat = active.current ?? queue.steps[0];
     if (beat) trackTeaching('teaching_beat_dismissed', { screen, beat, step: queue.steps.indexOf(beat) + 1, total: queue.steps.length, reason });
-    queue.dismiss(Array.from(shown.current));
+    queue.dismiss(Array.from(shown.current), reason);
   }, [queue.dismiss, queue.steps, screen]);
   React.useEffect(() => {
     if (queue.steps.length) return;
@@ -63,9 +63,12 @@ export function ScreenTeaching({ screen, queue, targets, reducedMotion }: {
   if (!queue.ready || !queue.steps.length) return null;
   if (queue.steps[0] === 'vision.first') return <WhisperBeat onReady={onReady} onDismiss={onDismiss} reducedMotion={reducedMotion} />;
   return <SpotlightCoach visible steps={queue.steps.map(id => ({ id, ...TEACHING_COPY.beats[id], ...targets[id] }))} reducedMotion={reducedMotion}
-    onReady={onReady} onSkip={onSkip} onDismiss={onDismiss} onAdvance={beat => trackTeaching('teaching_beat_advanced', { screen, beat, step: queue.steps.indexOf(beat) + 1, total: queue.steps.length, reason: 'next' })} />;
+    onReady={onReady} onHidden={queue.markHidden} onSkip={onSkip} onDismiss={onDismiss} onAdvance={beat => trackTeaching('teaching_beat_advanced', { screen, beat, step: queue.steps.indexOf(beat) + 1, total: queue.steps.length, reason: 'next' })} />;
 }
 function WhisperBeat({ onReady, onDismiss, reducedMotion }: { onReady: (beat: BeatId) => void; onDismiss: (reason: string) => void; reducedMotion: boolean }) {
-  React.useEffect(() => { onReady('vision.first'); }, [onReady]);
+  React.useEffect(() => {
+    const timer = setTimeout(() => onReady('vision.first'), reducedMotion ? 0 : 180);
+    return () => clearTimeout(timer);
+  }, [onReady, reducedMotion]);
   return <TeachingWhisper body={TEACHING_COPY.beats['vision.first'].body} reducedMotion={reducedMotion} onDismiss={onDismiss} />;
 }

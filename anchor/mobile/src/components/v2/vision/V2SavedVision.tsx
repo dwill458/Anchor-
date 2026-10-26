@@ -36,7 +36,8 @@ import { visionCeremonyCopy } from './ceremony/visionCeremonyCopy';
 import { useAuthStore } from '@/stores/authStore';
 import { useTeachingFocus } from '@/hooks/v2/teaching/useTeachingFocus';
 import { useTeachingQueue } from '@/hooks/v2/teaching/useTeachingQueue';
-import { setTeachingSeen } from '@/hooks/v2/teaching/teachingSeen';
+import { beginGuidanceAction } from '@/hooks/v2/guidance/guidanceActions';
+import { discoverGuidance } from '@/hooks/v2/guidance/guidanceRuntime';
 import { visionTeachingBeats } from '@/hooks/v2/teaching/visionTeaching';
 import { ScreenTeaching } from '@/components/v2/teaching/ScreenTeaching';
 import { scrollToTarget, type TeachingRect } from '@/components/v2/teaching/scrollToTarget';
@@ -249,9 +250,9 @@ export function V2SavedVision({
     !arrivalSettled || Boolean(imageArrival?.url) || !boardIdle || dragging || busy || menuOpen || addSheetOpen ||
     nativeAlertOpen || mode !== 'view' || manageImages || teachingScrolling;
   useEffect(() => {
-    if (teachingEnabled && boardTiles.length >= 2 && !visionTeachingBlocked) setTeachingSeen(teachingAccountId, 'vision.first');
+    if (teachingEnabled && boardTiles.length >= 2 && !visionTeachingBlocked) discoverGuidance(teachingAccountId ?? 'guest', 'vision.first_photo');
   }, [teachingEnabled, boardTiles.length, visionTeachingBlocked, teachingAccountId]);
-  const teachingQueue = useTeachingQueue({ screenId: 'vision', accountId: teachingAccountId,
+  const teachingQueue = useTeachingQueue({ screenId: 'vision', accountId: teachingAccountId, contextKey: visionId ?? undefined,
     eligible: visionTeachingBeats(boardTiles.length), cap: 2, blocked: visionTeachingBlocked, isFocused: teachingFocus.isFocused });
   const getTeachingPhotoRect = useCallback(async () => {
     teachingControlledScroll.current = true;
@@ -304,15 +305,17 @@ export function V2SavedVision({
     const full = [...sceneIds, ...boardTiles.map(tile => tile.sceneId).filter(id => !sceneIds.includes(id))];
     // An arrangement that leaves the saved order as it is needs no round trip.
     if (full.join('|') === boardTiles.map(tile => tile.sceneId).join('|')) { setNotice(null); return; }
+    const confirmGuidance = beginGuidanceAction(teachingAccountId ?? 'guest', 'vision.lead_image', 'target:reorder');
     const previous = localOrder;
     setLocalOrder(sceneIds);
     setNotice(null);
     void onReorder(toSceneOrders([...sceneIds, ...boardTiles.map(tile => tile.sceneId).filter(id => !sceneIds.includes(id))])).then(success => {
-      if (success) return;
+      confirmGuidance(success);
+      if (success) { discoverGuidance(teachingAccountId ?? 'guest', 'vision.lead_image'); return; }
       setLocalOrder(previous);
       setNotice('Image order could not be saved.');
     });
-  }, [boardTiles, localOrder, onReorder]);
+  }, [boardTiles, localOrder, onReorder, teachingAccountId]);
 
   reorderRef.current = reorder;
 

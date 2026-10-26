@@ -2,6 +2,7 @@ jest.mock('react-native-reanimated', () => {
   const actual = require('@/__tests__/mocks/reactNativeReanimated').default;
   return { __esModule: true, ...actual, runOnJS: (fn: unknown) => fn, withRepeat: (value: unknown) => value, withSequence: (...values: unknown[]) => values[values.length - 1], withTiming: (value: number, _config: unknown, done?: (finished: boolean) => void) => { done?.(true); return value; } };
 });
+jest.mock('@/utils/scheduleAfterInteractions', () => ({ scheduleAfterInteractions: (action: () => void) => { action(); return { cancel: jest.fn() }; } }));
 import React, { useEffect, useMemo, useState } from 'react';
 import * as ReactNative from 'react-native';
 import { act, fireEvent, render, waitFor } from '@testing-library/react-native';
@@ -20,6 +21,8 @@ import { loadCloudTiles } from '../../map/chartCloudTiles';
 import { setChartOpenedClockOffsetForDev } from '@/hooks/v2/chart/chartLastOpened';
 import { resetChartTaughtStateCache, resetChartTaughtState } from '@/hooks/v2/chart/chartTaughtState';
 import { encryptedPersistStorage } from '@/stores/encryptedPersistStorage';
+import { bindGuidanceAccount, guidanceCoordinator, replayGuidance } from '@/hooks/v2/guidance/guidanceRuntime';
+import { guidanceRecords } from '@/stores/v2/guidanceRecords';
 import { useAuthStore } from '@/stores/authStore';
 
 jest.mock('@/services/notifications/chartNotifications', () => ({
@@ -32,15 +35,12 @@ jest.mock('../../sheet/ChartOneMoveTeaching', () => {
   const React = require('react');
   const { Pressable, Text, View } = require('react-native');
   return {
-    ChartOneMoveTeaching: ({ visible, replayVersion, onReady, onDismiss }: { visible: boolean; replayVersion: number; onReady: () => void; onDismiss: () => void }) => {
-      const [beat, setBeat] = React.useState(0);
-      React.useEffect(() => { setBeat(0); }, [replayVersion]);
+    ChartOneMoveTeaching: ({ visible, replayVersion, onReady, onDismiss }: { visible: boolean; replayVersion: number; onReady: () => void; onDismiss: (reason: string) => void }) => {
       React.useEffect(() => { if (visible) onReady(); }, [onReady, visible]);
       if (!visible) return null;
-      const titles = ['This is your next move.', 'The circle is for done.', 'The words open the whole move.'];
       return React.createElement(View, { testID: 'chart-one-move-teaching' },
-        React.createElement(Text, null, titles[beat]),
-        React.createElement(Pressable, { onPress: () => beat === 2 ? onDismiss() : setBeat(beat + 1) }, React.createElement(Text, null, beat === 2 ? 'Got it' : 'Next')));
+        React.createElement(Text, null, 'One small step for today.'),
+        React.createElement(Pressable, { onPress: () => onDismiss('complete') }, React.createElement(Text, null, 'Got it')));
     },
   };
 });
@@ -179,7 +179,12 @@ async function settle(ms = 300) {
   await act(async () => { await new Promise(resolve => setTimeout(resolve, 160)); });
 }
 
-beforeEach(() => {
+beforeEach(async () => {
+  const account = useAuthStore.getState().user?.id ?? 'guest';
+  await bindGuidanceAccount(account);
+  const fresh = { records: {}, discovery: {} };
+  guidanceRecords.save(account, fresh); await guidanceRecords.flush();
+  guidanceCoordinator.bind('test-reset', null); guidanceCoordinator.bind(account, fresh);
   // High-water marks are remembered per course; each test starts from a clean memory.
   resetChartHighWaterCache();
   resetChartTaughtStateCache();
@@ -194,13 +199,9 @@ describe('ChartActiveView — treasure map composition', () => {
     expect(first.queryByTestId('chart-one-move-teaching-measure')).toBeNull();
     await settle(1400);
     await waitFor(() => expect(first.queryByTestId('chart-one-move-teaching-measure') ?? first.queryByTestId('chart-one-move-teaching')).toBeTruthy(), { timeout: 2500 });
-    await waitFor(() => expect(first.getByText('This is your next move.')).toBeTruthy(), { timeout: 2500 });
-    fireEvent.press(first.getByLabelText('Replay move teaching'));
-    await waitFor(() => expect(first.getByText('This is your next move.')).toBeTruthy());
-    fireEvent.press(first.getByText('Next'));
-    expect(first.getByText('The circle is for done.')).toBeTruthy();
-    fireEvent.press(first.getByText('Next'));
-    expect(first.getByText('The words open the whole move.')).toBeTruthy();
+    await waitFor(() => expect(first.getByText('One small step for today.')).toBeTruthy(), { timeout: 2500 });
+    await act(async () => { fireEvent.press(first.getByLabelText('Replay move teaching')); });
+    await waitFor(() => expect(first.getByText('One small step for today.')).toBeTruthy());
     fireEvent.press(first.getByText('Got it'));
     first.unmount();
 
@@ -208,15 +209,12 @@ describe('ChartActiveView — treasure map composition', () => {
     await settle(1400);
     expect(second.queryByTestId('chart-one-move-teaching')).toBeNull();
     expect(second.queryByTestId('chart-one-move-teaching-measure')).toBeNull();
-    act(() => ReactNative.DeviceEventEmitter.emit('chartResetOneMoveTeaching', 'another-course'));
-    await settle(100);
-    expect(second.queryByTestId('chart-one-move-teaching')).toBeNull();
-    act(() => ReactNative.DeviceEventEmitter.emit('chartResetOneMoveTeaching', DEFAULT_COURSE.id));
+    await act(async () => replayGuidance(useAuthStore.getState().user?.id ?? 'guest'));
     await waitFor(() => expect(second.getByTestId('chart-one-move-teaching')).toBeTruthy());
     second.unmount();
   });
 
-  it('still teaches when encrypted storage is unavailable', async () => {
+  it('fails closed when encrypted teaching storage is unavailable', async () => {
     const originalUser = useAuthStore.getState().user;
     useAuthStore.setState({ user: { id: 'teaching-storage-failure' } as never });
     const readStorage = encryptedPersistStorage.getItem.bind(encryptedPersistStorage);
@@ -224,7 +222,7 @@ describe('ChartActiveView — treasure map composition', () => {
     const screen = render(<Harness />);
     try {
       await settle(1400);
-      await waitFor(() => expect(screen.getByTestId('chart-one-move-teaching')).toBeTruthy(), { timeout: 2500 });
+      expect(screen.queryByTestId('chart-one-move-teaching')).toBeNull();
     } finally {
       screen.unmount();
       getItem.mockRestore();
@@ -374,7 +372,7 @@ describe('ChartActiveView — treasure map composition', () => {
 });
 
 describe('ChartActiveView — reach ceremony', () => {
-  it('keeps a queued replay hidden during the reach ceremony, then shows it after the ceremony settles', async () => {
+  it('keeps the current visit quiet during and after a reach ceremony', async () => {
     const stamped = jest.fn();
     const reachSequence = jest.spyOn(sequences, 'reachSequence').mockImplementation(context => ({ name: 'reach', steps: [
       { kind: 'call', at: 0, run: stamped },
@@ -387,11 +385,11 @@ describe('ChartActiveView — reach ceremony', () => {
     fireEvent.press(screen.getByTestId('chart-menu-button'));
     fireEvent.press(screen.getByTestId('chart-mark-waypoint'));
     await act(async () => { fireEvent.press(screen.getByTestId('chart-reach-yes')); });
-    act(() => ReactNative.DeviceEventEmitter.emit('chartReplayOneMoveTeaching', 'course-1'));
+    await act(async () => replayGuidance(useAuthStore.getState().user?.id ?? 'guest'));
     await waitFor(() => expect(stamped).toHaveBeenCalled());
     expect(screen.queryByTestId('chart-one-move-teaching')).toBeNull();
     await settle(1100);
-    await waitFor(() => expect(screen.getByTestId('chart-one-move-teaching')).toBeTruthy());
+    expect(screen.queryByTestId('chart-one-move-teaching')).toBeNull();
     reachSequence.mockRestore();
     screen.unmount();
   });

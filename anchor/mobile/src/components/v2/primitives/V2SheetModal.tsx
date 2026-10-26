@@ -2,6 +2,7 @@ import React, { createContext, useCallback, useContext, useEffect, useMemo, useR
 import { Modal, Platform, Pressable, StyleSheet, View, useWindowDimensions, type LayoutChangeEvent } from 'react-native';
 import { Gesture, GestureDetector, GestureHandlerRootView, type LegacyPanGesture } from 'react-native-gesture-handler';
 import Animated, { runOnJS, useAnimatedStyle, useSharedValue, withSpring, withTiming } from 'react-native-reanimated';
+import { useGuidanceSurfaceLocks } from '@/stores/v2/guidanceSurfaceLocks';
 import { AnchorMotion } from '@/theme/v2';
 
 type Props = {
@@ -76,6 +77,11 @@ export function V2SheetModal({
 }: Props) {
   const { height: windowHeight } = useWindowDimensions();
   const [mounted, setMounted] = useState(visible);
+  const guidanceLockKey = React.useId();
+  useEffect(() => {
+    useGuidanceSurfaceLocks.getState().set(guidanceLockKey, mounted || visible);
+    return () => useGuidanceSurfaceLocks.getState().set(guidanceLockKey, false);
+  }, [guidanceLockKey, mounted, visible]);
   const sheetHeight = useSharedValue(0);
   // Starts off-screen, so the frame before the first layout never shows the sheet in place.
   const translateY = useSharedValue(windowHeight);

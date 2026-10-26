@@ -29,6 +29,8 @@ import { V2FocusAnchorArtwork } from './V2FocusAnchorArtwork';
 import { useMilestonePresentationHold } from '@/hooks/v2/milestones/useMilestonePresentationHold';
 import { useMilestoneCelebrationStore } from '@/stores/v2/milestoneCelebrationStore';
 import { queueMilestoneAction } from '@/milestones/queueMilestoneAction';
+import { discoverGuidance } from '@/hooks/v2/guidance/guidanceRuntime';
+import { useAuthStore } from '@/stores/authStore';
 import { useTeachingFocus } from '@/hooks/v2/teaching/useTeachingFocus';
 
 // COPY: from the celebration brief
@@ -138,6 +140,8 @@ export function V2FocusCompleteScreen({
   const { height } = useWindowDimensions();
   const reduceMotion = useCelebrationReduceMotion();
   const [milestoneReady, setMilestoneReady] = useState(false);
+  const guidanceAccount = useAuthStore(state => state.user?.id ?? 'guest');
+  useEffect(() => { if (sessionSaved && sessionId) discoverGuidance(guidanceAccount, 'today.recommended'); }, [guidanceAccount, sessionId, sessionSaved]);
   const milestoneFocus = useTeachingFocus();
   const milestoneFocused = useRef(milestoneFocus.isFocused);
   const milestoneReturn = useRef<() => void>(() => undefined);

@@ -4,25 +4,28 @@ import { useTeachingQueue } from '../useTeachingQueue';
 import { useMilestoneCelebrationStore } from '@/stores/v2/milestoneCelebrationStore';
 import { useCelebrationStore } from '@/stores/v2/celebrationStore';
 import { resetTeachingSeenCache } from '../teachingSeen';
-import { resetTeachingSession } from '../teachingSession';
+import { bindGuidanceAccount, guidanceCoordinator } from '@/hooks/v2/guidance/guidanceRuntime';
 import fs from 'fs';
 import path from 'path';
 jest.mock('@/stores/encryptedPersistStorage', () => ({ encryptedPersistStorage: { getItem: jest.fn(async () => null), setItem: jest.fn(), removeItem: jest.fn() } }));
 jest.mock('@/utils/scheduleAfterInteractions', () => ({ scheduleAfterInteractions: (action: () => void) => { action(); return { cancel: jest.fn() }; } }));
-beforeEach(() => {
+beforeEach(async () => {
+  await bindGuidanceAccount('guest');
+  guidanceCoordinator.bind('test-reset', null); guidanceCoordinator.bind('guest', { records: {}, discovery: {} });
   useMilestoneCelebrationStore.setState({ queue: [], holds: [] });
   useCelebrationStore.getState().reset();
-  resetTeachingSeenCache(); resetTeachingSession();
+  resetTeachingSeenCache();
 });
 function useQueue() {
   return useTeachingQueue({ screenId: 'home', accountId: null, eligible: ['home.today'], cap: 1, isFocused: true, blocked: useCelebrationActive() });
 }
-it('waits while a milestone is queued, then shows only after it ends', async () => {
+it('keeps a visit quiet when a milestone was already queued', async () => {
   useMilestoneCelebrationStore.setState({ queue: [{ key: 'test' } as never] });
   const hook = renderHook(useQueue);
   expect(hook.result.current.steps).toEqual([]);
   act(() => useMilestoneCelebrationStore.getState().shift('test'));
-  await waitFor(() => expect(hook.result.current.steps).toEqual(['home.today']));
+  await act(async () => { await new Promise(resolve => setTimeout(resolve, 20)); });
+  expect(hook.result.current.steps).toEqual([]);
 });
 it('hides visible teaching immediately when a milestone arrives, without holding it', async () => {
   const hook = renderHook(useQueue);

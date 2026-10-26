@@ -1,4 +1,6 @@
 import type { ViewInstance } from 'react-native';
+import { beginGuidanceAction } from '@/hooks/v2/guidance/guidanceActions';
+import { useAuthStore } from '@/stores/authStore';
 import React, { useEffect, useRef, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import Animated, { Easing, ReduceMotion, useAnimatedStyle, useSharedValue, withSequence, withTiming } from 'react-native-reanimated';
@@ -87,9 +89,10 @@ export function ChartOneMoveRow({
   };
 
   const toggleExpanded = () => {
+    const confirm = beginGuidanceAction(useAuthStore.getState().user?.id ?? 'guest', 'chart.next_move', 'target:words');
     const next = !expanded;
     setExpanded(next);
-    if (next) onExpandSheet?.();
+    if (next) { onExpandSheet?.(); confirm(true); }
   };
 
   return (

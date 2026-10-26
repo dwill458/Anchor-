@@ -21,7 +21,9 @@ type Props = {
   measureInWindow?: (node: MeasurableNode, callback: (x: number, y: number, width: number, height: number) => void) => void;
   onRequestVisible: () => void;
   onReady: () => void;
-  onDismiss: () => void;
+  onVisible?: () => void;
+  onHidden?: () => void;
+  onDismiss: (reason?: string) => void;
 };
 
 type Rect = { x: number; y: number; width: number; height: number };
@@ -31,7 +33,7 @@ const MARGIN = 18;
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 
 /** A screen-level coach mark. Its root and the sheet targets are measured in window coordinates. */
-export function ChartOneMoveTeaching({ visible, replayVersion, reducedMotion, detent, targets, viewportRef, viewportLayoutRevision, measureInWindow, onRequestVisible, onReady, onDismiss }: Props) {
+export function ChartOneMoveTeaching({ visible, replayVersion, reducedMotion, detent, targets, viewportRef, viewportLayoutRevision, measureInWindow, onRequestVisible, onReady, onVisible, onHidden, onDismiss }: Props) {
   const { width, height } = useWindowDimensions();
   const insets = useSafeAreaInsets();
   const rootRef = useRef<ViewInstance>(null);
@@ -55,16 +57,24 @@ export function ChartOneMoveTeaching({ visible, replayVersion, reducedMotion, de
   const current = beats[beat];
   const beatKey = `chart.oneMove.${beat + 1}`;
 
+  const measurementGeneration = useRef(0);
+  const visibleRef = useRef(visible);
+  visibleRef.current = visible;
   const measure = useCallback(() => {
+    const generation = measurementGeneration.current;
     if (!visible || readyRef.current || visibilityRequested.current) return;
     const root = rootRef.current;
     const target = targets.rowRef.current;
     if (!root || !target) return;
     const measureNode = measureInWindow ?? ((node: MeasurableNode, callback: (x: number, y: number, width: number, height: number) => void) => node.measureInWindow(callback));
     measureNode(root, (rootX, rootY, rootWidth, rootHeight) => {
+      if (!visibleRef.current || generation !== measurementGeneration.current) return;
+      if (rootWidth <= 0 || rootHeight <= 0) return;
       const nextRoot = { x: rootX, y: rootY, width: rootWidth, height: rootHeight };
       setRootRect(previous => previous?.x === rootX && previous.y === rootY && previous.width === rootWidth && previous.height === rootHeight ? previous : nextRoot);
       const updateTarget = (x: number, y: number, targetWidth: number, targetHeight: number, viewport?: Rect) => {
+        if (!visibleRef.current || generation !== measurementGeneration.current) return;
+        if (targetWidth <= 0 || targetHeight <= 0 || y + targetHeight <= rootY || y >= rootY + rootHeight || x + targetWidth <= rootX || x >= rootX + rootWidth) return;
         const nextTarget = { x: x - rootX, y: y - rootY, width: targetWidth, height: targetHeight };
         const clippedByViewport = Boolean(viewport) && (y < viewport!.y || y + targetHeight > viewport!.y + viewport!.height || x < viewport!.x || x + targetWidth > viewport!.x + viewport!.width);
         const partiallyOffscreen = y < rootY || y + targetHeight > rootY + rootHeight || clippedByViewport;
@@ -98,6 +108,7 @@ export function ChartOneMoveTeaching({ visible, replayVersion, reducedMotion, de
           trackTeaching('teaching_beat_shown', { screen: 'chart', beat: `chart.oneMove.${beat + 1}`, step: beat + 1, total: beats.length, reason: 'ready' });
           onReady();
         }
+        onVisible?.();
       };
       if (viewportRef.current) {
         measureNode(viewportRef.current, (viewportX, viewportY, viewportWidth, viewportHeight) => {
@@ -105,9 +116,10 @@ export function ChartOneMoveTeaching({ visible, replayVersion, reducedMotion, de
         });
       } else measureNode(target, (x, y, targetWidth, targetHeight) => updateTarget(x, y, targetWidth, targetHeight));
     });
-  }, [beat, beats.length, detent, measureInWindow, onReady, onRequestVisible, targets.bodyRef, targets.circleRef, targets.rowRef, viewportLayoutRevision, viewportRef, visible]);
+  }, [beat, beats.length, detent, measureInWindow, onReady, onVisible, onRequestVisible, targets.bodyRef, targets.circleRef, targets.rowRef, viewportLayoutRevision, viewportRef, visible]);
 
   useEffect(() => {
+    onHidden?.();
     if (!visible) {
       readyRef.current = false;
       visibilityAttempts.current = 0;
@@ -126,8 +138,8 @@ export function ChartOneMoveTeaching({ visible, replayVersion, reducedMotion, de
       }
       measure();
     }, 180);
-    return () => { cancelAnimationFrame(frame); clearInterval(retry); };
-  }, [height, measure, replayVersion, visible, width]);
+    return () => { measurementGeneration.current++; cancelAnimationFrame(frame); clearInterval(retry); };
+  }, [height, measure, onHidden, replayVersion, visible, width]);
 
   useEffect(() => {
     if (!rootRect || !targetRect) return;
@@ -157,7 +169,7 @@ export function ChartOneMoveTeaching({ visible, replayVersion, reducedMotion, de
     if (!visible) return undefined;
     const subscription = BackHandler.addEventListener('hardwareBackPress', () => {
       trackTeaching('teaching_beat_dismissed', { screen: 'chart', beat: beatKey, step: beat + 1, total: beats.length, reason: 'back' });
-      onDismiss();
+      onDismiss('back');
       return true;
     });
     return () => subscription.remove();
@@ -170,14 +182,14 @@ export function ChartOneMoveTeaching({ visible, replayVersion, reducedMotion, de
 
   const handleScrimDismiss = () => {
     trackTeaching('teaching_beat_dismissed', { screen: 'chart', beat: beatKey, step: beat + 1, total: beats.length, reason: 'scrim' });
-    onDismiss();
+    onDismiss('scrim');
   };
 
   const advance = () => {
     trackTeaching('teaching_beat_advanced', { screen: 'chart', beat: beatKey, step: beat + 1, total: beats.length, reason: 'next' });
     if (beat === beats.length - 1) {
       trackTeaching('teaching_beat_dismissed', { screen: 'chart', beat: beatKey, step: beat + 1, total: beats.length, reason: 'complete' });
-      onDismiss();
+      onDismiss('complete');
     } else setBeat(value => value + 1);
   };
   const onRootLayout = () => measure();

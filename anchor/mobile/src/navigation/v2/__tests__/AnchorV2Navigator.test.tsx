@@ -1,3 +1,5 @@
+// Guidance lifecycle has its own real-store integration tests. This suite tests route wiring.
+jest.mock('@/hooks/v2/guidance/useGuidanceLifecycle', () => ({ useGuidanceLifecycle: jest.fn() }));
 import { useTeachingStore } from '@/stores/teachingStore';
 import React from 'react';
 import { act, fireEvent, render, screen } from '@testing-library/react-native';

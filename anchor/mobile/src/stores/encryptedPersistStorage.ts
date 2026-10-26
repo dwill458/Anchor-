@@ -18,7 +18,7 @@ const SECURE_CHUNK_SIZE = 1800;
 const SECURE_STORE_KEY_PATTERN = /^[A-Za-z0-9._-]+$/;
 // Reflection drafts and Course Log pages can contain private writing. Unlike
 // general UI caches, they must never degrade to plaintext persistence.
-const SECURE_ONLY_PREFIXES = ['anchor:chart:reflection-drafts:', 'anchor:chart:log:', 'anchor:v2:first-run', 'anchor-vault-storage', 'anchor:anchor-snapshot:'];
+const SECURE_ONLY_PREFIXES = ['anchor:v2:guidance:', 'guest:guidance', 'anchor:chart:reflection-drafts:', 'anchor:chart:log:', 'anchor:v2:first-run', 'anchor-vault-storage', 'anchor:anchor-snapshot:'];
 
 function requiresSecureOnly(name: string): boolean {
   return SECURE_ONLY_PREFIXES.some((prefix) => name.startsWith(prefix));

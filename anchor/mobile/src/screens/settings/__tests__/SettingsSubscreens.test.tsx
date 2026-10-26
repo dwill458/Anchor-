@@ -8,7 +8,7 @@ import { DataPrivacySubscreen } from '../DataPrivacySubscreen';
 
 const mockTeachingReset = jest.fn(async (_accountId: string | null) => undefined);
 const mockToastInfo = jest.fn();
-jest.mock('@/hooks/v2/teaching/teachingSeen', () => ({ resetAllTeachingSeen: (accountId: string | null) => mockTeachingReset(accountId) }));
+jest.mock('@/hooks/v2/guidance/guidanceRuntime', () => ({ replayGuidance: (accountId: string) => mockTeachingReset(accountId) }));
 jest.mock('@/components/ToastProvider', () => ({ useToast: () => ({ info: mockToastInfo }) }));
 const mockSetDailyPracticeGoal = jest.fn();
 const mockSetDailyPracticeGoalPreset = jest.fn();
@@ -34,8 +34,8 @@ const mockStopVoicePreview = jest.fn();
 const mockSettingsStoreState = {
   traceDefaultEnabled: true,
   setTraceDefaultEnabled: mockSetTraceDefaultEnabled,
-  guideMode: true,
-  setGuideMode: mockSetGuideMode,
+  showTips: true,
+  setShowTips: mockSetGuideMode,
   reduceIntentionVisibility: false,
   setReduceIntentionVisibility: mockSetReduceIntentionVisibility,
   openDailyAnchorAutomatically: false,
@@ -123,7 +123,7 @@ describe('PracticeSubscreen', () => {
     expect(screen.getByText('Thread Strength')).toBeTruthy();
     expect(screen.getByText('What happens when you miss a day')).toBeTruthy();
     expect(screen.getByText('Session defaults')).toBeTruthy();
-    expect(screen.getByText('Guide mode')).toBeTruthy();
+    expect(screen.getByText('Show tips')).toBeTruthy();
     expect(screen.getByText('Hide intention text')).toBeTruthy();
     expect(screen.getByText('Anchor tracing')).toBeTruthy();
     expect(screen.getByText('Open to Practice')).toBeTruthy();
@@ -171,10 +171,10 @@ describe('PracticeSubscreen', () => {
     expect(mockSetThreadStrengthSensitivity).toHaveBeenCalledWith('strict');
   });
 
-  it('toggles Guide mode, Hide intention text, Anchor tracing and Open to Practice', () => {
+  it('toggles Show tips, Hide intention text, Anchor tracing and Open to Practice', () => {
     render(<PracticeSubscreen onBack={jest.fn()} />);
 
-    fireEvent.press(screen.getByLabelText('Guide mode'));
+    fireEvent.press(screen.getByLabelText('Show tips'));
     expect(mockSetGuideMode).toHaveBeenCalledWith(false);
 
     fireEvent.press(screen.getByLabelText('Hide intention text'));

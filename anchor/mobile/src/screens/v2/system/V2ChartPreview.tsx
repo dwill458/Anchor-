@@ -1,5 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { DeviceEventEmitter, Pressable, ScrollView, StyleSheet, Switch, Text, View } from 'react-native';
+import { replayGuidance } from '@/hooks/v2/guidance/guidanceRuntime';
+import { useAuthStore } from '@/stores/authStore';
+import { Pressable, ScrollView, StyleSheet, Switch, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ChartActiveView, type ChartCelebration } from '@/components/v2/chart/ChartActiveView';
 import { CHART_COPY } from '@/constants/v2/chartCopy';
@@ -299,8 +301,8 @@ export function V2ChartPreview({ onClose }: { onClose: () => void }) {
               setRun((value) => value + 1);
             }}
           />
-          <DevButton label={CHART_COPY.devLab.replayMoveTeaching} onPress={() => DeviceEventEmitter.emit('chartReplayOneMoveTeaching', view.courseId)} />
-          <DevButton label={CHART_COPY.devLab.resetMoveTeaching} onPress={() => DeviceEventEmitter.emit('chartResetOneMoveTeaching', view.courseId)} />
+          <DevButton label={CHART_COPY.devLab.replayMoveTeaching} onPress={() => void replayGuidance(useAuthStore.getState().user?.id ?? 'guest', 'chart.next_move')} />
+          <DevButton label={CHART_COPY.devLab.resetMoveTeaching} onPress={() => void replayGuidance(useAuthStore.getState().user?.id ?? 'guest', 'chart.next_move')} />
         </View>
       </View>
     );

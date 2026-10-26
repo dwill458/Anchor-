@@ -113,7 +113,7 @@ export const V2ProgressScreen: React.FC<V2ProgressScreenProps> = ({
   const controlledScroll = React.useRef(false);
   const [scrolling, setScrolling] = React.useState(false);
   const [rangeMoving, setRangeMoving] = React.useState(false);
-  const teachingQueue = useTeachingQueue({ screenId: 'progress', accountId: teachingAccountId,
+  const teachingQueue = useTeachingQueue({ screenId: 'progress', accountId: teachingAccountId, contextKey: model?.anchorId,
     eligible: model ? progressTeachingBeats({ unmeasured: model.unmeasured, hasWeek: Boolean(model.week), hasRhythm: model.unmeasured || Boolean(model.rhythm && model.heatmap), hasRoute: Boolean(model.route) }) : [],
     cap: 2, isFocused: teachingFocus.isFocused,
     blocked: celebrationActive || teachingFocus.transitioning || !model || loading || refreshing || switcherOpen || Boolean(selectedEvent) || rangeMoving || scrolling });

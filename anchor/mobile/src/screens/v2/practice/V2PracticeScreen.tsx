@@ -38,6 +38,8 @@ import {
 } from '@/navigation/v2/ProgressiveFocusTransition';
 import { predictPracticeSetupAnchorRect, predictSessionAnchorRect } from '@/navigation/v2/anchorHeroGeometry';
 import { useAuthStore } from '@/stores/authStore';
+import { beginGuidanceAction } from '@/hooks/v2/guidance/guidanceActions';
+import { discoverGuidance } from '@/hooks/v2/guidance/guidanceRuntime';
 import { useTeachingQueue } from '@/hooks/v2/teaching/useTeachingQueue';
 import { useTeachingFocus } from '@/hooks/v2/teaching/useTeachingFocus';
 import { practiceTeachingBeats } from '@/hooks/v2/teaching/practiceTeaching';
@@ -177,7 +179,7 @@ export function V2PracticeScreen({
   const [justCompletedTodayAnchorId, setJustCompletedTodayAnchorId] = useState<string | null>(null);
   const [justCompletedMode, setJustCompletedMode] = useState<V2PracticeMode | null>(null);
   const [justCompletedDurationSeconds, setJustCompletedDurationSeconds] = useState<number | null>(null);
-  const teachingQueue = useTeachingQueue({ screenId: 'practice', accountId: teachingAccountId,
+  const teachingQueue = useTeachingQueue({ screenId: 'practice', accountId: teachingAccountId, contextKey: fixedAnchor?.id,
     eligible: practiceTeachingBeats(activeAnchors.length, Boolean(fixedAnchor)), cap: 2, isFocused: teachingFocus.isFocused,
     blocked: celebrationActive || teachingFocus.transitioning || anchorInFlight || isSwitcherOpen || Boolean(prepareMode || activeSession || initialMode || resumeMode) || !fixedAnchor || model.loadingRecommendation });
 
@@ -593,7 +595,7 @@ export function V2PracticeScreen({
         <V2PracticeAnchorHeader
           anchor={fixedAnchor}
           thread={model.thread}
-          onPress={() => setIsSwitcherOpen(true)}
+          onPress={() => { const confirm = beginGuidanceAction(teachingAccountId ?? 'guest', 'practice.switch_anchor', 'target:switcher'); setIsSwitcherOpen(true); confirm(true); discoverGuidance(teachingAccountId ?? 'guest', 'practice.switch_anchor'); }}
           artworkPlace={headerPlace}
         />
         </View>

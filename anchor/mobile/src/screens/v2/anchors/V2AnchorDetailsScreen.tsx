@@ -902,7 +902,7 @@ export function V2AnchorDetailsScreen() {
 
   useAnimatedReaction(() => sheetTeachingMoving.value && !teachingPreparing.value,
     (moving, previous) => { if (moving !== previous) runOnJS(setDetailsMoving)(moving); });
-  const teachingQueue = useTeachingQueue({ screenId: 'details', accountId: teachingAccountId,
+  const teachingQueue = useTeachingQueue({ screenId: 'details', accountId: teachingAccountId, contextKey: anchor?.id,
     eligible: detailsTeachingBeats(!hasVisionContent && vision.state.state !== 'loading' && vision.state.state !== 'error', chart.state === 'none'), cap: DETAILS_BEATS_PER_VISIT,
     blocked: !anchor || teachingFocus.transitioning || focusTransition.active || detailsMoving || menuOpen || shareOpen || exportActions.isDownloading || exportActions.isSavingWallpaper || vision.loading || chart.state === 'loading' || chart.state === 'resolving',
     isFocused: teachingFocus.isFocused });

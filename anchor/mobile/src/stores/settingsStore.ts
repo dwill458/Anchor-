@@ -433,6 +433,8 @@ export interface SettingsState {
   traceDefaultEnabled: boolean;
   traceSkipStreak: number;
   /** Guide Mode — contextual first-time hints. true = on-only + both; false = both only. */
+  showTips: boolean;
+  setShowTips: (enabled: boolean) => void;
   guideMode: boolean;
 
   // Dev-only, session-only (not persisted). Forces a specific render tier.
@@ -571,6 +573,7 @@ const DEFAULT_SETTINGS = {
   analyticsEnabled: true,
   traceDefaultEnabled: true,
   traceSkipStreak: 0,
+  showTips: true,
   guideMode: false,
   devPerfTierOverride: 'auto' as PerformanceTierOverride,
 };
@@ -1040,6 +1043,7 @@ export const useSettingsStore = create<SettingsState>()(
         });
       },
 
+      setShowTips: (enabled) => set({ showTips: enabled }),
       setGuideMode: (enabled) => {
         triggerHaptic();
         set({ guideMode: enabled });
@@ -1236,6 +1240,7 @@ export const useSettingsStore = create<SettingsState>()(
         analyticsEnabled: state.analyticsEnabled,
         traceDefaultEnabled: state.traceDefaultEnabled,
         traceSkipStreak: state.traceSkipStreak,
+        showTips: state.showTips,
         guideMode: state.guideMode,
       }),
     }
