@@ -666,7 +666,7 @@ export class AskChartService {
       });
       const structured = row?.structured as { action?: { status: string } } | null;
       if (!row || !structured?.action) throw new AppError('Proposal not found', 404, 'PROPOSAL_NOT_FOUND');
-      if (structured.action.status === 'APPLIED') throw new AppError('Proposal was already applied', 409, 'PROPOSAL_UNAVAILABLE');
+      if (structured.action.status === 'APPLIED') throw new AppError('Proposal was already applied', 409, 'SYNC_CONFLICT');
       if (structured.action.status === 'DISMISSED') return;
       await tx.chartMessage.update({ where: { id: row.id }, data: { structured: { ...structured, action: { ...structured.action, status: 'DISMISSED' } } as Prisma.InputJsonValue } });
     });

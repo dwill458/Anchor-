@@ -481,7 +481,8 @@ export class ChartService {
       const structured = message?.structured as { action?: { type: string; status: string; waypointId: string | null; moves: Array<{ title: string; rationale?: string | null; detail?: string | null }> } } | null;
       const action = structured?.action;
       if (!message || !action) throw new AppError('Proposal not found', 404, 'PROPOSAL_NOT_FOUND');
-      if (action.type !== 'ADD_MOVES' || !action.waypointId || action.status === 'DISMISSED') throw new AppError('Proposal unavailable', 409, 'PROPOSAL_UNAVAILABLE');
+      if (action.type !== 'ADD_MOVES' || !action.waypointId) throw new AppError('Proposal unavailable', 409, 'PROPOSAL_UNAVAILABLE');
+      if (action.status === 'DISMISSED') throw new AppError('Proposal was already dismissed', 409, 'SYNC_CONFLICT');
       const row = await findCourse(tx, userId, courseId);
       if (action.status === 'APPLIED') return { chart: projection(row), added: action.moves.length, batchId: message.id };
       assertCourseActive(row);

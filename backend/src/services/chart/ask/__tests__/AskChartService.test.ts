@@ -467,7 +467,7 @@ describe('approvals', () => {
 
   it('refuses a dismissed proposal', async () => {
     seed({ ...addMoves, status: 'DISMISSED' });
-    await expect(new AskChartService().approveMoves('user-1', 'course-1', 'msg-1')).rejects.toMatchObject({ code: 'PROPOSAL_UNAVAILABLE' });
+    await expect(new AskChartService().approveMoves('user-1', 'course-1', 'msg-1')).rejects.toMatchObject({ code: 'SYNC_CONFLICT' });
     expect(db.moves).toHaveLength(0);
   });
 
@@ -483,7 +483,7 @@ describe('approvals', () => {
     await new AskChartService().dismiss('user-1', 'course-1', 'msg-1');
     expect(db.messages[0].structured.action.status).toBe('DISMISSED');
     db.messages[0].structured.action.status = 'APPLIED';
-    await expect(new AskChartService().dismiss('user-1', 'course-1', 'msg-1')).rejects.toMatchObject({ code: 'PROPOSAL_UNAVAILABLE' });
+    await expect(new AskChartService().dismiss('user-1', 'course-1', 'msg-1')).rejects.toMatchObject({ code: 'SYNC_CONFLICT' });
     expect(db.messages[0].structured.action.status).toBe('APPLIED');
   });
 
