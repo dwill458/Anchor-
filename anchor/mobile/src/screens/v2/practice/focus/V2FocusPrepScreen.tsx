@@ -13,7 +13,6 @@ import type { GuidanceVoice } from '@/types/sessionAudio';
 import { useSettingsStore } from '@/stores/settingsStore';
 import { useAuraStrength } from '@/stores/devThreadStrengthStore';
 import { useV2ReduceMotion } from '@/hooks/v2';
-import { useSubscriptionStore } from '@/stores/subscriptionStore';
 import { safeHaptics } from '@/utils/haptics';
 import { V2PracticeAudioSheet } from '@/components/v2/practice/V2PracticeAudioSheet';
 import { V2PracticeSettingsCard } from '@/components/v2/practice/V2PracticeSettingsCard';
@@ -99,17 +98,6 @@ export function V2FocusPrepScreen({
     // A preview started from Settings must not run into the session.
     stopVoicePreview();
     if (hapticsOn) void safeHaptics.selection();
-    const isPro = useSubscriptionStore.getState().getEffectiveTier() === 'pro';
-    if (!isPro && onPremiumRequired) {
-      onPremiumRequired({
-        anchorId: anchor.id,
-        durationSeconds: duration,
-        voice,
-        ambient,
-        source,
-      });
-      return;
-    }
 
     onBeginFocus({
       durationSeconds: duration,

@@ -50,6 +50,9 @@ import { act, fireEvent, render, waitFor } from '@testing-library/react-native';
 import { ChartRequestError } from '@/services/v2/chartV2Api';
 import { trackChart } from '@/hooks/v2/chart/useAnchorChart';
 import { V2ChartAskScreen } from '../V2ChartAskScreen';
+import { ChartOneMoveRow } from '@/components/v2/chart/ChartOneMoveRow';
+import { setChatAppliedBatch } from '@/hooks/v2/chart/chatAppliedBatch';
+import { panelAccent } from '@/components/v2/chart/panel/chartPanelColors';
 
 const assistant = (id: string, action: Record<string, unknown> | null, extra: Record<string, unknown> = {}) => ({
   id, key: id, role: 'ASSISTANT', text: 'Here is what I would add.', createdAt: '2026-10-21T00:00:00Z', attachments: [], suggestions: [], requestPhoto: null,
@@ -66,12 +69,16 @@ const revise = (status = 'PENDING') => ({
 });
 const withMessages = (...messages: unknown[]) => { mockAsk.state = { ...mockAsk.state, messages }; };
 
+const appliedMove = { id: 'move-1', courseId: 'course-1', waypointId: 'w2', batchId: 'msg-1', title: 'Gather materials', rationale: null, status: 'ACTIVE', position: 1 } as any;
+const renderUpdatedChart = () => render(<ChartOneMoveRow accent={panelAccent('career')} move={appliedMove} waypointTitle="Prepare the exterior" checked={false} busy={false} reducedMotion onCheck={jest.fn()} />);
+
 beforeEach(() => {
+  setChatAppliedBatch(null);
   jest.clearAllMocks();
   mockParams = { anchorId: 'anchor-1' };
   mockFocusCallbacks = [];
   mockAsk.state = { ...mockAsk.state, status: 'ready', messages: [] };
-  mockApi.approve.mockImplementation(async () => { await mockRefetch('course-1'); return { chart: { id: 'course-1', version: 4 }, added: 2 }; });
+  mockApi.approve.mockImplementation(async () => { await mockRefetch('course-1'); return { chart: { id: 'course-1', version: 4, moves: [appliedMove] }, added: 2, batchId: 'msg-1' }; });
   mockApi.dismiss.mockResolvedValue({ dismissed: true });
 });
 
@@ -168,19 +175,20 @@ describe('V2ChartAskScreen — proposals', () => {
     expect(mockCommitChart).not.toHaveBeenCalled();
   });
 
-  it('approving saves, refreshes the Chart, marks it applied, and only then opens Route Updated', async () => {
+  it('approving saves, refreshes, returns to Chart and shows the update', async () => {
     withMessages(assistant('msg-1', moves()));
     const screen = render(<V2ChartAskScreen />);
     fireEvent.press(screen.getByTestId('ask-proposal-approve'));
-    await waitFor(() => expect(mockNavigate).toHaveBeenCalled());
+    await waitFor(() => expect(mockGoBack).toHaveBeenCalledTimes(1));
     expect(mockApi.approve).toHaveBeenCalledWith('course-1', 'msg-1');
     expect(mockRefetch).toHaveBeenCalledWith('course-1');
     expect(mockCommitChart).not.toHaveBeenCalled();
-    expect(mockRefetch.mock.invocationCallOrder[0]).toBeLessThan(mockNavigate.mock.invocationCallOrder[0]);
+    expect(mockRefetch.mock.invocationCallOrder[0]).toBeLessThan(mockGoBack.mock.invocationCallOrder[0]);
     expect(mockAsk.markAction).toHaveBeenCalledWith('msg-1', 'APPLIED');
-    expect(mockNavigate).toHaveBeenCalledWith('V2ChartRouteUpdated', { anchorId: 'anchor-1', change: { kind: 'MOVES_ADDED', count: 2, waypointTitle: 'Prepare the exterior' }, source: 'ask' });
+    expect(mockNavigate).not.toHaveBeenCalled();
+    expect(renderUpdatedChart().getByText('Updated from chat')).toBeTruthy();
     // Saved first, confirmed second.
-    expect(mockApi.approve.mock.invocationCallOrder[0]).toBeLessThan(mockNavigate.mock.invocationCallOrder[0]);
+    expect(mockApi.approve.mock.invocationCallOrder[0]).toBeLessThan(mockGoBack.mock.invocationCallOrder[0]);
   });
 
   it('shows no success and opens nothing when the save fails, and the person can try again', async () => {
@@ -191,10 +199,16 @@ describe('V2ChartAskScreen — proposals', () => {
     expect(await screen.findByTestId('ask-proposal-error')).toBeTruthy();
     expect(screen.getByText(/nothing changed/i)).toBeTruthy();
     expect(mockNavigate).not.toHaveBeenCalled();
+    expect(mockGoBack).not.toHaveBeenCalled();
     expect(mockAsk.markAction).not.toHaveBeenCalled();
     expect(mockCommitChart).not.toHaveBeenCalled();
     fireEvent.press(screen.getByTestId('ask-proposal-approve'));
-    await waitFor(() => expect(mockNavigate).toHaveBeenCalledTimes(1));
+    await waitFor(() => expect(mockGoBack).toHaveBeenCalledTimes(1));
+    expect(mockApi.approve).toHaveBeenCalledTimes(2);
+    expect(mockRefetch).toHaveBeenCalledWith('course-1');
+    expect(mockRefetch.mock.invocationCallOrder[0]).toBeLessThan(mockGoBack.mock.invocationCallOrder[0]);
+    expect(mockAsk.markAction).toHaveBeenCalledWith('msg-1', 'APPLIED');
+    expect(renderUpdatedChart().getByText('Updated from chat')).toBeTruthy();
   });
 
   it('says so, and offers no approval, when the waypoint is already behind the person', async () => {

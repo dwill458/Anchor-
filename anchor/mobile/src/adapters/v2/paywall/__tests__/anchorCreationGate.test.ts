@@ -1,13 +1,10 @@
 import { resolveAnchorCreationPaywall } from '../anchorCreationGate';
 
 describe('resolveAnchorCreationPaywall', () => {
-  it('allows the FIRST Anchor creation without a paywall', () => {
+  it('raises SECOND_ANCHOR for new Anchor attempts without entitlement outside onboarding', () => {
     expect(
       resolveAnchorCreationPaywall({ activeAnchorCount: 0, isOnboarding: false, hasEntitlement: false }),
-    ).toEqual({ allowed: true, paywallContext: null });
-  });
-
-  it('raises SECOND_ANCHOR on the second Anchor attempt for a free user', () => {
+    ).toEqual({ allowed: false, paywallContext: 'SECOND_ANCHOR' });
     expect(
       resolveAnchorCreationPaywall({ activeAnchorCount: 1, isOnboarding: false, hasEntitlement: false }),
     ).toEqual({ allowed: false, paywallContext: 'SECOND_ANCHOR' });

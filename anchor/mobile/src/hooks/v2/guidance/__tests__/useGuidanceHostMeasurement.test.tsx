@@ -26,3 +26,17 @@ it('forwards real target layout changes so an unmeasurable teaching can appear i
   act(() => hook.result.current.markShown());
   expect(guidanceCoordinator.data().records['chart.next_move'].presentAttempts).toBe(1);
 });
+
+it('starts a new visit when a tab regains focus, so an interrupted tip can return without an app restart', async () => {
+  const home: LayoutOptions = { screenId: 'home', accountId: 'visit-focus-qa', eligible: ['home.open_anchor'], blocked: false, isFocused: true, targetRevision: 0 };
+  const hook = renderHook(options => useGuidanceHost(options), { initialProps: home });
+  await waitFor(() => expect(hook.result.current.presentation?.id).toBe('home.open_anchor'));
+  act(() => hook.result.current.dismiss('unmeasurable'));
+  expect(hook.result.current.presentation).toBeNull();
+  // Same visit, same target: nothing comes back.
+  hook.rerender({ ...home });
+  expect(hook.result.current.presentation).toBeNull();
+  hook.rerender({ ...home, isFocused: false });
+  hook.rerender({ ...home, isFocused: true });
+  await waitFor(() => expect(hook.result.current.presentation?.id).toBe('home.open_anchor'));
+});

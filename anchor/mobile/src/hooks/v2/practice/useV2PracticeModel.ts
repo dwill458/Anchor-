@@ -66,7 +66,7 @@ export function useV2PracticeModel(anchor: Anchor | null, suppliedRecommendation
 
   return useMemo(() => {
     const capability: V2PracticeCapabilities = {
-      focus: entitlementReady,
+      focus: true,
       deep_prime: entitlementReady && hasActiveEntitlement,
       visualize: entitlementReady && hasActiveEntitlement,
       release: true,

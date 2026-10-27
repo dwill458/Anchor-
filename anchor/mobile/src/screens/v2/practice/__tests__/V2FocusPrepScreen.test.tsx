@@ -133,7 +133,7 @@ describe('V2FocusPrepScreen', () => {
     expect(hapticsToggle.props.accessibilityState.checked).toBe(true);
   });
 
-  it('gates unentitled users at "Begin Focus" and preserves user selections', () => {
+  it('allows unentitled users to begin Focus without a paywall', () => {
     useSubscriptionStore.setState({
       rcTier: 'free',
       hasActiveEntitlement: false,
@@ -159,17 +159,15 @@ describe('V2FocusPrepScreen', () => {
 
     fireEvent.press(screen.getByTestId('v2-begin-focus'));
 
-    // Does NOT begin focus immediately
-    expect(onBeginFocus).not.toHaveBeenCalled();
-
-    // Dispatches premium required with preserved selections
-    expect(onPremiumRequired).toHaveBeenCalledWith({
-      anchorId: mockAnchor.id,
-      durationSeconds: 10,
-      voice: 'female',
-      ambient: true,
-      source: 'recommended_today',
-    });
+    // Begins focus immediately without paywall
+    expect(onBeginFocus).toHaveBeenCalledWith(
+      expect.objectContaining({
+        durationSeconds: 10,
+        voice: 'female',
+        ambient: true,
+      })
+    );
+    expect(onPremiumRequired).not.toHaveBeenCalled();
   });
 
   it('back button calls onBack to return to originating screen', () => {

@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useRef } from 'react';
-import { StatusBar } from 'react-native';
+import { Alert, StatusBar } from 'react-native';
 import { useFocusEffect, useNavigation, useRoute, type RouteProp } from '@react-navigation/native';
 import { AskChartView } from '@/components/v2/chart/ask/AskChartView';
 import { AskActionUnavailable, AskProposalCard } from '@/components/v2/chart/ask/AskProposalCard';
@@ -68,12 +68,23 @@ export function V2ChartAskScreen() {
   const accent = askAccent(identity.category);
   const media = useAskMedia({ ask, anchorId, category: identity.category, reducedMotion });
 
+  const shown = useRef(new Set<string>());
+  useEffect(() => {
+    for (const message of ask.state.messages) {
+      if (message.action?.type === 'ADD_MOVES' && message.action.status === 'PENDING' && !shown.current.has(message.id)) {
+        shown.current.add(message.id);
+        trackChart('chat_proposal_shown', { moves: message.action.moves.length });
+      }
+    }
+  }, [ask.state.messages]);
+
   const proposals = useAskProposals({
+    anchorId,
+    onConflict: () => { Alert.alert('', 'This changed elsewhere. Reopening your chart.'); goBack(); },
     courseId,
     commitChart: chart.commitChart,
     markAction: ask.markAction,
-    onMovesApplied: ({ added, waypointTitle }) =>
-      navigation.navigate('V2ChartRouteUpdated', { anchorId, change: { kind: 'MOVES_ADDED', count: added, waypointTitle }, source: 'ask' }),
+    onMovesApplied: () => goBack(),
     onReviewRoute: message =>
       navigation.navigate('V2ChartAdjust', { anchorId, proposalId: message.action.routeProposalId, askMessageId: message.id }),
   });

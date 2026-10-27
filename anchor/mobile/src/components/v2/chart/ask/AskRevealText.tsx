@@ -20,7 +20,7 @@ const HIDDEN: TextStyle = { opacity: 0 };
 
 /** Full text reserves its native layout invisibly; visible prefixes use those exact line breaks. */
 export const AskRevealText = memo(function AskRevealText({ revealKey, text, style, animate, final, registerSkip, onLine }: Props) {
-  const chars = useMemo(() => Array.from(text), [text]);
+  const chars = useMemo(() => Array.from(text ?? ''), [text]);
   const instant = !animate || askReveal.isDone(revealKey);
   const [shown, setShown] = useState(() => instant ? chars.length : Math.min(askReveal.count(revealKey), chars.length));
   const [skipped, setSkipped] = useState(false);

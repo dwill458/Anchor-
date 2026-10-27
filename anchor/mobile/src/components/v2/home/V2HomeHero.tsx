@@ -40,6 +40,7 @@ type Props = {
   /** Passed through to the carousel: true while it moves, false once it rests and commits. */
   onMotionChange?: (moving: boolean) => void;
   teachingThreadRef?: React.RefObject<ViewInstance | null>;
+  teachingAnchorRef?: React.RefObject<ViewInstance | null>;
   testID?: string;
 };
 
@@ -188,7 +189,7 @@ function useHeroEntrance(
   return { entrance, onImageLoad };
 }
 
-function AnchorHeroItem({ summary, index, total, slot, isSelectedCenterSlot, heroActive, glowEnabled, offset, spacing, gutter, anchorSize, artworkBoxHeight, constructionSize, thread: realThread, eagerThreadValues, reduceMotion, auraActive, onOpenActive, onOpenProgress, onOpenAllAnchors, teachingThreadRef }: {
+function AnchorHeroItem({ summary, index, total, slot, isSelectedCenterSlot, heroActive, glowEnabled, offset, spacing, gutter, anchorSize, artworkBoxHeight, constructionSize, thread: realThread, eagerThreadValues, reduceMotion, auraActive, onOpenActive, onOpenProgress, onOpenAllAnchors, teachingThreadRef, teachingAnchorRef }: {
   summary: V2HomeAnchorSummary;
   index: number;
   total: number;
@@ -211,6 +212,7 @@ function AnchorHeroItem({ summary, index, total, slot, isSelectedCenterSlot, her
   onOpenProgress?: (anchorId?: string, source?: AnchorWindowRect) => void;
   onOpenAllAnchors?: () => void;
   teachingThreadRef?: React.RefObject<ViewInstance | null>;
+  teachingAnchorRef?: React.RefObject<ViewInstance | null>;
 }) {
   const anchor = summary.anchor;
   // Dev-only Thread Strength simulator; inert (value null, nonce 0) outside development.
@@ -357,6 +359,7 @@ function AnchorHeroItem({ summary, index, total, slot, isSelectedCenterSlot, her
             onTouchMove={recordTouchMove}
             onPress={handleOpen} disabled={slot !== 0 || !onOpenActive}>
             <Animated.View style={tapScaleStyle}>
+              <View ref={slot === 0 ? teachingAnchorRef : undefined} collapsable={false}>
               <Animated.View ref={discRef} collapsable={false} testID={slot === 0 ? 'v2-home-anchor-disc' : undefined}>
                 <CircularAnchorRenderer {...anchorRenderProps(anchor)} size={anchorSize} appearance="paper" traceLabel={slot === 0 ? 'home hero' : undefined}
                   aura={{
@@ -377,6 +380,7 @@ function AnchorHeroItem({ summary, index, total, slot, isSelectedCenterSlot, her
                   onImageLoad={slot === 0 ? entranceState.onImageLoad : undefined}
                   accessibilityLabel={`${categoryLabel(anchor.category)} Anchor artwork`} />
               </Animated.View>
+              </View>
             </Animated.View>
           </Pressable>
         </View>
@@ -434,7 +438,7 @@ function AnchorHeroItem({ summary, index, total, slot, isSelectedCenterSlot, her
 }
 
 /** The entire visible hero is one of five mounted items on a shared track. */
-function V2HomeHeroComponent({ anchors, selectedIndex, onSelect, onOpenActive, onOpenProgress, onOpenAllAnchors, thread, reduceMotion, frozen, auraActive = true, onMotionChange, testID, teachingThreadRef }: Props) {
+function V2HomeHeroComponent({ anchors, selectedIndex, onSelect, onOpenActive, onOpenProgress, onOpenAllAnchors, thread, reduceMotion, frozen, auraActive = true, onMotionChange, testID, teachingThreadRef, teachingAnchorRef }: Props) {
   const eagerThreadValues = useAppPerformanceTier() !== 'low';
   const { width, height, fontScale } = useWindowDimensions();
   const arrival = useHomeArrivalContext();
@@ -461,9 +465,9 @@ function V2HomeHeroComponent({ anchors, selectedIndex, onSelect, onOpenActive, o
       <AnchorHeroItem summary={summary} index={index} total={anchors.length} slot={slot} isSelectedCenterSlot={slot === 0} heroActive={heroActive} glowEnabled={!arrivalActive} offset={offset} spacing={spacing} gutter={layout.gutter}
         anchorSize={layout.anchorSize} artworkBoxHeight={layout.artworkBoxHeight} constructionSize={layout.constructionSize}
         thread={index === selectedIndex && thread ? thread : summary.thread} eagerThreadValues={eagerThreadValues} reduceMotion={Boolean(reduceMotion)} auraActive={auraActive}
-        onOpenActive={onOpenActive} onOpenProgress={onOpenProgress} onOpenAllAnchors={onOpenAllAnchors} teachingThreadRef={teachingThreadRef} />
+        onOpenActive={onOpenActive} onOpenProgress={onOpenProgress} onOpenAllAnchors={onOpenAllAnchors} teachingThreadRef={teachingThreadRef} teachingAnchorRef={teachingAnchorRef} />
     );
-  }, [anchors.length, arrivalActive, auraActive, carouselCentered, eagerThreadValues, layout.anchorSize, layout.artworkBoxHeight, layout.constructionSize, layout.gutter, onOpenActive, onOpenAllAnchors, onOpenProgress, reduceMotion, selectedIndex, teachingThreadRef, thread]);
+  }, [anchors.length, arrivalActive, auraActive, carouselCentered, eagerThreadValues, layout.anchorSize, layout.artworkBoxHeight, layout.constructionSize, layout.gutter, onOpenActive, onOpenAllAnchors, onOpenProgress, reduceMotion, selectedIndex, teachingAnchorRef, teachingThreadRef, thread]);
   return <View testID={testID}>
     <V2HomeAnchorCarousel testID="v2-home-carousel" anchors={anchors} selectedIndex={selectedIndex} heroHeight={layout.trackHeight} anchorSize={layout.anchorSize}
       onSelect={onSelect} onOpenActive={onOpenActive} reduceMotion={reduceMotion} frozen={frozen} onMotionChange={handleMotionChange} onCentered={setCarouselCentered} renderHero={renderHero} />

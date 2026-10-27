@@ -68,6 +68,7 @@ import { useTrialStatus } from '@/hooks/useTrialStatus';
 import { apiClient } from '@/services/ApiClient';
 import { AnalyticsEvents, AnalyticsService } from '@/services/AnalyticsService';
 import { AuthService } from '@/services/AuthService';
+import { forceEntranceAfterSignOut } from '@/services/forceEntranceAfterSignOut';
 import { persistProfilePhoto } from '@/services/ProfileMediaService';
 import { useVisionAppearanceReference } from '@/hooks/v2/vision';
 import { useAuthStore } from '@/stores/authStore';
@@ -309,6 +310,7 @@ export const SettingsScreen: React.FC = () => {
       await writeSecureValue('anchor-sync-retry-queue', '[]');
       await signOut();
       setHasCompletedOnboarding(false);
+      forceEntranceAfterSignOut();
     } catch (error) {
       logger.warn('[SettingsScreen] Failed to sign out cleanly', error);
       Alert.alert('Sign Out Failed', 'We could not sign you out right now.');

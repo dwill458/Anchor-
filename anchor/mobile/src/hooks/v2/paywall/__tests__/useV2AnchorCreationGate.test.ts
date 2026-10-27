@@ -17,9 +17,9 @@ beforeEach(() => {
 });
 
 describe('useV2AnchorCreationGate', () => {
-  it('allows the first Anchor and stays out of onboarding', () => {
+  it('gates creation attempts without entitlement outside onboarding, and allows onboarding', () => {
     const { result } = renderHook(() => useV2AnchorCreationGate());
-    expect(result.current.result).toEqual({ allowed: true, paywallContext: null });
+    expect(result.current.result).toEqual({ allowed: false, paywallContext: 'SECOND_ANCHOR' });
     expect(result.current.evaluate({ isOnboarding: true })).toEqual({ allowed: true, paywallContext: null });
   });
 
@@ -31,10 +31,10 @@ describe('useV2AnchorCreationGate', () => {
     expect(result.current.evaluate({ isOnboarding: true }).allowed).toBe(true);
   });
 
-  it('ignores released Anchors and never gates an entitled user', () => {
+  it('gates unentitled creation and never gates an entitled user', () => {
     useAnchorStore.setState({ anchors: [makeAnchor({ id: 'a', isReleased: true })] });
     const { result, rerender } = renderHook(() => useV2AnchorCreationGate());
-    expect(result.current.result.allowed).toBe(true);
+    expect(result.current.result.allowed).toBe(false);
 
     useAnchorStore.setState({ anchors: [makeAnchor({ id: 'a' }), makeAnchor({ id: 'b' })] });
     mockTrialSnapshot = { hasEntitlement: true };

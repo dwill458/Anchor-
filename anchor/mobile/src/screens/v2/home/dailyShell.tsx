@@ -11,6 +11,7 @@ import { VisualProfiler } from '@/utils/visualProfiler'; // TEMP-PROFILER
 import { V2AnchorLibraryScreen } from '@/screens/v2/anchors/V2AnchorLibraryScreen';
 import { V2AnchorDetailsScreen } from '@/screens/v2/anchors/V2AnchorDetailsScreen';
 import type { V2PracticeMode } from '@/constants/v2/practice';
+import { isProFeatureLocked } from '@/utils/premiumAccess';
 
 /**
  * External navigation intents UI-D exposes but does not own. Production
@@ -85,6 +86,20 @@ export function useV2DailyShellIntents(): Required<
    */
   return useMemo(() => ({
     onOpenPractice: value.onOpenPractice ?? ((anchorId, recommendedMode, options) => {
+      if (recommendedMode && (recommendedMode === 'deep_prime' || recommendedMode === 'visualize') && isProFeatureLocked()) {
+        navigation.navigate('V2Paywall', {
+          context: recommendedMode === 'visualize' ? 'VISUALIZE' : 'DEEP_PRIME',
+          resumeIntent: {
+            type: 'open_practice',
+            anchorId,
+            mode: recommendedMode === 'deep_prime' ? 'deep' : 'focus',
+            practiceMode: recommendedMode,
+            source: options?.source === 'practice_hub' ? 'practice_hub' : 'recommended_today',
+            returnRoute: options?.returnRoute ?? (recommendedMode ? 'V2DevelopmentHome' : undefined),
+          },
+        });
+        return;
+      }
       navigation.navigate('V2Practice', {
         anchorId,
         recommendedMode,
@@ -97,12 +112,57 @@ export function useV2DailyShellIntents(): Required<
         source: options?.source ?? (recommendedMode ? 'home' : 'practice_hub'),
       });
     }),
-    onOpenVision: value.onOpenVision ?? ((anchorId, options) => navigation.navigate('V2Vision', { anchorId, ...(options?.edit ? { edit: true } : {}) })),
-    onCreateVision: value.onCreateVision ?? ((anchorId) => navigation.navigate('V2Vision', { anchorId })),
-    onOpenChart: value.onOpenChart ?? ((anchorId, courseId) => navigation.navigate('V2Chart', { anchorId, courseId })),
-    onCreateChart: value.onCreateChart ?? noopWarn('onCreateChart'),
+    onOpenVision: value.onOpenVision ?? ((anchorId, options) => {
+      if (isProFeatureLocked()) {
+        navigation.navigate('V2Paywall', {
+          context: 'VISUALIZE',
+          resumeIntent: { type: 'vision_premium_action', anchorId, action: 'create' },
+        });
+        return;
+      }
+      navigation.navigate('V2Vision', { anchorId, ...(options?.edit ? { edit: true } : {}) });
+    }),
+    onCreateVision: value.onCreateVision ?? ((anchorId) => {
+      if (isProFeatureLocked()) {
+        navigation.navigate('V2Paywall', {
+          context: 'VISUALIZE',
+          resumeIntent: { type: 'vision_premium_action', anchorId, action: 'create' },
+        });
+        return;
+      }
+      navigation.navigate('V2Vision', { anchorId });
+    }),
+    onOpenChart: value.onOpenChart ?? ((anchorId, courseId) => {
+      if (isProFeatureLocked()) {
+        navigation.navigate('V2Paywall', {
+          context: 'CHART',
+          resumeIntent: anchorId ? { type: 'open_chart', anchorId } : undefined,
+        });
+        return;
+      }
+      navigation.navigate('V2Chart', { anchorId, courseId });
+    }),
+    onCreateChart: value.onCreateChart ?? ((anchorId) => {
+      if (isProFeatureLocked()) {
+        navigation.navigate('V2Paywall', {
+          context: 'CHART',
+          resumeIntent: { type: 'open_chart', anchorId },
+        });
+        return;
+      }
+      navigation.navigate('V2Chart', { anchorId });
+    }),
     onOpenProgress: value.onOpenProgress ?? ((anchorId, options) => navigation.navigate('V2Progress', { anchorId, ...(options?.anchorTransition ? { anchorTransition: true } : {}) })),
-    onCreateAnchor: value.onCreateAnchor ?? noopWarn('onCreateAnchor'),
+    onCreateAnchor: value.onCreateAnchor ?? (() => {
+      if (isProFeatureLocked()) {
+        navigation.navigate('V2Paywall', {
+          context: 'SECOND_ANCHOR',
+          resumeIntent: { type: 'create_anchor' },
+        });
+        return;
+      }
+      navigation.navigate('FirstAnchorCreation');
+    }),
     onOpenProfile: value.onOpenProfile ?? (() => navigation.navigate('V2Settings')),
     onReleaseAnchor: value.onReleaseAnchor ?? ((anchorId, options) => navigation.navigate('V2Release', { anchorId, ...(options?.anchorTransition ? { anchorTransition: true } : {}) })),
     onOpenWeeklyInsight: value.onOpenWeeklyInsight ?? (() => navigation.navigate('V2WeeklyInsight')),

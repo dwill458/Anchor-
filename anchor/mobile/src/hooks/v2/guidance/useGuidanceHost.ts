@@ -11,7 +11,11 @@ export function useGuidanceHost(options: GuidanceHostOptions) {
   const route = NavigationRouteContext ? useContext(NavigationRouteContext) : undefined;
   const instance = useId();
   const account = options.accountId ?? 'guest';
-  const visitKey = `${options.screenId}:${route?.key ?? instance}:${account}`;
+  // Tab routes keep one key for the whole process, so each regained focus starts a new visit.
+  const focusVisit = useRef({ seq: 0, focused: options.isFocused });
+  if (options.isFocused && !focusVisit.current.focused) focusVisit.current.seq++;
+  focusVisit.current.focused = options.isFocused;
+  const visitKey = `${options.screenId}:${route?.key ?? instance}:${account}:${focusVisit.current.seq}`;
   const key = `${visitKey}:${options.contextKey ?? ''}:${options.targetKey ?? ''}`;
   const [presentation, setPresentation] = useState<GuidancePresentation | null>(null);
   const live = useRef(options);

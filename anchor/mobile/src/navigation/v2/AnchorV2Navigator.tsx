@@ -55,6 +55,7 @@ import { V2ReminderTimeScreen } from '@/screens/v2/notifications/V2ReminderTimeS
 import { loadNotificationStateSnapshot, shouldShowReminderInvitation } from '@/screens/v2/notifications/invitationEligibility';
 import { markFirstPracticeCompletedInStorage } from '@/hooks/useNotificationController';
 import { useReminderInvitationStore } from '@/stores/v2/reminderInvitationStore';
+import { isProFeatureLocked } from '@/utils/premiumAccess';
 import type { NotificationState } from '@/services/NotificationState';
 
 const Stack = createNativeStackNavigator<AnchorV2StackParamList>();
@@ -291,9 +292,23 @@ function V2PracticeRouteScreen() {
         });
       }}
       onCreateVision={(id) => {
+        if (isProFeatureLocked()) {
+          navigation.navigate('V2Paywall', {
+            context: 'VISUALIZE',
+            resumeIntent: { type: 'vision_premium_action', anchorId: id, action: 'create' },
+          });
+          return;
+        }
         navigation.navigate('V2Vision', { anchorId: id });
       }}
       onOpenVision={(id) => {
+        if (isProFeatureLocked()) {
+          navigation.navigate('V2Paywall', {
+            context: 'VISUALIZE',
+            resumeIntent: { type: 'vision_premium_action', anchorId: id, action: 'create' },
+          });
+          return;
+        }
         navigation.navigate('V2Vision', { anchorId: id });
       }}
       onReleaseRequested={(id, reason) => {
@@ -395,6 +410,13 @@ function V2VisionRouteScreen() {
         if (navigation.canGoBack()) navigation.goBack();
       }}
       onChart={(id: string) => {
+        if (isProFeatureLocked()) {
+          navigation.navigate('V2Paywall', {
+            context: 'CHART',
+            resumeIntent: { type: 'open_chart', anchorId: id },
+          });
+          return;
+        }
         navigation.navigate('V2Chart', { anchorId: id });
       }}
       onAddNote={(params: { anchorId: string; visionId?: string }) => navigation.navigate('V2VisionNoteComposer', params)}
@@ -506,8 +528,26 @@ function V2ProgressRouteScreen() {
       anchorId={route.params?.anchorId}
       onBack={handleBack}
       onAnchorResolved={handleShownAnchor}
-      onNavigateToChart={(id: string) => navigation.navigate('V2Chart', { anchorId: id })}
-      onNavigateToVision={(id: string) => navigation.navigate('V2Vision', { anchorId: id })}
+      onNavigateToChart={(id: string) => {
+        if (isProFeatureLocked()) {
+          navigation.navigate('V2Paywall', {
+            context: 'CHART',
+            resumeIntent: { type: 'open_chart', anchorId: id },
+          });
+          return;
+        }
+        navigation.navigate('V2Chart', { anchorId: id });
+      }}
+      onNavigateToVision={(id: string) => {
+        if (isProFeatureLocked()) {
+          navigation.navigate('V2Paywall', {
+            context: 'VISUALIZE',
+            resumeIntent: { type: 'vision_premium_action', anchorId: id, action: 'create' },
+          });
+          return;
+        }
+        navigation.navigate('V2Vision', { anchorId: id });
+      }}
       onNavigateToMilestones={(id: string) => navigation.navigate('V2MilestoneCollection', { anchorId: id })}
       onNavigateToMilestone={(id: string, definitionId: string) =>
         navigation.navigate('V2MilestoneDetail', { anchorId: id, definitionId })}

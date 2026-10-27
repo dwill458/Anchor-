@@ -18,7 +18,7 @@ import type { V2PaywallContext } from '@/constants/v2/paywall';
 
 export type V2AnchorCreationGateInput = {
   /** Active (non-released, non-archived) Anchors the user already holds. */
-  activeAnchorCount: number;
+  activeAnchorCount?: number;
   /** The attempt originates from the first-run / onboarding flow. */
   isOnboarding: boolean;
   /** User currently has an active trial or paid entitlement. */
@@ -32,11 +32,10 @@ export type V2AnchorCreationGateResult =
 export function resolveAnchorCreationPaywall(
   input: V2AnchorCreationGateInput,
 ): V2AnchorCreationGateResult {
-  const { activeAnchorCount, isOnboarding, hasEntitlement } = input;
+  const { isOnboarding, hasEntitlement } = input;
 
   if (hasEntitlement) return { allowed: true, paywallContext: null };
   if (isOnboarding) return { allowed: true, paywallContext: null };
-  if (activeAnchorCount < 1) return { allowed: true, paywallContext: null };
 
   return { allowed: false, paywallContext: 'SECOND_ANCHOR' };
 }

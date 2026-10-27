@@ -27,6 +27,8 @@ const WEATHER_SETTLE_MS = 34;
  * land and weather ~3-5 frames, overlay ~8).
  */
 export const CHART_FIRST_DRAW_HOLD_MS = 150;
+/** Avoid leaving an interactive Chart under its loading veil indefinitely. */
+const CHART_RESOURCE_WAIT_MS = 8000;
 
 export type ChartMapProps = {
   frame?: ChartMapFrame;
@@ -155,7 +157,18 @@ export const ChartMap = memo(function ChartMap({
 
   // One visibility gate covers land, weather, route, flag, and native markers. Overlay and markers mount with
   // the art (screen readers and taps keep working); with living weather they stay at opacity 0 until it shows.
-  const visible = artReady && (!living || weatherShown || shownBare);
+  const [resourceWaitExpired, setResourceWaitExpired] = useState(false);
+  useEffect(() => {
+    if (!onShown || isIntro || resourceWaitExpired || (artReady && (!living || weatherShown || shownBare))) return undefined;
+    const timer = setTimeout(() => {
+      setResourceWaitExpired(true);
+      // The existing static-cloud path works without the living weather resources.
+      setWeatherState(current => current === null ? 'failed' : current);
+    }, CHART_RESOURCE_WAIT_MS);
+    return () => clearTimeout(timer);
+  }, [onShown, isIntro, resourceWaitExpired, artReady, living, weatherShown, shownBare]);
+  const landAvailable = artReady || resourceWaitExpired;
+  const visible = landAvailable && (!living || weatherShown || shownBare || resourceWaitExpired);
   const fade = useAnimatedStyle(() => ({ opacity: visible ? anim.mapOpacity.value : 0 }));
   // Until the map is visible, living weather holds closed cover in its place (the ChartWeatherHold look).
   const tiles = useCloudTiles(living);
@@ -276,7 +289,7 @@ export const ChartMap = memo(function ChartMap({
           importantForAccessibility="no-hide-descendants"
         >
           <Canvas style={{ width, height }}>
-            {artReady ? <ChartMapOverlay frame={frame}
+            {landAvailable ? <ChartMapOverlay frame={frame}
               width={width}
               height={height}
               anim={anim}
@@ -301,7 +314,7 @@ export const ChartMap = memo(function ChartMap({
           onPress={onMapPress}
           style={StyleSheet.absoluteFill}
         />
-        {artReady ? <ChartMapMarkers frame={frame}
+        {landAvailable ? <ChartMapMarkers frame={frame}
           width={width}
           height={height}
           anim={anim}

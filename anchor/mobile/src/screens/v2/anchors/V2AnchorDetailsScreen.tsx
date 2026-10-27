@@ -58,6 +58,7 @@ import { predictPracticeSetupAnchorRect } from '@/navigation/v2/anchorHeroGeomet
 import { useV2Responsive, useV2ReduceMotion } from '@/hooks/v2';
 import { VisualProfiler } from '@/utils/visualProfiler';
 import { useAuthStore } from '@/stores/authStore';
+import { discoverGuidance } from '@/hooks/v2/guidance/guidanceRuntime';
 import { useTeachingQueue } from '@/hooks/v2/teaching/useTeachingQueue';
 import { useTeachingFocus } from '@/hooks/v2/teaching/useTeachingFocus';
 import { DETAILS_BEATS_PER_VISIT, detailsTeachingBeats } from '@/hooks/v2/teaching/detailsTeaching';
@@ -608,6 +609,7 @@ function useRecommendation(anchorId: string) {
 export function V2AnchorDetailsScreen() {
   const teachingFocus = useTeachingFocus();
   const teachingAccountId = useAuthStore(state => state.user?.id ?? null);
+  useEffect(() => { discoverGuidance(teachingAccountId ?? 'guest', 'home.open_anchor'); }, [teachingAccountId]);
   const visionTeachingRef = useRef<ViewInstance>(null);
   const chartTeachingRef = useRef<ViewInstance>(null);
   const teachingScrollRef = useRef<Animated.ScrollView>(null);

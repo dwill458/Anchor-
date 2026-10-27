@@ -35,21 +35,63 @@ export function V2DevelopmentHome() {
   creationGate.current = gate;
   const intents = useMemo<V2DailyShellIntents>(
     () => ({
-      onOpenPractice: (anchorId, recommendedMode, options) => navigation.navigate('V2Practice', {
-        anchorId,
-        recommendedMode,
-        resumeMode: undefined,
-        resumeDuration: undefined,
-        resumeSource: undefined,
-        visionEntry: undefined,
-        ...(options?.anchorTransition ? { anchorTransition: true } : { anchorTransition: undefined }),
-        returnRoute: options?.returnRoute ?? (recommendedMode ? 'V2DevelopmentHome' : undefined),
-        source: options?.source ?? (recommendedMode ? 'home' : 'practice_hub'),
-      }),
-      onOpenVision: (anchorId, options) => navigation.navigate('V2Vision', { anchorId, ...(options?.edit ? { edit: true } : {}) }),
-      onCreateVision: (anchorId) => navigation.navigate('V2Vision', { anchorId }),
-      onOpenChart: (anchorId, courseId) => navigation.navigate('V2Chart', { anchorId, courseId }),
-      // Viewing a Chart is free; creating one is Pro (the server refuses it too).
+      onOpenPractice: (anchorId, recommendedMode, options) => {
+        if (recommendedMode && (recommendedMode === 'deep_prime' || recommendedMode === 'visualize') && isProFeatureLocked()) {
+          navigation.navigate('V2Paywall', {
+            context: recommendedMode === 'visualize' ? 'VISUALIZE' : 'DEEP_PRIME',
+            resumeIntent: {
+              type: 'open_practice',
+              anchorId,
+              mode: recommendedMode === 'deep_prime' ? 'deep' : 'focus',
+              practiceMode: recommendedMode,
+              source: options?.source === 'practice_hub' ? 'practice_hub' : 'recommended_today',
+              returnRoute: options?.returnRoute ?? (recommendedMode ? 'V2DevelopmentHome' : undefined),
+            },
+          });
+          return;
+        }
+        navigation.navigate('V2Practice', {
+          anchorId,
+          recommendedMode,
+          resumeMode: undefined,
+          resumeDuration: undefined,
+          resumeSource: undefined,
+          visionEntry: undefined,
+          ...(options?.anchorTransition ? { anchorTransition: true } : { anchorTransition: undefined }),
+          returnRoute: options?.returnRoute ?? (recommendedMode ? 'V2DevelopmentHome' : undefined),
+          source: options?.source ?? (recommendedMode ? 'home' : 'practice_hub'),
+        });
+      },
+      onOpenVision: (anchorId, options) => {
+        if (isProFeatureLocked()) {
+          navigation.navigate('V2Paywall', {
+            context: 'VISUALIZE',
+            resumeIntent: { type: 'vision_premium_action', anchorId, action: 'create' },
+          });
+          return;
+        }
+        navigation.navigate('V2Vision', { anchorId, ...(options?.edit ? { edit: true } : {}) });
+      },
+      onCreateVision: (anchorId) => {
+        if (isProFeatureLocked()) {
+          navigation.navigate('V2Paywall', {
+            context: 'VISUALIZE',
+            resumeIntent: { type: 'vision_premium_action', anchorId, action: 'create' },
+          });
+          return;
+        }
+        navigation.navigate('V2Vision', { anchorId });
+      },
+      onOpenChart: (anchorId, courseId) => {
+        if (isProFeatureLocked()) {
+          navigation.navigate('V2Paywall', {
+            context: 'CHART',
+            resumeIntent: { type: 'open_chart', anchorId },
+          });
+          return;
+        }
+        navigation.navigate('V2Chart', { anchorId, courseId });
+      },
       onCreateChart: (anchorId) => {
         if (isProFeatureLocked()) navigation.navigate('V2Paywall', { context: 'CHART', resumeIntent: { type: 'open_chart', anchorId } });
         else navigation.navigate('V2Chart', { anchorId });

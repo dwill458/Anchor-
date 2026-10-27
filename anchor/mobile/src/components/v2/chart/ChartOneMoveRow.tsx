@@ -5,12 +5,16 @@ import React, { useEffect, useRef, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import Animated, { Easing, ReduceMotion, useAnimatedStyle, useSharedValue, withSequence, withTiming } from 'react-native-reanimated';
 import { Check, ChevronDown, ChevronUp } from 'lucide-react-native';
+import { askChartApi } from '@/services/v2/askChartApi';
+import { trackChart } from '@/hooks/v2/chart/useAnchorChart';
+import { setChatAppliedBatch, useChatAppliedBatch } from '@/hooks/v2/chart/chatAppliedBatch';
 import type { MoveSummary } from '@/types/chart';
 import { CHART_COPY } from '@/constants/v2/chartCopy';
 import { CHART_MAP_TOKENS as T } from './map/chartMapTokens';
 import type { PanelAccent } from './panel/chartPanelColors';
 
 type ChartOneMoveRowProps = {
+  firstBatchMoveCompleted?: boolean;
   accent: PanelAccent;
   move: MoveSummary;
   waypointTitle: string;
@@ -36,8 +40,25 @@ function optionalMoveDetail(move: MoveSummary, key: 'why' | 'doneWhen'): string 
 /** The One Move has separate completion and reading targets. */
 export function ChartOneMoveRow({
   accent, move, waypointTitle, waypointCriteria = null, progressText = null, checked, busy, reducedMotion, onCheck, onExpandSheet,
-  rowRef, circleRef, bodyRef,
+  rowRef, circleRef, bodyRef, firstBatchMoveCompleted = false,
 }: ChartOneMoveRowProps) {
+  const batch = useChatAppliedBatch();
+  const accountId = useAuthStore(state => state.user?.id ?? null);
+  const [undoing, setUndoing] = useState(false);
+  const undoLock = useRef(false);
+  const updated = batch && batch.accountId === accountId && batch.courseId === move.courseId && batch.batchId === move.batchId;
+  const undo = async () => {
+    if (!batch || undoLock.current) return;
+    undoLock.current = true;
+    setUndoing(true);
+    try {
+      await askChartApi.undoProposal(batch.courseId, batch.batchId);
+      setChatAppliedBatch(null);
+      trackChart('chat_proposal_undone');
+    } catch {
+      // Keep the action available for retry.
+    } finally { undoLock.current = false; setUndoing(false); }
+  };
   const [expanded, setExpanded] = useState(false);
   const [showToast, setShowToast] = useState(false);
   const inFlight = useRef(false);
@@ -156,6 +177,7 @@ export function ChartOneMoveRow({
         </Pressable>
         <View pointerEvents="none" style={styles.chevron}>{expanded ? <ChevronUp size={18} color={T.muted} /> : <ChevronDown size={18} color={T.muted} />}</View>
       </View>
+      {updated ? <View style={styles.moveLabelRow}><Text style={styles.why}>Updated from chat</Text>{!firstBatchMoveCompleted && !checked ? <Pressable accessibilityRole="button" disabled={undoing} onPress={() => void undo()} testID="chat-proposal-undo"><Text style={styles.count}>Undo</Text></Pressable> : null}</View> : null}
       {/* DEFERRED: helper line "Tap the circle when it's done..."; the first-time teaching and the ? replay cover it. */}
       {showToast ? <Text accessibilityLiveRegion="polite" style={styles.toast} testID="chart-one-move-toast">{CHART_COPY.sheet.moveDoneToast}</Text> : null}
     </View>

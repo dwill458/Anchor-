@@ -167,6 +167,56 @@ describe('known flagship Android models', () => {
     expect(result.current).toBe('high');
   });
 
+  it('classifies Galaxy S23 (base SM-S911U) as high', () => {
+    setOS('android', 34);
+    setPixelRatio(3.0);
+    setBrand('samsung');
+    setModelName('SM-S911U');
+    setTotalMemory(8 * 1_073_741_824);
+
+    const { result } = renderHook(() => usePerformanceTier());
+    expect(result.current).toBe('high');
+  });
+
+  it('classifies Galaxy S23 by marketing name as high', () => {
+    setOS('android', 34);
+    setPixelRatio(3.0);
+    setBrand('samsung');
+    setModelName('Galaxy S23');
+
+    const { result } = renderHook(() => usePerformanceTier());
+    expect(result.current).toBe('high');
+  });
+
+  it('classifies Galaxy S23 Ultra (SM-S918U) as high', () => {
+    setOS('android', 34);
+    setPixelRatio(3.5);
+    setBrand('samsung');
+    setModelName('SM-S918U');
+
+    const { result } = renderHook(() => usePerformanceTier());
+    expect(result.current).toBe('high');
+  });
+
+  it('classifies Galaxy S22 and S21 series as high', () => {
+    setOS('android', 33);
+    setPixelRatio(3.0);
+    setBrand('samsung');
+    setModelName('SM-S901U');
+
+    const { result } = renderHook(() => usePerformanceTier());
+    expect(result.current).toBe('high');
+  });
+
+  it('classifies Galaxy Z Fold and Flip as high', () => {
+    setOS('android', 34);
+    setBrand('samsung');
+    setModelName('SM-F946U');
+
+    const { result } = renderHook(() => usePerformanceTier());
+    expect(result.current).toBe('high');
+  });
+
   it('keeps Pixel 9 Pro classified as high', () => {
     setOS('android', 35);
     setBrand('google');
@@ -175,6 +225,59 @@ describe('known flagship Android models', () => {
 
     const { result } = renderHook(() => usePerformanceTier());
     expect(result.current).toBe('high');
+  });
+
+  it('classifies Pixel 7, 8, and Fold as high', () => {
+    setOS('android', 34);
+    setBrand('google');
+    setModelName('Pixel 8');
+
+    const { result } = renderHook(() => usePerformanceTier());
+    expect(result.current).toBe('high');
+  });
+
+  it('classifies OnePlus 11 and 12 as high', () => {
+    setOS('android', 34);
+    setBrand('oneplus');
+    setModelName('OnePlus 12');
+
+    const { result } = renderHook(() => usePerformanceTier());
+    expect(result.current).toBe('high');
+  });
+
+  it('classifies Xiaomi, Poco, Moto Edge, and Sony Xperia flagships as high', () => {
+    setOS('android', 34);
+    setBrand('xiaomi');
+    setModelName('Xiaomi 14');
+
+    const { result } = renderHook(() => usePerformanceTier());
+    expect(result.current).toBe('high');
+  });
+
+  it('promotes any unlisted Android phone with >= 5.5GB RAM on modern Android to high', () => {
+    setOS('android', 34);
+    setPixelRatio(3.0);
+    setBrand('nothing');
+    setModelName('Phone (2)');
+    setTotalMemory(8 * 1_073_741_824);
+    // Even if legacy Facebook YearClass reports 2016
+    setDeviceYearClass(2016);
+
+    const { result } = renderHook(() => usePerformanceTier());
+    expect(result.current).toBe('high');
+  });
+
+  it('protects unlisted mid-range Android phone with 4.5GB RAM from stale YearClass', () => {
+    setOS('android', 34);
+    setPixelRatio(2.5);
+    setBrand('generic');
+    setModelName('MidRange 5G');
+    setTotalMemory(4.5 * 1_073_741_824);
+    // Legacy YearClass falsely reporting 2016
+    setDeviceYearClass(2016);
+
+    const { result } = renderHook(() => usePerformanceTier());
+    expect(result.current).toBe('medium');
   });
 });
 

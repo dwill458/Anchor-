@@ -124,13 +124,25 @@ export const isKnownHighEndAndroidDevice = (device: ExpoDeviceModule | null): bo
 
   return (
     /samsung/.test(brand) &&
-      /(s2[4-9].*ultra|sm-s92[8-9]\w*|sm-s93\d\w*|z fold\d|z flip\d)/.test(fingerprint)
+      /(s2[0-9]\b|s2[0-9].*(ultra|plus|\+|fe)|galaxy\s*s2[0-9]|sm-[sg]9\d{2}\w*|sm-s7[12]1\w*|sm-g78\d\w*|sm-n98\w*|sm-f\d{3}\w*|z fold|z flip|galaxy tab s[7-9]|sm-x\d{3}\w*)/i.test(fingerprint)
   ) || (
     /google/.test(brand) &&
-      /(pixel\s?(8|9)(\s(pro|xl|fold))?)/.test(fingerprint)
+      /(pixel\s?(6|7|8|9|10)(\s(pro|xl|fold|a))?|pixel\s?fold)/i.test(fingerprint)
   ) || (
     /oneplus/.test(brand) &&
-      /(oneplus\s?(12|13)|open)/.test(fingerprint)
+      /(oneplus\s?(9|10|11|12|13)|oneplus\s?open|nord\s?[3-5])/i.test(fingerprint)
+  ) || (
+    /xiaomi|poco|redmi/.test(brand) &&
+      /(xiaomi\s?(12|13|14|15)|poco\s?f[4-7]|mix\s?fold)/i.test(fingerprint)
+  ) || (
+    /motorola/.test(brand) &&
+      /(edge\s?(30|40|50|pro|plus|\+)|razr\s?(40|50|\+)?)/i.test(fingerprint)
+  ) || (
+    /sony/.test(brand) &&
+      /(xperia\s?(1|5))/i.test(fingerprint)
+  ) || (
+    /asus/.test(brand) &&
+      /(rog\s?phone|zenfone\s?(9|10|11))/i.test(fingerprint)
   );
 };
 
@@ -167,20 +179,42 @@ export const getDetectedPerformanceTier = (): PerformanceTier => {
       return 'low';
     }
 
+    const memoryBytes = device.totalMemory;
+    const memoryGb =
+      memoryBytes !== null && memoryBytes !== undefined && memoryBytes > 0
+        ? memoryBytes / 1_073_741_824
+        : null;
+
     const yearClass = device.deviceYearClass;
-    if (yearClass !== null && yearClass !== undefined) {
-      if (yearClass < 2019) tier = minTier(tier, 'low');
-      else if (yearClass < 2021) tier = minTier(tier, 'medium');
+    if (yearClass !== null && yearClass !== undefined && yearClass > 0) {
+      // On Android, the legacy YearClass library can misreport modern devices (e.g. 2016 or -1)
+      // due to SELinux CPU restriction. Do not let yearClass downgrade modern hardware with >= 3.8GB RAM.
+      const isModernAndroidWithSufficientRam =
+        Platform.OS === 'android' && memoryGb !== null && memoryGb >= 3.8;
+
+      if (!isModernAndroidWithSufficientRam) {
+        if (yearClass < 2019) tier = minTier(tier, 'low');
+        else if (yearClass < 2021) tier = minTier(tier, 'medium');
+      }
     }
 
-    const memoryBytes = device.totalMemory;
-    if (memoryBytes !== null && memoryBytes !== undefined && memoryBytes > 0) {
-      const memoryGb = memoryBytes / 1_073_741_824;
+    if (memoryGb !== null) {
       if (Platform.OS === 'android') {
         // Android reserves 300-500MB of RAM for kernel/radio. Devices with 4GB physical RAM
         // report ~3.5-3.8GB totalMemory. On modern Android, <=4GB physical is budget entry-level.
-        if (memoryGb < 3.8) tier = minTier(tier, 'low');
-        else if (memoryGb < 5.5) tier = minTier(tier, 'medium');
+        if (memoryGb < 3.8) {
+          tier = minTier(tier, 'low');
+        } else if (memoryGb < 5.5) {
+          tier = minTier(tier, 'medium');
+        } else {
+          // >= 5.5GB reported RAM (6GB+ physical) on modern Android (SDK >= 31) qualifies as high tier.
+          const sdk = typeof Platform.Version === 'number' ? Platform.Version : 0;
+          if (sdk >= 31) {
+            tier = maxTier(tier, 'high');
+          } else {
+            tier = maxTier(tier, 'medium');
+          }
+        }
       } else {
         if (memoryGb < 2) tier = minTier(tier, 'low');
         else if (memoryGb < 3) tier = minTier(tier, 'medium');

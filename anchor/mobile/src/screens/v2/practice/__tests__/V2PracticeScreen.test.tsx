@@ -176,18 +176,17 @@ describe('V2PracticeScreen', () => {
     expect(screen.getByText('Ship a trustworthy Practice hub')).toBeTruthy();
   });
 
-  it('allows entering Deep Focus setup when unentitled and gates on Begin Deep Focus', () => {
+  it('gates Deep Focus immediately on tap when unentitled', () => {
     const onPremiumCapabilityRequired = jest.fn();
     renderPractice(context('Deep Prime'), { capabilities: { ...fullAccess, deep_prime: false }, onPremiumCapabilityRequired });
     fireEvent.press(screen.getByTestId('v2-recommended-today'));
-    expect(screen.getByTestId('v2-practice-prepare-deep_prime')).toBeTruthy();
-    fireEvent.press(screen.getByLabelText('Begin Deep Focus'));
     expect(onPremiumCapabilityRequired).toHaveBeenCalledWith({
       capability: 'deep_prime',
       anchorId: 'a',
       source: 'recommended_today',
       durationSeconds: 300,
     });
+    expect(screen.queryByTestId('v2-practice-prepare-deep_prime')).toBeNull();
   });
 
   describe('route-supplied recommended mode (Home "Begin")', () => {
@@ -205,8 +204,6 @@ describe('V2PracticeScreen', () => {
         onPremiumCapabilityRequired,
         onBeginPractice,
       });
-      expect(screen.getByTestId('v2-practice-prepare-deep_prime')).toBeTruthy();
-      fireEvent.press(screen.getByLabelText('Begin Deep Focus'));
       expect(onBeginPractice).not.toHaveBeenCalled();
       expect(onPremiumCapabilityRequired).toHaveBeenCalledWith(
         expect.objectContaining({ capability: 'deep_prime', anchorId: 'a', source: 'recommended_today' }),

@@ -26,6 +26,7 @@ import { CompactConfirmSheet } from '@/components/settings/SettingsPrimitives';
 import { useTrialStatus } from '@/hooks/useTrialStatus';
 import { AnalyticsEvents, AnalyticsService } from '@/services/AnalyticsService';
 import { AuthService } from '@/services/AuthService';
+import { forceEntranceAfterSignOut } from '@/services/forceEntranceAfterSignOut';
 import revenueCatService from '@/services/RevenueCatService';
 import { useAuthStore } from '@/stores/authStore';
 import { useProfileStore } from '@/stores/profileStore';
@@ -154,6 +155,7 @@ export const AccountSubscreen: React.FC<Props> = ({
       await writeSecureValue('anchor-sync-retry-queue', '[]');
       await signOut();
       setHasCompletedOnboarding(false);
+      forceEntranceAfterSignOut();
       onSignedOut?.();
     } catch (error) {
       logger.warn('[AccountSubscreen] Failed to sign out cleanly', error);

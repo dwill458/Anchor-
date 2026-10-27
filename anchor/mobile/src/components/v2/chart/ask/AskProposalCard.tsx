@@ -60,11 +60,11 @@ export const AskProposalCard = memo(function AskProposalCard({ message, accent, 
       {isMoves ? (
         <View style={styles.list}>
           {action.moves.map((move, index) => (
-            <View key={move.title} style={styles.row}>
+            <View key={`${index}-${move.title}`} style={styles.row}>
               <Text style={[styles.index, { color: accent.text }]}>{index + 1}</Text>
               <View style={styles.rowBody}>
                 <Text style={styles.moveTitle}>{move.title}</Text>
-                {move.rationale ? <Text style={styles.moveWhy}>{move.rationale}</Text> : null}
+                {move.rationale ? <Text numberOfLines={1} style={styles.moveWhy}>{move.rationale}</Text> : null}
               </View>
             </View>
           ))}
@@ -87,11 +87,11 @@ export const AskProposalCard = memo(function AskProposalCard({ message, accent, 
       {!stale ? (
         <View style={styles.actions}>
           <Pressable accessibilityRole="button" onPress={onDismiss} disabled={busy !== null} hitSlop={8} style={styles.notNow} testID="ask-proposal-dismiss">
-            <Text style={styles.notNowText}>Not now</Text>
+            <Text style={styles.notNowText}>{isMoves ? 'Not yet' : 'Not now'}</Text>
           </Pressable>
           <View style={styles.primary}>
             <V2Button size="medium" loading={busy === 'approving'} disabled={busy !== null} onPress={isMoves ? onApprove : onReview} testID="ask-proposal-approve">
-              {isMoves ? 'Add to my Chart' : 'Review route'}
+              {isMoves ? 'Apply to chart' : 'Review route'}
             </V2Button>
           </View>
         </View>

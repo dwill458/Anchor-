@@ -22,6 +22,7 @@ import { isWaypointReady, PROGRESS_COPY, progressModeOf, progressSteps, progress
 import { CHART_PANEL_COPY as COPY, daysOnCourse, isDayClosed, practicedToday } from './map/chartRhythm';
 import { ChartBrushBar } from './panel/ChartBrushBar';
 import { ChartOneMoveRow } from './ChartOneMoveRow';
+import { useChatAppliedBatch } from '@/hooks/v2/chart/chatAppliedBatch';
 import { ChartAllMovesDone } from './sheet/ChartAllMovesDone';
 import { ChartConfirmSheet } from './panel/ChartConfirmSheet';
 import { ChartMovesManager } from './panel/ChartMovesManager';
@@ -244,6 +245,7 @@ export function ChartWaypointContent({
     setDayClosedDismissed(false);
   }, [completedCount, waypointId, dateKey]);
 
+  const chatBatch = useChatAppliedBatch();
   if (!waypoint || !input) return null;
 
   const isCurrent = waypoint.state === 'current';
@@ -406,6 +408,7 @@ export function ChartWaypointContent({
     : waypoint.title;
   const allMovesDone = Boolean(renderTiers) && isCurrent && !arrived && !commit && waypoint.moves.length > 0 && incompleteMoves.length === 0;
   const requestReach = isCurrent && !arrived ? () => { setReachError(null); setConfirmOpen(true); } : undefined;
+  const firstBatchMove = view.waypoints.flatMap(item => item.moves).find(move => move.id === chatBatch?.firstMoveId);
   const oneMove = allMovesDone
     ? <ChartAllMovesDone accent={accent} busy={chart.busy === `reach:${waypoint.id}`} label={waypoint.isDestination ? COPY.ctaMarkDestination : COPY.ctaMark} onReach={requestReach!} />
     : isCurrent && !arrived && !commit && rowMove
@@ -413,6 +416,7 @@ export function ChartWaypointContent({
         key={rowMove.id}
         accent={accent}
         move={rowMove}
+        firstBatchMoveCompleted={firstBatchMove?.status === 'COMPLETED'}
         waypointTitle={moveWaypointTitle}
         waypointCriteria={view.waypoints.find((item) => item.id === rowMove.waypointId)?.completionCriteria ?? null}
         checked={Boolean(retainedCompletedMove) || rowMove.status === 'COMPLETED'}

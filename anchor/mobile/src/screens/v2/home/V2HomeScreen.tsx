@@ -126,6 +126,7 @@ export function V2HomeScreen() {
   const celebrationActive = useCelebrationActive();
   const hasCompletedPractice = useSessionStore(state => state.sessionLog.length > 0);
   const todayTeachingRef = useRef<ViewInstance>(null);
+  const anchorTeachingRef = useRef<ViewInstance>(null);
   const [teachingTargetRevision, setTeachingTargetRevision] = useState(0);
   const onTeachingTargetLayout = useCallback(() => setTeachingTargetRevision(value => value + 1), []);
   const progressTeachingRef = useRef<ViewInstance>(null);
@@ -516,13 +517,15 @@ export function V2HomeScreen() {
       const destination = resolveAnchorDetailsHeroGeometry({
         width: windowWidth, height: windowHeight, topInset: insets.top, platform: Platform.OS,
       }).rect;
+      const confirmGuidance = beginGuidanceAction(teachingAccountId ?? 'guest', 'home.open_anchor', 'target:anchor');
       const accepted = focusTransition.openAnchor(anchor, source ?? { x: NaN, y: NaN, width: 0, height: 0 }, destination, () => {
         VisualProfiler.record('detailsNavigationStart', { anchorId });
         navigation.navigate('V2AnchorDetails', { anchorId });
       });
+      confirmGuidance(Boolean(accepted));
       if (accepted) track('v2_anchor_details_viewed', { from: 'home' });
     },
-    [focusTransition, insets.top, model.anchorList, navigation, windowHeight, windowWidth],
+    [focusTransition, insets.top, model.anchorList, navigation, teachingAccountId, windowHeight, windowWidth],
   );
 
   const handleOpenProgress = useCallback(
@@ -690,6 +693,7 @@ export function V2HomeScreen() {
             <V2HomeHero
               testID="v2-home-hero"
               teachingThreadRef={threadTeachingRef}
+              teachingAnchorRef={anchorTeachingRef}
               anchors={model.anchorList}
               selectedIndex={model.selectedIndex}
               thread={model.thread}
@@ -773,7 +777,7 @@ export function V2HomeScreen() {
       </GestureDetector>
 
       <ScreenTeaching screen="home" queue={teachingQueue} reducedMotion={reduceMotion} targets={{
-        'home.today': { getRect: () => getTeachingRect(todayTeachingRef) }, 'home.progress': { getRect: () => getTeachingRect(progressTeachingRef) },
+        'home.today': { getRect: () => getTeachingRect(todayTeachingRef) }, 'home.anchor': { getRect: () => getTeachingRect(anchorTeachingRef) }, 'home.progress': { getRect: () => getTeachingRect(progressTeachingRef) },
         'home.vision': { getRect: () => getTeachingRect(visionTeachingRef) }, 'home.chart': { getRect: () => getTeachingRect(chartTeachingRef) },
         'home.thread': { getRect: () => getTeachingRect(threadTeachingRef) },
       }} />

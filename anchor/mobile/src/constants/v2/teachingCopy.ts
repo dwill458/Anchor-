@@ -5,6 +5,7 @@ export const TEACHING_COPY = {
   beats: {
     'home.today': { title: 'Start here each day.', body: 'Today suggests one meaningful action to help you move forward with your Anchor.' },
     'home.progress': { title: 'Your progress starts here.', body: 'Every practice builds your Thread Strength, and it fades slowly if you stop. Tap to see your full progress.' },
+    'home.anchor': { title: 'Tap your Anchor.', body: 'Open it to add a Vision or build a Chart. Home changes as you use them.' },
     'home.vision': { title: 'Keep your future in sight.', body: "Your Vision gives the future you're working toward a picture. Return to it whenever you need to remember where you're headed." },
     'home.chart': { title: 'Turn your vision into movement.', body: "Your Chart breaks a big goal into smaller milestones. See where you are, what's next, and how far you've come." },
     'home.thread': { title: 'Your progress lives here now.', body: "Your Vision has taken the Progress card's place on Home. Tap Thread Strength any time to see your full progress." },

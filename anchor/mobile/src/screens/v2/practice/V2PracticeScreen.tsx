@@ -341,6 +341,17 @@ export function V2PracticeScreen({
   /** Hub -> setup. The ACTIVE ANCHOR mark travels to where setup shows it. */
   const openModeFromHub = (mode: V2PracticeMode, source: 'practice_hub' | 'recommended_today') => {
     if (!fixedAnchor) return;
+    if (!effectiveCapabilities[mode]) {
+      if (mode === 'deep_prime' || mode === 'visualize') {
+        onPremiumCapabilityRequired?.({
+          capability: mode,
+          anchorId: fixedAnchor.id,
+          source,
+          durationSeconds: mode === 'visualize' ? 600 : 300,
+        });
+        return;
+      }
+    }
     // Visualize setup is led by the person's Vision and carries no Anchor flight of its own.
     if (!transition || mode === 'visualize') {
       selectMode(mode, source);
@@ -461,8 +472,17 @@ export function V2PracticeScreen({
     if (initialModeConsumedRef.current) return;
     if (model.loadingRecommendation || !initialMode || !fixedAnchor || prepareMode || activeSession) return;
     initialModeConsumedRef.current = true;
+    if (!effectiveCapabilities[initialMode] && (initialMode === 'deep_prime' || initialMode === 'visualize')) {
+      onPremiumCapabilityRequired?.({
+        capability: initialMode,
+        anchorId: fixedAnchor.id,
+        source: 'recommended_today',
+        durationSeconds: initialMode === 'visualize' ? 600 : 300,
+      });
+      return;
+    }
     selectMode(initialMode, 'recommended_today');
-  }, [activeSession, fixedAnchor?.id, initialMode, model.loadingRecommendation, prepareMode]);
+  }, [activeSession, effectiveCapabilities, fixedAnchor?.id, initialMode, model.loadingRecommendation, onPremiumCapabilityRequired, prepareMode]);
 
   if (!fixedAnchor) {
     return (
@@ -526,14 +546,6 @@ export function V2PracticeScreen({
               focusEntryAnchorSize: config.anchorSize,
             });
           }}
-          onPremiumRequired={onPremiumCapabilityRequired ? (intent) => {
-            onPremiumCapabilityRequired({
-              capability: 'focus',
-              anchorId: intent.anchorId,
-              source: intent.source,
-              durationSeconds: intent.durationSeconds,
-            });
-          } : undefined}
         />
         </PracticeLayer>
         </AnchorTransitionScene>

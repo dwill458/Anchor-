@@ -290,7 +290,7 @@ describe('V2ChartScreen — no Chart', () => {
 
     fireEvent.press(screen.getByTestId('chart-create-cta'));
     expect(await screen.findByTestId('chart-ask')).toBeTruthy();
-    expect(screen.getByText('Ask Chart')).toBeTruthy();
+    expect(screen.getByText('Ask Anchor')).toBeTruthy();
     // No standalone starting-photo screen, no written-question screen, no photo requirement.
     expect(screen.queryByTestId('chart-context-step')).toBeNull();
     expect(screen.queryByTestId('chart-starting-context')).toBeNull();

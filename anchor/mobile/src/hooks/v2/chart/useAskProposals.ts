@@ -1,7 +1,10 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useRef, useState } from 'react';
 import { askChartApi, type AskAction } from '@/services/v2/askChartApi';
 import { classifyChartError } from '@/services/v2/chartV2Api';
 import { trackChart } from '@/hooks/v2/chart/useAnchorChart';
+import { setChatAppliedBatch } from './chatAppliedBatch';
+import { useAuthStore } from '@/stores/authStore';
+import { refreshChartAfterProposal } from '@/hooks/v2/chart/useAnchorChart';
 import type { CourseDetail } from '@/types/chart';
 import type { AskUiMessage } from './askChartState';
 
@@ -20,6 +23,8 @@ type Options = {
   onMovesApplied: (result: { added: number; waypointTitle: string | null; titles: string[] }) => void;
   /** A route revision is reviewed and applied on the existing route-review screen. */
   onReviewRoute: (message: AskUiMessage & { action: AskAction }) => void;
+  onConflict?: () => void;
+  anchorId?: string;
   api?: Api;
 };
 
@@ -27,7 +32,8 @@ type Options = {
  * Approving, dismissing and reviewing what Ask Chart proposes. The only thing sent to the server is the person's
  * decision: it applies exactly what it stored. Nothing is shown as saved until the server confirms it.
  */
-export function useAskProposals({ courseId, commitChart, markAction, onMovesApplied, onReviewRoute, api = askChartApi }: Options) {
+export function useAskProposals({ courseId, commitChart, markAction, onMovesApplied, onReviewRoute, onConflict, anchorId, api = askChartApi }: Options) {
+  const locks = useRef(new Set<string>());
   const [busy, setBusy] = useState<Record<string, ProposalBusy>>({});
   const [failures, setFailures] = useState<Record<string, ProposalFailure>>({});
 
@@ -43,29 +49,42 @@ export function useAskProposals({ courseId, commitChart, markAction, onMovesAppl
   const approve = useCallback(
     async (message: AskUiMessage) => {
       const action = message.action;
-      if (!courseId || !action || action.type !== 'ADD_MOVES' || busy[message.id]) return;
+      if (!courseId || !action || action.type !== 'ADD_MOVES' || locks.current.has(message.id)) return;
+      locks.current.add(message.id);
       setOne<ProposalBusy>(setBusy, message.id, 'approving');
       setOne<ProposalFailure>(setFailures, message.id, null);
       try {
         const result = await api.approve(courseId, message.id);
+        const first = result.chart.moves?.filter(move => move.batchId === result.batchId).sort((a, b) => a.position - b.position)[0];
+        if (result.batchId && first) setChatAppliedBatch({ accountId: useAuthStore.getState().user?.id ?? null, courseId, batchId: result.batchId, firstMoveId: first.id });
         markAction(message.id, 'APPLIED');
+        trackChart('chat_proposal_applied', { moves: result.added });
         trackChart('ask_chart_proposal_applied', { type: action.type, moves: result.added });
         onMovesApplied({ added: result.added, waypointTitle: action.waypointTitle, titles: action.moves.map(move => move.title) });
       } catch (caught) {
         const error = classifyChartError(caught);
+        if (error.code === 'SYNC_CONFLICT') {
+          trackChart('chat_proposal_conflict');
+          trackChart('ask_chart_proposal_failed', { kind: error.kind, stale: false });
+          try { await refreshChartAfterProposal(courseId, anchorId); } catch { /* return to Chart even if offline */ }
+          onConflict?.();
+          return;
+        }
         const stale = error.code === 'PROPOSAL_STALE' || error.code === 'PROPOSAL_UNAVAILABLE';
         setOne<ProposalFailure>(setFailures, message.id, stale ? 'stale' : error.kind === 'offline' ? 'offline' : 'failed');
         trackChart('ask_chart_proposal_failed', { kind: error.kind, stale });
       } finally {
+        locks.current.delete(message.id);
         setOne<ProposalBusy>(setBusy, message.id, null);
       }
     },
-    [api, busy, commitChart, courseId, markAction, onMovesApplied, setOne]
+    [api, commitChart, courseId, markAction, onMovesApplied, onConflict, anchorId, setOne]
   );
 
   const dismiss = useCallback(
     async (message: AskUiMessage) => {
-      if (!courseId || !message.action || busy[message.id]) return;
+      if (!courseId || !message.action || locks.current.has(message.id)) return;
+      locks.current.add(message.id);
       setOne<ProposalBusy>(setBusy, message.id, 'dismissing');
       try {
         await api.dismiss(courseId, message.id);
@@ -74,10 +93,11 @@ export function useAskProposals({ courseId, commitChart, markAction, onMovesAppl
       } catch {
         setOne<ProposalFailure>(setFailures, message.id, 'failed');
       } finally {
+        locks.current.delete(message.id);
         setOne<ProposalBusy>(setBusy, message.id, null);
       }
     },
-    [api, busy, courseId, markAction, setOne]
+    [api, courseId, markAction, setOne]
   );
 
   const review = useCallback(
