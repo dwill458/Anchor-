@@ -57,6 +57,7 @@ import { ChartConfirmSheet } from './panel/ChartConfirmSheet';
 import { ChartReachBeat } from './ChartReachBeat';
 import { useChartSound } from './useChartSound';
 import { useMilestonePresentationHold } from '@/hooks/v2/milestones/useMilestonePresentationHold';
+import { AnalyticsEvents, AnalyticsService } from '@/services/AnalyticsService';
 
 export type ChartVisionPreview = { imageUrl: string | null; description: string | null; title: string | null };
 
@@ -334,6 +335,14 @@ export function ChartActiveView({
   const celebrationActive = useCelebrationActive();
   const [teachingViewportRevision, setTeachingViewportRevision] = useState(0);
   const [openingFinished, setOpeningFinished] = useState(false);
+  const trackedOneMoveIdRef = useRef<string | null>(null);
+  useEffect(() => {
+    const moveId = view.oneMove?.id ?? null;
+    if (moveId && trackedOneMoveIdRef.current !== moveId) {
+      trackedOneMoveIdRef.current = moveId;
+      AnalyticsService.track(AnalyticsEvents.ONE_MOVE_OPENED, { course_id: view.courseId, waypoint_id: view.oneMove?.waypointId ?? undefined, has_one_move: true });
+    }
+  }, [view.courseId, view.oneMove?.id, view.oneMove?.waypointId]);
   const oneMoveRowRef = useRef<ViewInstance>(null);
   const oneMoveCircleRef = useRef<ViewInstance>(null);
   const oneMoveBodyRef = useRef<ViewInstance>(null);

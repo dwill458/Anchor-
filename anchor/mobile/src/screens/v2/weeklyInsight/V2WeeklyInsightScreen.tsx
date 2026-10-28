@@ -35,6 +35,7 @@ import type {
   WeeklyInsightFeedbackRating,
 } from '@/constants/v2/weeklyInsightRoutes';
 import { useWeeklyInsight } from '@/hooks/v2/weeklyInsight';
+import { AnalyticsEvents, AnalyticsService } from '@/services/AnalyticsService';
 import { ArrivalScope, ContentSwap, Reveal } from '@/components/v2/motion';
 import {
   WeeklyActivityDisclosure,
@@ -113,6 +114,15 @@ export const V2WeeklyInsightScreen: React.FC<V2WeeklyInsightScreenProps> = ({
   useEffect(() => {
     if (snapshot) arrived.current = true;
   }, [snapshot]);
+  useEffect(() => {
+    AnalyticsService.track(AnalyticsEvents.WEEKLY_INSIGHT_OPENED, {
+      surface: 'v2_weekly_insight',
+      week_offset: weekOffset,
+      has_snapshot_id: Boolean(snapshotId),
+      has_anchor_id: Boolean(anchorId),
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const toastOpacity = useRef(new Animated.Value(0)).current;
   const toastTimeoutRef = useRef<NodeJS.Timeout | null>(null);

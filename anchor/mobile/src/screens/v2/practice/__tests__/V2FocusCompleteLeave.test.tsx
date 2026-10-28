@@ -101,7 +101,7 @@ describe('V2FocusCompleteScreen: Complete to Home (leaving)', () => {
     fireEvent.press(screen.getByTestId('focus-complete-done-button'));
     advance(400);
     expect(screen.getByTestId('focus-complete-new-value')).toBeTruthy();
-    expect(screen.getByTestId('focus-complete-new-value').props.children).toEqual([52, '%']);
+    expect(screen.getByTestId('focus-complete-new-value').props.children).toEqual(['52', '%']);
   });
 
   it('plays no sound and no haptic for Continue', () => {

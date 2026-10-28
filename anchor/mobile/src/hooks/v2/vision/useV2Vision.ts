@@ -582,8 +582,12 @@ export function useV2Vision(anchorId: string): UseV2VisionResult {
           input,
         );
         // Generated selection is recorded on the ceremony's Choose tap, before Seal.
-        if (input.sourceType !== 'AI_GENERATED') AnalyticsService.track('vision_image_selected', { vision_id: vision.id, asset_id: input.assetId, source_type: input.sourceType });
-        return await reloadAfterMutation();
+        if (input.sourceType !== 'AI_GENERATED') {
+          AnalyticsService.track('vision_image_selected', { vision_id: vision.id, asset_id: input.assetId, source_type: input.sourceType });
+          AnalyticsService.track('vision_photo_added', { anchor_id: anchorId, vision_id: vision.id, asset_id: input.assetId, source_type: input.sourceType });
+        }
+        const latest = await reloadAfterMutation();
+        return latest;
       } catch (err: unknown) {
         const message = err instanceof Error ? err.message : 'Failed to add scene';
         setError(message);

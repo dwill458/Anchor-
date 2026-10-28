@@ -30,7 +30,9 @@ import {
   extractStreamingReply,
   normalizeAskTurn,
   type AskTurn,
+  type AskTurnAction,
 } from './askChartSchema';
+import { routeTitlesMatch } from './askChartScope';
 import { loadAskContext, type AskContext } from './askChartContext';
 import { buildAskUserMessage } from './askChartPrompt';
 import {
@@ -225,6 +227,46 @@ export class AskChartService {
     return images;
   }
 
+  /** Validates moves against the real waypoint: unknown or reached waypoints and moves already there are dropped. */
+  private resolveMoveAction(
+    chart: NonNullable<AskContext['chart']>,
+    waypointId: string | null,
+    moves: AskTurnAction['moves'],
+    summary: string
+  ): { action: AskActionDTO | null; unavailable: boolean } {
+    const waypoint =
+      chart.waypoints.find(item => item.id === (waypointId ?? chart.currentWaypointId)) ?? null;
+    if (!waypoint || waypoint.state === 'REACHED') return { action: null, unavailable: true };
+    const existing = new Set(waypoint.moves.map(move => normalizeTitle(move.title)));
+    const fresh = moves.filter(move => {
+      const key = normalizeTitle(move.title);
+      if (!key || existing.has(key)) return false;
+      existing.add(key);
+      return true;
+    });
+    if (fresh.length === 0) return { action: null, unavailable: false };
+    return {
+      action: {
+        type: 'ADD_MOVES',
+        scope: 'MOVE',
+        routeReason: null,
+        status: 'PENDING',
+        summary:
+          summary ||
+          `Add ${fresh.length === 1 ? 'a move' : `${fresh.length} moves`} to ${waypoint.title}`,
+        waypointId: waypoint.id,
+        waypointTitle: waypoint.title,
+        moves: fresh,
+        reason: null,
+        detail: null,
+        routeProposalId: null,
+        routeTitles: null,
+        baseCourseVersion: chart.version,
+      },
+      unavailable: false,
+    };
+  }
+
   /**
    * Checks a proposed action against the real Chart. Returns null for anything the Chart cannot support;
    * ids the model made up, finished waypoints and moves the person already has are all dropped here.
@@ -242,38 +284,20 @@ export class AskChartService {
     if (!proposed || !chart) return { action: null, unavailable: false };
 
     if (proposed.type === 'ADD_MOVES') {
-      const waypoint =
-        chart.waypoints.find(
-          item => item.id === (proposed.waypointId ?? chart.currentWaypointId)
-        ) ?? null;
-      if (!waypoint || waypoint.state === 'REACHED') return { action: null, unavailable: true };
-      const existing = new Set(waypoint.moves.map(move => normalizeTitle(move.title)));
-      const fresh = proposed.moves.filter(move => {
-        const key = normalizeTitle(move.title);
-        if (!key || existing.has(key)) return false;
-        existing.add(key);
-        return true;
-      });
-      if (fresh.length === 0) return { action: null, unavailable: false };
-      return {
-        action: {
-          type: 'ADD_MOVES',
-          status: 'PENDING',
-          summary:
-            proposed.summary ||
-            `Add ${fresh.length === 1 ? 'a move' : `${fresh.length} moves`} to ${waypoint.title}`,
-          waypointId: waypoint.id,
-          waypointTitle: waypoint.title,
-          moves: fresh,
-          reason: null,
-          detail: null,
-          routeProposalId: null,
-          routeTitles: null,
-          baseCourseVersion: chart.version,
-        },
-        unavailable: false,
-      };
+      return this.resolveMoveAction(chart, proposed.waypointId, proposed.moves, proposed.summary);
     }
+
+    // A route change is only worth a card when it really changes the route and says why. Otherwise the move-level
+    // edit that came back in the same response is offered, so no second model call is needed.
+    const moveFallback = () =>
+      proposed.moveEdit
+        ? this.resolveMoveAction(
+            chart,
+            null,
+            [{ title: proposed.moveEdit.title, rationale: proposed.moveEdit.detail, detail: proposed.moveEdit.detail }],
+            proposed.summary
+          )
+        : null;
 
     // REVISE_ROUTE: build a real revision with the existing planner. A template result is not a personalised
     // revision, so it is never offered as one.
@@ -290,9 +314,26 @@ export class AskChartService {
         return { action: null, unavailable: true };
       }
       const { proposal } = response;
+      // Waypoints already reached are history and never part of a proposal. A proposal that matches what
+      // the route already has (same titles, same order) is not a change, so no card is offered for it.
+      const reachedTitles = new Set(
+        chart.waypoints.filter(item => item.state === 'REACHED').map(item => normalizeTitle(item.title))
+      );
+      const proposedTitles = proposal.waypoints
+        .map(waypoint => waypoint.title)
+        .filter(title => !reachedTitles.has(normalizeTitle(title)));
+      const currentTitles = chart.waypoints
+        .filter(item => item.state !== 'REACHED')
+        .map(item => item.title);
+      if (routeTitlesMatch(currentTitles, proposedTitles)) return moveFallback() ?? { action: null, unavailable: false };
+      // Every route change card states why. Without a reason it is not shown.
+      const routeReason = proposed.routeReason || proposed.detail;
+      if (!routeReason) return moveFallback() ?? { action: null, unavailable: true };
       return {
         action: {
           type: 'REVISE_ROUTE',
+          scope: proposed.scope,
+          routeReason,
           status: 'PENDING',
           summary: proposed.summary || 'Adjust your route',
           waypointId: null,
@@ -301,7 +342,7 @@ export class AskChartService {
           reason: proposed.reason ?? 'OTHER',
           detail: proposed.detail,
           routeProposalId: proposal.proposalId,
-          routeTitles: proposal.waypoints.map(waypoint => waypoint.title),
+          routeTitles: proposedTitles,
           baseCourseVersion: proposal.baseCourseVersion,
         },
         unavailable: false,

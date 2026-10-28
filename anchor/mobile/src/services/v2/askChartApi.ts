@@ -27,6 +27,10 @@ export type AskActionStatus = 'PENDING' | 'APPLIED' | 'DISMISSED';
 
 export type AskAction = {
   type: 'ADD_MOVES' | 'REVISE_ROUTE';
+  /** The smallest level the change works at. The card shown depends on it. */
+  scope?: 'MOVE' | 'WAYPOINT' | 'ROUTE';
+  /** One line on why a route change is needed. */
+  routeReason?: string | null;
   status: AskActionStatus;
   summary: string;
   waypointId: string | null;

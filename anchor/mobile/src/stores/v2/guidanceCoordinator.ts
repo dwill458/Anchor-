@@ -1,4 +1,5 @@
 import type { GuidanceDefinition, GuidanceId } from '@/constants/v2/guidanceRegistry';
+import { AnalyticsEvents, AnalyticsService } from '@/services/AnalyticsService';
 
 export const DISPLAY_DWELL_MS = 1000;
 export const PRESENT_WINDOW_MS = 1500;
@@ -162,6 +163,7 @@ export function createGuidanceCoordinator(registry: readonly GuidanceDefinition[
         record.displayCount++;
         record.firstDisplayedAt ??= new Date().toISOString();
         record.lastDisplayedAt = new Date().toISOString();
+        AnalyticsService.track(AnalyticsEvents.TEACHING_SHOWN, { teaching_id: presentation.id, surface: def.surface, host_key: presentation.hostKey, display_count: record.displayCount });
         persist();
       }, DISPLAY_DWELL_MS);
     },
@@ -171,7 +173,14 @@ export function createGuidanceCoordinator(registry: readonly GuidanceDefinition[
     },
     finish: (token: string, outcome: GuidanceOutcome, detail?: string) => {
       if (active?.token !== token || !visible || locks.size || !foreground) return;
+      const finishedId = active.id;
+      const finishedHost = active.hostKey;
       Object.assign(rec(active.id), { outcome, outcomeAt: new Date().toISOString(), outcomeDetail: detail });
+      if (outcome === 'dismissed' || outcome === 'acknowledged') {
+        AnalyticsService.track(AnalyticsEvents.TEACHING_DISMISSED, { teaching_id: finishedId, host_key: finishedHost, outcome, detail });
+      } else if (outcome === 'action_performed') {
+        AnalyticsService.track(AnalyticsEvents.TEACHING_ACTION_TAKEN, { teaching_id: finishedId, host_key: finishedHost, detail });
+      }
       persist(); hide(false); schedule();
     },
     startAction: (token: string, detail: string) => {
@@ -184,6 +193,7 @@ export function createGuidanceCoordinator(registry: readonly GuidanceDefinition[
         // The captured record identity prevents account/replay races.
         Object.assign(record, { outcome: 'action_performed', outcomeAt: new Date().toISOString(), outcomeDetail: detail });
         data.discovery[origin.id] = new Date().toISOString();
+        AnalyticsService.track(AnalyticsEvents.TEACHING_ACTION_TAKEN, { teaching_id: origin.id, host_key: origin.hostKey, detail });
         persist(); if (active?.token === token) hide(false); schedule();
       };
     },

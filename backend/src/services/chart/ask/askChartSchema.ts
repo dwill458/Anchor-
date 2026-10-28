@@ -10,6 +10,10 @@ export const MEMORY_KEYS = [
 ] as const;
 export type MemoryKey = (typeof MEMORY_KEYS)[number];
 
+/** The smallest level a fix works at: a move, then one waypoint, then the whole route. */
+export const ASK_SCOPES = ['MOVE', 'WAYPOINT', 'ROUTE'] as const;
+export type AskScope = (typeof ASK_SCOPES)[number];
+
 export const REVISE_REASONS = [
   'SMALLER_STEPS',
   'CHANGE_APPROACH',
@@ -54,9 +58,10 @@ export const ASK_TURN_JSON_SCHEMA = {
     action: {
       type: ['object', 'null'],
       additionalProperties: false,
-      required: ['type', 'waypointId', 'moves', 'reason', 'detail', 'summary'],
+      required: ['type', 'scope', 'waypointId', 'moves', 'moveEdit', 'reason', 'routeReason', 'detail', 'summary'],
       properties: {
         type: { type: 'string', enum: ['ADD_MOVES', 'REVISE_ROUTE'] },
+        scope: { type: 'string', enum: [...ASK_SCOPES] },
         waypointId: { type: ['string', 'null'] },
         moves: {
           type: 'array',
@@ -68,6 +73,14 @@ export const ASK_TURN_JSON_SCHEMA = {
           },
         },
         reason: { type: ['string', 'null'], enum: [...REVISE_REASONS, null] },
+        routeReason: { type: ['string', 'null'] },
+        // The move-level fix for the same ask. Sent with every route change so a dropped route card still leaves a move edit.
+        moveEdit: {
+          type: ['object', 'null'],
+          additionalProperties: false,
+          required: ['title', 'detail'],
+          properties: { title: { type: 'string' }, detail: { type: ['string', 'null'] } },
+        },
         detail: { type: ['string', 'null'] },
         summary: { type: 'string' },
       },
@@ -94,9 +107,12 @@ const RawTurn = z.object({
   action: z
     .object({
       type: z.enum(['ADD_MOVES', 'REVISE_ROUTE']),
+      scope: z.enum(ASK_SCOPES).nullish(),
       waypointId: z.string().nullish(),
       moves: z.array(z.object({ title: text(120), detail: text(280).nullish(), rationale: text(280).nullish() })).max(5).default([]),
       reason: z.enum(REVISE_REASONS).nullish(),
+      routeReason: text(160).nullish(),
+      moveEdit: z.object({ title: text(120), detail: text(280).nullish() }).nullish(),
       detail: text(500).nullish(),
       summary: text(200),
     })
@@ -106,9 +122,15 @@ const RawTurn = z.object({
 
 export type AskTurnAction = {
   type: 'ADD_MOVES' | 'REVISE_ROUTE';
+  /** Always present after normalisation: a move edit is MOVE, a route revision is WAYPOINT or ROUTE. */
+  scope: AskScope;
   waypointId: string | null;
   moves: Array<{ title: string; rationale: string | null; detail?: string | null }>;
   reason: ReviseReason | null;
+  /** One line saying what new fact makes a route change necessary. */
+  routeReason: string | null;
+  /** A replacement or edited next move inside the current waypoint, offered when a route change is not needed. */
+  moveEdit: { title: string; detail: string | null } | null;
   detail: string | null;
   summary: string;
 };
@@ -134,6 +156,12 @@ export class AskTurnInvalidError extends Error {
 const NOT_SURE = /(not sure|unsure|don'?t know|no idea)/i;
 const NOT_SURE_REPLY = 'Not sure yet';
 
+/** A move edit can only be MOVE; a route revision is never MOVE. Missing scope means the widest level that type allows. */
+export function normalizeScope(type: 'ADD_MOVES' | 'REVISE_ROUTE', scope: AskScope | null | undefined): AskScope {
+  if (type === 'ADD_MOVES') return 'MOVE';
+  return scope === 'WAYPOINT' ? 'WAYPOINT' : 'ROUTE';
+}
+
 /** Validates and cleans a model response. Anything that cannot be made safe is rejected, never patched up. */
 export function normalizeAskTurn(raw: unknown): AskTurn {
   const parsed = RawTurn.safeParse(raw);
@@ -158,11 +186,14 @@ export function normalizeAskTurn(raw: unknown): AskTurn {
   const action = turn.action
     ? {
         type: turn.action.type,
+        scope: normalizeScope(turn.action.type, turn.action.scope),
         waypointId: turn.action.waypointId?.trim() || null,
         moves: turn.action.moves
           .filter(move => move.title)
           .map(move => ({ title: move.title, rationale: move.detail ?? move.rationale ?? null, ...(move.detail !== undefined ? { detail: move.detail ?? null } : {}) })),
         reason: turn.action.reason ?? null,
+        routeReason: turn.action.routeReason || null,
+        moveEdit: turn.action.moveEdit?.title ? { title: turn.action.moveEdit.title, detail: turn.action.moveEdit.detail || null } : null,
         detail: turn.action.detail || null,
         summary: turn.action.summary,
       }

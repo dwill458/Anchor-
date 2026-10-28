@@ -198,6 +198,19 @@ export function V2FocusCompleteScreen({
 
   const delta = hasAuthoritativeMovement ? Math.round((toVal - fromVal) * 100) / 100 : 0;
 
+  const needsDecimal =
+    delta > 0 &&
+    (Math.round(fromVal) === Math.round(toVal) ||
+      (!Number.isInteger(fromVal) && !Number.isInteger(toVal) && delta < 1));
+
+  const fromFormatted = needsDecimal
+    ? (Math.round(fromVal * 10) / 10).toFixed(1)
+    : String(Math.round(fromVal));
+
+  const toFormatted = needsDecimal
+    ? (Math.round(toVal * 10) / 10).toFixed(1)
+    : String(Math.round(toVal));
+
   // The Thread scene (first practice, repeat practice, or nothing) is decided and played by the shared hook.
   const scene = usePracticeCompletionScene({
     sessionId,
@@ -289,10 +302,10 @@ export function V2FocusCompleteScreen({
     }
     return {
       fromRect,
-      number: valueRect ? { text: `${toVal}%`, rect: valueRect } : null,
+      number: valueRect ? { text: `${toFormatted}%`, rect: valueRect } : null,
       glow: { color: categoryPalette.soft, opacity: glowOpacity, scale: (circle.width * ATMOSPHERE_SHARE) / side },
     };
-  }, [anchor.enhancedImageUrl, categoryPalette.soft, fromVal, scene.glowOpacity, scene.kind, showsNewValue, toVal]);
+  }, [anchor.enhancedImageUrl, categoryPalette.soft, fromFormatted, scene.glowOpacity, scene.kind, showsNewValue, toFormatted]);
 
   const handleContinue = useCallback(() => {
     setCompletionExited(true);
@@ -418,7 +431,7 @@ export function V2FocusCompleteScreen({
                     oldValueStyle,
                   ]}
                   >
-                    {fromVal}%
+                    {fromFormatted}%
                   </Animated.Text>
                   <Animated.View style={[styles.valuesRowTo, valueStyle]}>
                     <Animated.Text style={[styles.arrow, oldValueStyle]}>→</Animated.Text>
@@ -427,12 +440,12 @@ export function V2FocusCompleteScreen({
                       testID="focus-complete-new-value"
                       style={[styles.strengthValue, { color: colors.text.primary }]}
                     >
-                      {toVal}%
+                      {toFormatted}%
                     </Text>
                   </Animated.View>
                 </View>
               ) : (
-                <Animated.Text style={[styles.currentStrengthLabel, chromeStyle]}>{toVal}%</Animated.Text>
+                <Animated.Text style={[styles.currentStrengthLabel, chromeStyle]}>{toFormatted}%</Animated.Text>
               )}
 
               <Animated.View style={[styles.progressBarTrack, chromeStyle]}>
@@ -451,7 +464,7 @@ export function V2FocusCompleteScreen({
             <View style={styles.measuredCard}>
               <Animated.View style={[styles.threadHeader, chromeStyle]}>
                 <Text style={styles.threadTitle}>THREAD STRENGTH</Text>
-                <Text style={styles.currentStrengthLabel}>{toVal}%</Text>
+                <Text style={styles.currentStrengthLabel}>{toFormatted}%</Text>
               </Animated.View>
               <Animated.View style={[styles.progressBarTrack, chromeStyle]}>
                 <Animated.View

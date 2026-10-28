@@ -618,17 +618,40 @@ export const PaywallScreen: React.FC = () => {
     }
 
     try {
+      const isTrialStart = Boolean(purchaseStatus?.isInTrial || selectedPlan.trialEligible === true);
+      const transactionMeta = {
+        ...(typeof purchaseStatus?.isSandbox === 'boolean'
+          ? {
+              is_sandbox_purchase: purchaseStatus.isSandbox,
+              store_environment: purchaseStatus.isSandbox ? 'sandbox' : 'production',
+            }
+          : {}),
+        ...(purchaseStatus?.store ? { store: purchaseStatus.store } : {}),
+      };
       AnalyticsService.track('paywall_converted', {
         source,
         plan: selectedPlanId,
         productId: packageId,
+        outcome: isTrialStart ? 'trial_started' : 'purchased',
+        ...transactionMeta,
       });
-      // Canonical trial-funnel exit (mirrors paywall_converted with trial context).
-      AnalyticsService.track(AnalyticsEvents.TRIAL_CONVERTED, {
-        source,
-        plan: selectedPlanId,
-        productId: packageId,
-      });
+      if (isTrialStart) {
+        AnalyticsService.track(AnalyticsEvents.TRIAL_STARTED, {
+          source,
+          plan: selectedPlanId,
+          productId: packageId,
+          outcome: 'trial_started',
+          ...transactionMeta,
+        });
+      } else {
+        AnalyticsService.track(AnalyticsEvents.TRIAL_CONVERTED, {
+          source,
+          plan: selectedPlanId,
+          productId: packageId,
+          outcome: 'purchased',
+          ...transactionMeta,
+        });
+      }
       FrictionAnalytics.completeFlow('paywall', {
         source,
         plan: selectedPlanId,

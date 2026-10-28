@@ -1,6 +1,6 @@
-import type { TextInputInstance } from 'react-native';
+import type { ScrollViewInstance, TextInputInstance } from 'react-native';
 
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Image,
@@ -22,6 +22,7 @@ import Animated, {
   FadeInDown,
   FadeOut,
   interpolate,
+  useAnimatedKeyboard,
   useAnimatedStyle,
   useSharedValue,
   withDelay,
@@ -45,6 +46,7 @@ import { colors, typography } from '@/theme/v2';
 import type { User } from '@/types';
 import { GoogleIcon, AppleIcon } from '@/screens/v2/auth/components/AuthSocialIcons';
 import { OnboardingAnalytics, type AuthMode, type AuthMethod, type ValidationCode } from '@/services/v2/onboardingAnalytics';
+import { AnalyticsEvents, AnalyticsService } from '@/services/AnalyticsService';
 import { playCreationSound } from '@/services/CreationSounds';
 
 type Mode = 'signin' | 'create';
@@ -137,6 +139,9 @@ export function V2SealedSaveScreen({ onAccountReady, onContinueWithout, onContin
   const [requiresSubscription, setRequiresSubscription] = useState(false);
   const [showPaywall, setShowPaywall] = useState(false);
   const passwordRef = useRef<TextInputInstance>(null);
+  const scrollViewRef = useRef<ScrollViewInstance>(null);
+  const keyboard = useAnimatedKeyboard();
+  const fallbackHeight = useSharedValue(0);
   const retryAttemptRef = useRef(0);
   const sealedSoundPlayedRef = useRef(false);
 
@@ -158,7 +163,15 @@ export function V2SealedSaveScreen({ onAccountReady, onContinueWithout, onContin
     if (!anchor || sealedSoundPlayedRef.current) return;
     sealedSoundPlayedRef.current = true;
     playCreationSound('onboardingSealed');
-  }, [anchor]);
+    if (!initialSaved && !activeUser) {
+      AnalyticsService.track?.(
+        AnalyticsEvents?.ACCOUNT_SAVE_PROMPT_VIEWED ?? 'account_save_prompt_viewed',
+        {
+          entry_point: 'sealed_save_screen',
+        }
+      );
+    }
+  }, [activeUser, anchor, initialSaved]);
 
   useEffect(() => {
     let mounted = true;
@@ -344,11 +357,51 @@ export function V2SealedSaveScreen({ onAccountReady, onContinueWithout, onContin
     }
   };
 
+  const scrollToEmailPanel = useCallback(() => {
+    if (!emailOpen) return;
+    scrollViewRef.current?.scrollToEnd({ animated: !reduceMotion });
+  }, [emailOpen, reduceMotion]);
+
+  useEffect(() => {
+    const handleShow = (event?: { endCoordinates?: { height?: number } }) => {
+      const h = event?.endCoordinates?.height ?? 0;
+      fallbackHeight.value = keyboard.height.value === 0 ? h : 0;
+      scrollToEmailPanel();
+    };
+    const handleHide = () => {
+      fallbackHeight.value = 0;
+    };
+
+    const showSub = Keyboard.addListener('keyboardDidShow', handleShow);
+    const willShowSub = Platform.OS === 'ios' ? Keyboard.addListener('keyboardWillShow', handleShow) : null;
+    const hideSub = Keyboard.addListener('keyboardDidHide', handleHide);
+    const willHideSub = Platform.OS === 'ios' ? Keyboard.addListener('keyboardWillHide', handleHide) : null;
+
+    return () => {
+      showSub.remove();
+      willShowSub?.remove();
+      hideSub.remove();
+      willHideSub?.remove();
+    };
+  }, [keyboard.height, fallbackHeight, scrollToEmailPanel]);
+
+  const keyboardSpacerStyle = useAnimatedStyle(() => ({
+    height: Math.max(keyboard.height.value || fallbackHeight.value, 0),
+  }));
+
   const toggleEmail = (open: boolean, nextMode?: Mode) => {
     setError(null);
+    if (!open) {
+      Keyboard.dismiss();
+    }
     if (nextMode) setMode(nextMode);
     if (open && !emailOpen) OnboardingAnalytics.auth.emailFormOpened('onboarding_save', (nextMode ?? mode) as AuthMode);
     setEmailOpen(open);
+    if (open) {
+      setTimeout(() => {
+        scrollViewRef.current?.scrollToEnd({ animated: !reduceMotion });
+      }, 100);
+    }
   };
 
   const enter = (delay: number) => (reduceMotion ? undefined : FadeInDown.delay(delay).duration(320));
@@ -367,9 +420,11 @@ export function V2SealedSaveScreen({ onAccountReady, onContinueWithout, onContin
       </View>
 
       <ScrollView
+        ref={scrollViewRef}
+        style={styles.flex}
         contentContainerStyle={[styles.content, { paddingTop: coinTop, paddingBottom: Math.max(insets.bottom, 16) + 24 }]}
         keyboardShouldPersistTaps="handled"
-        keyboardDismissMode="interactive"
+        keyboardDismissMode={Platform.OS === 'ios' ? 'interactive' : 'on-drag'}
         showsVerticalScrollIndicator={false}
         bounces={false}
       >
@@ -540,6 +595,7 @@ export function V2SealedSaveScreen({ onAccountReady, onContinueWithout, onContin
                       accessibilityLabel="Email"
                       value={email}
                       onChangeText={(value) => { setEmail(value); setError(null); }}
+                      onFocus={scrollToEmailPanel}
                       placeholder="you@example.com"
                       placeholderTextColor="#9A958C"
                       keyboardType="email-address"
@@ -558,6 +614,7 @@ export function V2SealedSaveScreen({ onAccountReady, onContinueWithout, onContin
                         accessibilityLabel="Password"
                         value={password}
                         onChangeText={(value) => { setPassword(value); setError(null); }}
+                        onFocus={scrollToEmailPanel}
                         placeholder={mode === 'create' ? 'Create a password' : 'Your password'}
                         placeholderTextColor="#9A958C"
                         secureTextEntry={!passwordVisible}
@@ -644,6 +701,8 @@ export function V2SealedSaveScreen({ onAccountReady, onContinueWithout, onContin
         )}
       </ScrollView>
 
+      <Animated.View style={keyboardSpacerStyle} />
+
       {!confirmed ? (
         <Pressable
           accessibilityRole="button"
@@ -671,6 +730,7 @@ export function V2SealedSaveScreen({ onAccountReady, onContinueWithout, onContin
 
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: colors.canvas },
+  flex: { flex: 1 },
   paywallContainer: { zIndex: 100, backgroundColor: colors.canvas },
   landscape: { position: 'absolute', left: 0, right: 0, bottom: 0, opacity: 0.85 },
   content: { flexGrow: 1, paddingHorizontal: 24, alignItems: 'stretch' },

@@ -27,6 +27,8 @@ import {
   getCompletionTimeContext,
   PRACTICE_SESSION_SCHEMA_VERSION,
 } from '@/utils/practiceTime';
+import { calculateOptimisticPracticeGain } from '@/utils/threadStrength';
+import { invalidateV2RecommendationContext } from '@/adapters/v2/practice/recommendationCache';
 
 const queueKey = (accountId: string) =>
   `anchor:practice-write-queue:${accountId}`;
@@ -180,6 +182,73 @@ export const PracticeCompletionService = {
     }
 
     const record = buildRecord(input);
+
+    const targetAnchorId = input.anchorId || input.anchorLocalId || input.anchorServerId;
+    const targetAnchor = targetAnchorId
+      ? useAnchorStore
+          .getState()
+          .anchors.find(
+            (a) => a.id === targetAnchorId || a.localId === targetAnchorId
+          )
+      : null;
+
+    if (targetAnchorId) {
+      const history = useSessionStore.getState().practiceHistory;
+      const anchorHistory = history.filter(
+        (s) =>
+          (s.anchorId === targetAnchorId ||
+            s.anchorLocalId === targetAnchorId ||
+            (targetAnchor &&
+              (s.anchorId === targetAnchor.id ||
+                s.anchorLocalId === targetAnchor.localId))) &&
+          s.id !== input.sessionId
+      );
+
+      const hadEarlierPractice =
+        (typeof targetAnchor?.threadStrength === 'number' &&
+          targetAnchor.threadStrength > 0) ||
+        anchorHistory.some(
+          (s) =>
+            s.practiceMode !== 'release' &&
+            (s.completionStatus === 'completed' ||
+              (s.completedDurationSeconds ?? 0) > 0)
+        );
+      const isFirstPracticeEver = !hadEarlierPractice;
+
+      const todaySessions = anchorHistory.filter(
+        (s) =>
+          s.localDateKey === record.localDateKey &&
+          s.practiceMode !== 'release' &&
+          (s.completionStatus === 'completed' ||
+            (s.completedDurationSeconds ?? 0) > 0)
+      );
+      const isFirstSessionToday = todaySessions.length === 0;
+      const priorEligibleSecondsToday = todaySessions.reduce(
+        (acc, s) => acc + (s.completedDurationSeconds ?? 0),
+        0
+      );
+
+      const gain = calculateOptimisticPracticeGain({
+        currentStrength: targetAnchor?.threadStrength,
+        practiceType: input.mode,
+        durationSeconds: record.completedDurationSeconds,
+        isFirstPracticeEver,
+        isFirstSessionToday,
+        priorEligibleSecondsToday,
+      });
+
+      record.threadStrengthBefore = gain.beforeStrength;
+      record.threadStrengthAfter = gain.afterStrength;
+      record.threadStrengthDelta = gain.delta;
+
+      if (input.mode !== 'release') {
+        useAnchorStore.getState().updateAnchor(targetAnchorId, {
+          threadStrength: gain.afterStrength,
+        });
+      }
+      invalidateV2RecommendationContext(targetAnchorId);
+    }
+
     const receipt = this.queueCanonicalCompletion(
       record,
       options.mirrorLegacySession === true,
@@ -195,13 +264,36 @@ export const PracticeCompletionService = {
     void NotificationCoordinator.recordPracticeCompleted(record);
     AnalyticsService.track('practice_session_completed', {
       mode: record.practiceMode,
+      practice_mode: record.practiceMode,
       source: record.completionSource,
       session_id: record.id,
       planned_duration_seconds: record.plannedDurationSeconds,
       actual_duration_seconds: record.completedDurationSeconds,
+      planned_duration_ms: record.plannedDurationSeconds * 1000,
+      actual_duration_ms: record.completedDurationSeconds * 1000,
+      completion_status: record.completionStatus,
+      strength_before: record.threadStrengthBefore,
+      strength_after: record.threadStrengthAfter,
+      strength_delta: record.threadStrengthDelta,
       local_date_key: record.localDateKey,
       sync_outcome: 'queued',
     });
+    if (
+      record.practiceMode !== 'release' &&
+      typeof record.threadStrengthBefore === 'number' &&
+      typeof record.threadStrengthAfter === 'number'
+    ) {
+      AnalyticsService.track('thread_strength_changed', {
+        anchor_id: targetAnchorId ?? undefined,
+        practice_mode: record.practiceMode,
+        session_id: record.id,
+        strength_before: record.threadStrengthBefore,
+        strength_after: record.threadStrengthAfter,
+        strength_delta:
+          record.threadStrengthDelta ??
+          record.threadStrengthAfter - record.threadStrengthBefore,
+      });
+    }
     return { record, duplicate: false };
   },
 
@@ -429,6 +521,7 @@ export const PracticeCompletionService = {
           useAnchorStore.getState().updateAnchor(targetAnchorId, {
             threadStrength,
           });
+          invalidateV2RecommendationContext(targetAnchorId);
         }
       } catch {
         if (!isCurrent()) return;

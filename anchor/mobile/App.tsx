@@ -53,6 +53,7 @@ import { ToastProvider } from './src/components/ToastProvider';
 import { V2DialogHost, V2DialogManager } from './src/components/v2';
 V2DialogManager.installAlertBridge();
 import { useAuthStore } from './src/stores/authStore';
+import { useSubscriptionStore } from './src/stores/subscriptionStore';
 import { useAnchorStore } from './src/stores/anchorStore';
 import { useFirstRunStore } from './src/stores/v2/firstRunStore';
 import { useSessionStore } from './src/stores/sessionStore';
@@ -553,6 +554,39 @@ export default function App() {
   }, []);
 
   useEffect(() => {
+    AnalyticsService.setContextProvider(() => {
+      const auth = useAuthStore.getState();
+      const sub = useSubscriptionStore.getState();
+      const anchors = useAnchorStore.getState().anchors;
+      const subscriptionTier = sub.isInTrial
+        ? "trial"
+        : sub.hasActiveEntitlement || sub.isSubscribed || sub.remoteCompedAccess
+          ? "pro"
+          : "free";
+      const accountState = auth.user?.id
+        ? "authenticated"
+        : auth.isGuest || anchors.length > 0 || Boolean(auth.pendingFirstAnchorDraft)
+          ? "guest_with_anchor"
+          : "anonymous";
+      return {
+        experience_version: anchorV2Enabled ? "2.0" : "1.5",
+        environment: (monitoringConfig.environment as "development" | "staging" | "production") ?? "development",
+        subscription_tier: subscriptionTier,
+        account_state: accountState,
+      };
+    });
+    const appStateSub = AppState.addEventListener("change", (nextState) => {
+      if (nextState === "background") {
+        AnalyticsService.flush();
+      }
+    });
+    return () => {
+      AnalyticsService.setContextProvider(null);
+      appStateSub.remove();
+    };
+  }, [anchorV2Enabled]);
+
+  useEffect(() => {
     if (!analyticsPreferenceHydrated) {
       return;
     }
@@ -572,8 +606,10 @@ export default function App() {
     }
 
     ErrorTrackingService.clearUser();
-    AnalyticsService.reset();
-    FrictionAnalytics.reset();
+    if (previousUserIdRef.current) {
+      AnalyticsService.reset({ forceReset: true, reason: 'logout' });
+      FrictionAnalytics.reset();
+    }
   }, [user?.displayName, user?.email, user?.id]);
 
   useEffect(() => {

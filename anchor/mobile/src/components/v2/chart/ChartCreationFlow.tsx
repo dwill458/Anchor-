@@ -506,6 +506,7 @@ export function ChartCreationFlow({
         setGenerationMarkers(markersFor(toDraft(response.proposal)));
         setRevised(true);
         trackChart('chart_route_adjusted', { reason, stage: 'review', hasDetail: Boolean(detail) });
+        trackChart('chart_adjustment_requested', { reason, stage: 'review', hasDetail: Boolean(detail) });
         setPhase('review');
       }
     } catch (caught) {
@@ -847,6 +848,7 @@ export function ChartCreationFlow({
           {showCourseReview ? (
             <Animated.View style={[StyleSheet.absoluteFill, styles.reviewSurface, panelStyle]} pointerEvents={phase === 'review' ? 'auto' : 'none'}>
               <ChartCourseReviewScreen
+                canEditRoute
                 key={reviewProposalKey}
                 proposalKey={`${mappingKey}:${reviewProposalKey}`}
                 enteredProposals={reviewEnteredProposals}

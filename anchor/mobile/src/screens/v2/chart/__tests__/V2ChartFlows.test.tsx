@@ -196,12 +196,14 @@ describe('Waypoint detail', () => {
   });
 
   it('asks before completing a waypoint, uses one stable key, and reverses into the shared Chart', async () => {
-    serve(chart());
+    const activeChart = chart();
+    serve(activeChart);
     post.mockResolvedValue({
       data: {
         success: true,
         data: {
-          course: {},
+          course: activeChart,
+          chart: activeChart,
           completedWaypoint: { title: 'Reach 1,000 active users' },
           nextWaypoint: { title: 'Reach 10,000 active users' },
           courseCompleted: false,
@@ -217,7 +219,7 @@ describe('Waypoint detail', () => {
     fireEvent.press(await screen.findByTestId('chart-reach-yes'));
     await waitFor(() => expect(post).toHaveBeenCalled());
     const [url, body] = post.mock.calls[0];
-    expect(url).toBe('/api/courses/course-1/waypoints/w2/complete');
+    expect(url).toBe('/api/v2/charts/course-1/waypoints/w2/complete');
     expect(body).toEqual({ idempotencyKey: 'chart2:reach:course-1:w2:7', expectedCourseVersion: 7 });
     expect(mockNavigate).not.toHaveBeenCalledWith('V2Chart', expect.anything());
     expect(await screen.findByTestId('chart-current-waypoint')).toBeTruthy();
@@ -283,10 +285,10 @@ describe('Adjust route (active Chart)', () => {
       detail: 'Acquisition is solved. Retention is the problem.',
       courseId: 'course-1',
     });
-    expect(await screen.findByText('Here’s the revised route.')).toBeTruthy();
+    expect(await screen.findByText("Here's the revised route.")).toBeTruthy();
     expect(screen.getByLabelText('Waypoint 1 of 3: Validate acquisition, reached')).toBeTruthy();
 
-    fireEvent.press(screen.getByTestId('chart-adjust-apply'));
+    fireEvent.press(screen.getByTestId('chart-review-confirm'));
     expect(await screen.findByText('Rewrite part of your route?')).toBeTruthy();
     const firstBody = put.mock.calls[0][1];
     expect(firstBody).toMatchObject({ expectedCourseVersion: 7, confirmRewrite: false, proposalId: 'p2' });
@@ -295,7 +297,7 @@ describe('Adjust route (active Chart)', () => {
       ['Reach 10,000 active users', 'w3'],
     ]);
 
-    fireEvent.press(screen.getByTestId('chart-rewrite-yes'));
+    fireEvent.press(screen.getByTestId('chart-rewrite-confirm-confirm'));
     await waitFor(() => expect(put).toHaveBeenCalledTimes(2));
     expect(put.mock.calls[1][1]).toMatchObject({ confirmRewrite: true, idempotencyKey: firstBody.idempotencyKey });
     await waitFor(() => expect(mockGoBack).toHaveBeenCalled());
@@ -309,7 +311,7 @@ describe('Adjust route (active Chart)', () => {
     fireEvent.press(screen.getByTestId('chart-adjust-submit'));
     expect(await screen.findByText('We couldn’t revise the route right now. Your route is unchanged.')).toBeTruthy();
     fireEvent.press(screen.getByTestId('chart-adjust-manual'));
-    expect(await screen.findByTestId('chart-adjust-editor')).toBeTruthy();
+    expect(await screen.findByTestId('chart-route-editor')).toBeTruthy();
     expect(screen.getByLabelText('Waypoint 1 of 3: Validate acquisition, reached')).toBeTruthy();
   });
 

@@ -10,6 +10,7 @@ import { ArrowLeft, History } from 'lucide-react-native';
 import { colors, radii, spacing, typography } from '@/theme/v2';
 import { ArrivalScope, Reveal } from '@/components/v2/motion';
 import { useAnchorStore } from '@/stores/anchorStore';
+import { AnalyticsEvents, AnalyticsService } from '@/services/AnalyticsService';
 import { useWeeklyRecap } from '@/hooks/v2/weeklyInsight/useWeeklyRecap';
 import { fetchWeeklyInsightHistory } from '@/adapters/v2/weeklyInsight/weeklyInsightApiAdapter';
 import type { WeeklyInsightSnapshot } from '@/adapters/v2/weeklyInsight/types';
@@ -39,6 +40,14 @@ export function V2WeeklyRecapScreen({ navigation, route, onBack, onDisabled, tes
   const [refreshing, setRefreshing] = useState(false);
 
   useEffect(() => { if (state.status === 'disabled') onDisabled?.(); }, [state.status, onDisabled]);
+  useEffect(() => {
+    AnalyticsService.track(AnalyticsEvents.WEEKLY_INSIGHT_OPENED, {
+      surface: 'v2_weekly_recap',
+      week_key: selectedWeek,
+      has_focus_anchor: Boolean(focusAnchorId),
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Anchors that can really be opened here: present on this device, and either active or released (Details handles both).
   // The recap speaks in server ids; a local Anchor may still carry a local id too.

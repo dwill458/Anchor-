@@ -10,6 +10,10 @@ export type AskActionStatus = 'PENDING' | 'APPLIED' | 'DISMISSED';
 
 export type AskActionDTO = {
   type: 'ADD_MOVES' | 'REVISE_ROUTE';
+  /** The smallest level the change works at: MOVE, WAYPOINT or ROUTE. */
+  scope: 'MOVE' | 'WAYPOINT' | 'ROUTE';
+  /** One line on why a route change is needed. Always set for REVISE_ROUTE. */
+  routeReason: string | null;
   status: AskActionStatus;
   summary: string;
   waypointId: string | null;

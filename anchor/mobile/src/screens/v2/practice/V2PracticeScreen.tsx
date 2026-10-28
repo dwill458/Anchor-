@@ -38,6 +38,7 @@ import {
 } from '@/navigation/v2/ProgressiveFocusTransition';
 import { predictPracticeSetupAnchorRect, predictSessionAnchorRect } from '@/navigation/v2/anchorHeroGeometry';
 import { useAuthStore } from '@/stores/authStore';
+import { AnalyticsEvents, AnalyticsService } from '@/services/AnalyticsService';
 import { beginGuidanceAction } from '@/hooks/v2/guidance/guidanceActions';
 import { discoverGuidance } from '@/hooks/v2/guidance/guidanceRuntime';
 import { useTeachingQueue } from '@/hooks/v2/teaching/useTeachingQueue';
@@ -336,6 +337,11 @@ export function V2PracticeScreen({
     }
     setPrepareSource(source);
     setPrepareMode(mode);
+    AnalyticsService.track(AnalyticsEvents.PRACTICE_MODE_VIEWED, {
+      practice_mode: mode,
+      anchor_id: fixedAnchor.id,
+      entry_point: source,
+    });
   };
 
   /** Hub -> setup. The ACTIVE ANCHOR mark travels to where setup shows it. */

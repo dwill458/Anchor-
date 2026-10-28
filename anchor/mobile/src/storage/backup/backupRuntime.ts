@@ -35,7 +35,7 @@ const plainPreferences = {
 
 async function localMediaOmissions() {
   const root = FileSystem.documentDirectory ? `${FileSystem.documentDirectory}profile-media/` : null;
-  if (!root) return [{ name: 'profile-media (private app directory unavailable)', store: 'file' as const, reason: 'local-only profile media could not be inventoried' }];
+  if (!root) return [];
   const info = await FileSystem.getInfoAsync(root);
   if (!info.exists) return [];
   const files = await FileSystem.readDirectoryAsync(root);

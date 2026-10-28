@@ -190,7 +190,8 @@ describe('V2PaywallScreen step 2 — the plans', () => {
     const funnel = { source: 'GENERAL_UPGRADE', context: 'GENERAL_UPGRADE', plan: 'annual', productId: '$rc_annual' };
     expect(mockTrack).toHaveBeenCalledWith('paywall_cta_tapped', funnel);
     expect(mockTrack).toHaveBeenCalledWith('paywall_converted', { ...funnel, outcome: 'trial_started' });
-    expect(mockTrack).toHaveBeenCalledWith('trial_converted', { ...funnel, outcome: 'trial_started' });
+    expect(mockTrack).toHaveBeenCalledWith('trial_started', { ...funnel, outcome: 'trial_started' });
+    expect(mockTrack).not.toHaveBeenCalledWith('trial_converted', expect.anything());
   });
 
   it('fires paywall_cta_tapped but no conversion when the store sheet is cancelled', async () => {

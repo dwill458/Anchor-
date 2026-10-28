@@ -9,6 +9,7 @@ import { useAnchorStore } from '@/stores/anchorStore';
 import { useSessionStore } from '@/stores/sessionStore';
 import { useSettingsStore } from '@/stores/settingsStore';
 import { PracticeCompletionService } from '@/services/PracticeCompletionService';
+import { AnalyticsEvents, AnalyticsService } from '@/services/AnalyticsService';
 import { isBackendAnchorId } from '@/services/BackendAnchorService';
 import { markStabilizationStage, traceStabilizationStage } from '@/utils/stabilizationDiagnostics';
 import { useV2Vision } from '@/hooks/v2/vision';
@@ -23,6 +24,7 @@ import { isV2VisualizeDuration } from './visualize/visualizeVisionPlan';
 import { guideForVoice, loadBeatMap, trackForDuration } from './visualize/guided/visualizeBeatMap';
 import type { V2PracticeCompletionResult } from './practiceRoutes';
 import { useMilestonePresentationHold } from '@/hooks/v2/milestones/useMilestonePresentationHold';
+import { calculateOptimisticPracticeGain } from '@/utils/threadStrength';
 
 type Props = {
   anchorId: string;
@@ -226,6 +228,14 @@ export function V2PracticeSessionScreen({
         } catch {
           // A rejection is a confirmed failure. Retry reuses this same session ID.
           setFocusSaveState('failed');
+          AnalyticsService.track(AnalyticsEvents.PRACTICE_FAILED, {
+            practice_mode: mode,
+            session_id: sessionId,
+            anchor_id: anchor?.id,
+            planned_duration_ms: sessionData.plannedDurationSeconds * 1000,
+            actual_duration_ms: sessionData.actualDurationSeconds * 1000,
+            error_code: 'focus_durable_receipt_failed',
+          });
           throw new Error('Focus session durable receipt failed');
         }
 
@@ -241,15 +251,27 @@ export function V2PracticeSessionScreen({
         const resolvedBefore =
           sessionRecord?.threadStrengthBefore ??
           (typeof beforeStrength === 'number' ? beforeStrength : null);
-        const resolvedAfter =
+        let resolvedAfter =
           sessionRecord?.threadStrengthAfter ??
           (typeof freshAnchor?.threadStrength === 'number'
             ? freshAnchor.threadStrength
-            : resolvedBefore);
+            : undefined);
+
+        if (typeof resolvedAfter !== 'number' && anchor) {
+          const optimistic = calculateOptimisticPracticeGain({
+            currentStrength: resolvedBefore,
+            practiceType: mode,
+            durationSeconds: sessionData.actualDurationSeconds,
+            isFirstPracticeEver: typeof resolvedBefore !== 'number' || resolvedBefore === 0,
+            isFirstSessionToday: true,
+            priorEligibleSecondsToday: 0,
+          });
+          resolvedAfter = optimistic.afterStrength;
+        }
 
         setStrengthSnapshot({
           before: resolvedBefore,
-          after: resolvedAfter,
+          after: resolvedAfter ?? resolvedBefore,
         });
       })();
 

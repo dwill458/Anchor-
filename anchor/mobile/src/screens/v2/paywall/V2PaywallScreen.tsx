@@ -175,6 +175,19 @@ export function V2PaywallScreen({ context, onDismiss, onEntitled, onSignIn }: V2
       trial_days_remaining: daysRemaining,
       trial_status: subscriptionStatus,
     });
+    AnalyticsService.track(AnalyticsEvents.PAYWALL_PAGE_VIEWED, {
+      source: context,
+      context,
+      page: context === 'TRIAL_ENDED' ? 'trial_ended' : 'offer_step_1',
+      step: 1,
+    });
+    if (context !== 'GENERAL_UPGRADE' && context !== 'TRIAL_ENDED') {
+      AnalyticsService.track(AnalyticsEvents.PREMIUM_FEATURE_ATTEMPTED, {
+        feature: context,
+        entry_point: context,
+        context,
+      });
+    }
     if (typeof revenueCatService.trackCustomPaywallImpression === 'function') {
       void revenueCatService.trackCustomPaywallImpression(pricing.offeringId).catch((error) => {
         logger.warn('[v2/paywall] RevenueCat custom impression tracking failed', error);

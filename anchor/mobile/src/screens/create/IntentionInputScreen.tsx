@@ -25,7 +25,7 @@ import { detectCategoryFromText } from '@/utils/categoryDetection';
 import { colors } from '@/theme/colors';
 import { focusAreaById, focusAreaForCategory } from '@/constants/v2/focusAreas';
 import { ArrowLeft } from 'lucide-react-native';
-import { AnalyticsService } from '@/services/AnalyticsService';
+import { AnalyticsEvents, AnalyticsService } from '@/services/AnalyticsService';
 import { warmUpBackend } from '@/services/backendWarmup';
 import { playCreationSound } from '@/services/CreationSounds';
 import { TEACHINGS } from '@/constants/teaching';
@@ -214,6 +214,12 @@ export default function IntentionInputScreen({ fromOnboarding = false, chosenCat
                 anchors_created_during_trial: entitlements.anchorsCreatedDuringTrial,
                 tier: entitlements.tier,
             });
+            AnalyticsService.track(AnalyticsEvents?.PREMIUM_FEATURE_ATTEMPTED ?? 'premium_feature_attempted', {
+                feature: 'additional_anchor_creation',
+                trigger: reason,
+                entry_point: 'intention_input',
+                tier: entitlements.tier,
+            });
 
             if (reason === 'pro_daily_anchor_cap_reached') {
                 const copy = getAnchorCreationLimitCopy(reason);
@@ -234,6 +240,14 @@ export default function IntentionInputScreen({ fromOnboarding = false, chosenCat
         startingRef.current = true;
         const distillation = distillIntention(intention);
         const category = chosenCategory ?? detectCategoryFromText(intention);
+        AnalyticsService.track(AnalyticsEvents?.INTENTION_SUBMITTED ?? 'intention_submitted', {
+            category,
+            source,
+            from_onboarding: Boolean(fromOnboarding),
+            is_evolve: Boolean(evolve),
+            intention_length: intention.trim().length,
+            distilled_letter_count: distillation.finalLetters.length,
+        });
         updateFirstAnchorDraft({
             originalIntention: intention,
             distilledLetters: distillation.finalLetters,

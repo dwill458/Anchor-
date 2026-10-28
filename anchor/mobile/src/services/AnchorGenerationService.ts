@@ -2,6 +2,7 @@ import { Image } from 'react-native';
 import { API_URL } from '@/config';
 import { warmUpBackend } from '@/services/backendWarmup';
 import { AuthService } from '@/services/AuthService';
+import { AnalyticsEvents, AnalyticsService } from '@/services/AnalyticsService';
 import { ErrorTrackingService } from '@/services/ErrorTrackingService';
 import { FrictionAnalytics } from '@/services/FrictionAnalytics';
 import { PerformanceMonitoring } from '@/services/PerformanceMonitoring';
@@ -111,6 +112,15 @@ export const AnchorGenerationService = {
       else signal.addEventListener('abort', onExternalAbort);
     }
 
+    const startedAt = Date.now();
+    const retryCount = Math.max(0, (generationAttempt ?? 1) - 1);
+    AnalyticsService.track?.(AnalyticsEvents?.ANCHOR_GENERATION_STARTED ?? 'anchor_generation_started', {
+      style_id: styleChoice,
+      category,
+      attempt: generationAttempt,
+      retry_count: retryCount,
+      has_reinforced_svg: hasReinforcedSvg,
+    });
     FrictionAnalytics.stepCompleted('anchor_creation', 'ai_generation_started', {
       style_id: styleChoice,
       category,
@@ -153,8 +163,21 @@ export const AnchorGenerationService = {
         ? result.variations
         : [];
 
+      const durationMs =
+        typeof result.generationTime === 'number'
+          ? Math.round(result.generationTime * 1000)
+          : Math.max(0, Date.now() - startedAt);
       trace.putAttribute('variation_count', variations.length);
       trace.stop({ success: true });
+      AnalyticsService.track?.(AnalyticsEvents?.ANCHOR_GENERATION_COMPLETED ?? 'anchor_generation_completed', {
+        style_id: styleChoice,
+        category,
+        variation_count: variations.length,
+        received_two_variations: variations.length >= 2,
+        duration_ms: durationMs,
+        retry_count: retryCount,
+        provider: result.provider || 'gemini',
+      });
       FrictionAnalytics.stepCompleted('anchor_creation', 'ai_generating', {
         style_id: styleChoice,
         category,
@@ -211,6 +234,13 @@ export const AnchorGenerationService = {
         style_id: styleChoice,
         category,
         attempt: generationAttempt,
+      });
+      AnalyticsService.track(AnalyticsEvents.ANCHOR_GENERATION_FAILED, {
+        style_choice: styleChoice,
+        category,
+        attempt: generationAttempt,
+        failure_category: code,
+        error_code: code,
       });
       ErrorTrackingService.captureException(error, {
         screen: 'AnchorCreationFlow',

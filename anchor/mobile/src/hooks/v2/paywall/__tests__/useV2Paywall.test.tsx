@@ -29,6 +29,7 @@ jest.mock('../../../../adapters/v2/paywall/trialActivation', () => ({
 import { useSubscriptionStore } from '@/stores/subscriptionStore';
 import { useSettingsStore } from '@/stores/settingsStore';
 import { useAnchorStore } from '@/stores/anchorStore';
+import { AnalyticsService, AnalyticsEvents } from '@/services/AnalyticsService';
 import { useV2Paywall } from '../useV2Paywall';
 
 const TRIAL_ELIGIBLE_METADATA = {
@@ -230,5 +231,44 @@ describe('useV2Paywall — restore', () => {
     });
     expect(result.current.restoreState).toBe('error');
     expect(mockPlayCreationSound).not.toHaveBeenCalled();
+  });
+
+  it('attaches authoritative RevenueCat sandbox and store metadata to conversion analytics', async () => {
+    const trackSpy = jest.spyOn(AnalyticsService, 'track');
+    mockPurchase.mockResolvedValueOnce({
+      status: {
+        hasActiveEntitlement: true,
+        isSandbox: true,
+        store: 'app_store',
+      },
+      dismissed: false,
+    });
+
+    const { result } = renderPaywall('PRACTICE');
+    await waitFor(() => expect(result.current.pricingStatus).toBe('ready'));
+
+    await act(async () => {
+      await result.current.startTrial();
+    });
+
+    expect(trackSpy).toHaveBeenCalledWith(
+      AnalyticsEvents.PAYWALL_CONVERTED,
+      expect.objectContaining({
+        outcome: 'trial_started',
+        is_sandbox_purchase: true,
+        store_environment: 'sandbox',
+        store: 'app_store',
+      })
+    );
+    expect(trackSpy).toHaveBeenCalledWith(
+      AnalyticsEvents.TRIAL_STARTED,
+      expect.objectContaining({
+        outcome: 'trial_started',
+        is_sandbox_purchase: true,
+        store_environment: 'sandbox',
+        store: 'app_store',
+      })
+    );
+    trackSpy.mockRestore();
   });
 });

@@ -4,6 +4,7 @@ import { AnalyticsService } from '../AnalyticsService';
 import { useAuthStore } from '@/stores/authStore';
 import { useSessionStore } from '@/stores/sessionStore';
 import { useMilestoneCelebrationStore } from '@/stores/v2/milestoneCelebrationStore';
+import { useAnchorStore } from '@/stores/anchorStore';
 import type { Anchor } from '@/types';
 
 const input = (accountId: string, sessionId = 'stable-session') => ({
@@ -127,5 +128,112 @@ describe('PracticeCompletionService', () => {
       PracticeCompletionService.completePracticeSession(earlyInput),
     ).rejects.toThrow('ended early');
     expect(useSessionStore.getState().practiceHistory).toEqual([]);
+  });
+
+  it('awards Thread Strength on multiple sessions on the same anchor up to the 10-minute cap', async () => {
+    useAuthStore.setState({ user: { id: 'account-ts-repeat' } as any });
+    useAnchorStore.getState().bindAccount('account-ts-repeat');
+    useAnchorStore.getState().addAnchor({
+      id: 'anchor-ts-1',
+      localId: 'anchor-ts-1',
+      userId: 'account-ts-repeat',
+      threadStrength: 0,
+      category: 'focus',
+      intentionText: 'Test anchor',
+    } as any);
+
+    // Session 1: 10s focus, first practice ever -> activation (12) + daily bonus (1.5) + duration (10/60 * 0.5 = 0.0833) = ~13.5833
+    const s1 = await PracticeCompletionService.completePracticeSession({
+      sessionId: 'sess-1',
+      accountId: 'account-ts-repeat',
+      anchorId: 'anchor-ts-1',
+      mode: 'focus',
+      plannedDurationSeconds: 10,
+      actualDurationSeconds: 10,
+      startedAt: '2026-07-21T10:00:00.000Z',
+      completedAt: '2026-07-21T10:00:10.000Z',
+      source: 'practice_screen',
+      guidanceVoice: 'none',
+      backgroundAudio: 'off',
+    }, { flushImmediately: false });
+
+    expect(s1.record.threadStrengthBefore).toBe(0);
+    expect(s1.record.threadStrengthDelta).toBeCloseTo(13.5833, 3);
+    expect(s1.record.threadStrengthAfter).toBeCloseTo(13.5833, 3);
+    expect(useAnchorStore.getState().anchors[0].threadStrength).toBeCloseTo(13.5833, 3);
+
+    // Session 2: 10s repeat focus today -> no activation bonus, no daily bonus, duration (10s = 0.0833)
+    const s2 = await PracticeCompletionService.completePracticeSession({
+      sessionId: 'sess-2',
+      accountId: 'account-ts-repeat',
+      anchorId: 'anchor-ts-1',
+      mode: 'focus',
+      plannedDurationSeconds: 10,
+      actualDurationSeconds: 10,
+      startedAt: '2026-07-21T11:00:00.000Z',
+      completedAt: '2026-07-21T11:00:10.000Z',
+      source: 'practice_screen',
+      guidanceVoice: 'none',
+      backgroundAudio: 'off',
+    }, { flushImmediately: false });
+
+    expect(s2.record.threadStrengthBefore).toBeCloseTo(13.5833, 3);
+    expect(s2.record.threadStrengthDelta).toBeCloseTo(0.0833, 3);
+    expect(s2.record.threadStrengthAfter).toBeCloseTo(13.6666, 3);
+    expect(useAnchorStore.getState().anchors[0].threadStrength).toBeCloseTo(13.6666, 3);
+
+    // Session 3: 120s (2 min) repeat focus today -> duration (120/60 * 0.5 = 1.0)
+    const s3 = await PracticeCompletionService.completePracticeSession({
+      sessionId: 'sess-3',
+      accountId: 'account-ts-repeat',
+      anchorId: 'anchor-ts-1',
+      mode: 'focus',
+      plannedDurationSeconds: 120,
+      actualDurationSeconds: 120,
+      startedAt: '2026-07-21T12:00:00.000Z',
+      completedAt: '2026-07-21T12:02:00.000Z',
+      source: 'practice_screen',
+      guidanceVoice: 'none',
+      backgroundAudio: 'off',
+    }, { flushImmediately: false });
+
+    expect(s3.record.threadStrengthDelta).toBe(1.0);
+    expect(s3.record.threadStrengthAfter).toBeCloseTo(14.6666, 3);
+
+    // Session 4: 500s session (already used 10 + 10 + 120 = 140s; 140 + 500 = 640s, capped at 600s, so 460s credited)
+    // 460s / 60 * 0.5 = 3.8333 pts
+    const s4 = await PracticeCompletionService.completePracticeSession({
+      sessionId: 'sess-4',
+      accountId: 'account-ts-repeat',
+      anchorId: 'anchor-ts-1',
+      mode: 'focus',
+      plannedDurationSeconds: 500,
+      actualDurationSeconds: 500,
+      startedAt: '2026-07-21T13:00:00.000Z',
+      completedAt: '2026-07-21T13:08:20.000Z',
+      source: 'practice_screen',
+      guidanceVoice: 'none',
+      backgroundAudio: 'off',
+    }, { flushImmediately: false });
+
+    expect(s4.record.threadStrengthDelta).toBeCloseTo(3.8333, 3);
+
+    // Session 5: 60s session after 600s cap reached -> delta should be 0
+    const s5 = await PracticeCompletionService.completePracticeSession({
+      sessionId: 'sess-5',
+      accountId: 'account-ts-repeat',
+      anchorId: 'anchor-ts-1',
+      mode: 'focus',
+      plannedDurationSeconds: 60,
+      actualDurationSeconds: 60,
+      startedAt: '2026-07-21T14:00:00.000Z',
+      completedAt: '2026-07-21T14:01:00.000Z',
+      source: 'practice_screen',
+      guidanceVoice: 'none',
+      backgroundAudio: 'off',
+    }, { flushImmediately: false });
+
+    expect(s5.record.threadStrengthDelta).toBe(0);
+    expect(s5.record.threadStrengthAfter).toBe(s4.record.threadStrengthAfter);
   });
 });

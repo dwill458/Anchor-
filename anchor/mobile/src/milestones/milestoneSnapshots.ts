@@ -1,4 +1,5 @@
 import { apiClient, type AccountBoundRequestConfig } from '@/services/ApiClient';
+import { AnalyticsEvents, AnalyticsService } from '@/services/AnalyticsService';
 import { useAuthStore } from '@/stores/authStore';
 import { encryptedPersistStorage } from '@/stores/encryptedPersistStorage';
 import { mergeMilestoneRecords, type MilestoneRecord } from './milestoneModel';
@@ -97,7 +98,8 @@ export function applyServerRecords(
   server: readonly MilestoneRecord[],
   now: Date = new Date(),
 ): MilestoneCacheSnapshot {
-  return updateSnapshot(accountId, anchorId, (current) => {
+  const existingIds = new Set(getSnapshot(accountId, anchorId)?.records.map((r) => r.id) ?? []);
+  const nextSnapshot = updateSnapshot(accountId, anchorId, (current) => {
     const base = current ?? empty(accountId, anchorId);
     const pending = new Set(base.pendingCelebrated);
     const withReservations = server.map(record => {
@@ -110,6 +112,17 @@ export function applyServerRecords(
     );
     return { ...base, records, pendingCelebrated: [...pending] };
   });
+  for (const record of server) {
+    if (!existingIds.has(record.id)) {
+      AnalyticsService.track(AnalyticsEvents.MILESTONE_EARNED, {
+        milestone_id: record.id,
+        definition_id: record.definitionId,
+        source_kind: record.sourceKind,
+        anchor_id: anchorId,
+      });
+    }
+  }
+  return nextSnapshot;
 }
 
 /** Sends every receipt the server has not confirmed. Stops quietly at the first failure (still offline). */

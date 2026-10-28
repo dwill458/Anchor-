@@ -164,7 +164,12 @@ function pendingAccountHandoff(state: AuthState, nextUserId: string | null): Par
     pendingFirstAnchorDraft: incoming?.draft ?? null, pendingFirstAnchorMutations: incoming?.mutations ?? [] };
 }
 
-function applyUserToSubscriptionStore(user: User | null): void {
+let lastAppliedAnalyticsUserId: string | null = null;
+
+function applyUserToSubscriptionStore(
+  user: User | null,
+  options?: { reason?: 'logout' | 'account_switch' | 'rehydrate' }
+): void {
   const subscription = useSubscriptionStore.getState();
   if (!user) {
     subscription.resetForAccount();
@@ -175,10 +180,19 @@ function applyUserToSubscriptionStore(user: User | null): void {
   // RevenueCat owns billing access. Profile updates only bind comped access and
   // report the server projection; legacy trial dates never grant client access.
   if (!user) {
-    AnalyticsService.reset();
+    const isExplicitReset =
+      options?.reason === 'logout' || options?.reason === 'account_switch';
+    if (lastAppliedAnalyticsUserId !== null || isExplicitReset) {
+      lastAppliedAnalyticsUserId = null;
+      AnalyticsService.reset({
+        forceReset: isExplicitReset,
+        reason: options?.reason ?? 'logout',
+      });
+    }
     return;
   }
 
+  lastAppliedAnalyticsUserId = user.id;
   AnalyticsService.identify(user.id, {
     subscriptionStatus: user.subscriptionStatus,
     is_comped: user.isComped === true,
@@ -484,7 +498,13 @@ export const useAuthStore = create<AuthState>()(
         }
         useAnchorStore.getState().bindAccount(nextUserId,
           nextUserId ? (previousUserId === nextUserId ? get().pendingFirstAnchorDraft : pendingHandoff.pendingFirstAnchorDraft)?.tempAnchorId : undefined);
-        applyUserToSubscriptionStore(user);
+        applyUserToSubscriptionStore(user, {
+          reason: isSwitchingAuthenticatedAccounts
+            ? 'account_switch'
+            : previousUserId && !nextUserId
+              ? 'logout'
+              : undefined,
+        });
         useProfileStore.getState().syncFromUser(user);
         set((state) => {
           const isSameAccount = state.user?.id === user?.id;
@@ -536,7 +556,9 @@ export const useAuthStore = create<AuthState>()(
         }
         useAnchorStore.getState().bindAccount(user.id,
           (pendingHandoff.pendingFirstAnchorDraft ?? (previousUserId === user.id ? get().pendingFirstAnchorDraft : null))?.tempAnchorId);
-        applyUserToSubscriptionStore(user);
+        applyUserToSubscriptionStore(user, {
+          reason: isSwitchingAuthenticatedAccounts ? 'account_switch' : undefined,
+        });
         useProfileStore.getState().syncFromUser(user);
         set((state) => {
           const isSameAccount = state.user?.id === user.id;
@@ -769,6 +791,7 @@ export const useAuthStore = create<AuthState>()(
           });
 
           try {
+            AnalyticsService.markFirstAnchorAlreadyCreated?.();
             const anchorStore = useAnchorStore.getState();
             const localAnchor =
               anchorStore.getAnchorById(pendingFirstAnchorDraft.tempAnchorId) ??
@@ -1223,7 +1246,7 @@ export const useAuthStore = create<AuthState>()(
           return;
         }
 
-        applyUserToSubscriptionStore(null);
+        applyUserToSubscriptionStore(null, { reason: 'logout' });
         useAnchorStore.getState().bindAccount(null);
         useAnchorStore.getState().hideActiveAnchors();
         useSessionStore.getState().reset();
@@ -1275,7 +1298,7 @@ export const useAuthStore = create<AuthState>()(
         perfLog('store-hydration-finished', { store: 'auth', ok: !error, hasState: Boolean(state) });
         if (state) {
           useAnchorStore.getState().bindAccount(state.user?.id ?? null, state.pendingFirstAnchorDraft?.tempAnchorId);
-          applyUserToSubscriptionStore(state.user);
+          applyUserToSubscriptionStore(state.user, { reason: 'rehydrate' });
           // One-shot navigation flags should never survive an app restart.
           state.setShouldRedirectToCreation(false);
           // Not logged in: restart onboarding, unless the person chose to keep their Anchor on this

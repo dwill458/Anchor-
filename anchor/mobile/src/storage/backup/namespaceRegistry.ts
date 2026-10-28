@@ -45,18 +45,29 @@ export const RULES: readonly Rule[] = [
   { match: { name: 'anchor-location-priming-storage' }, disposition: { action: 'include', family: 'device-progress', reason: 'priming state' } },
   { match: { name: 'anchor:v2:first-run' }, disposition: { action: 'include', family: 'device-progress', reason: 'first-run completion' } },
   { match: { prefix: 'anchor:v2:chart2:' }, disposition: { action: 'include', family: 'chart-ui-state', reason: 'chart handoff, taught and high-water UI state' } },
+  { match: { prefix: 'anchor:v2:guidance:' }, disposition: { action: 'include', family: 'device-progress', reason: 'guidance progression state' } },
+  { match: { prefix: 'anchor:v2:teach:' }, disposition: { action: 'include', family: 'device-progress', reason: 'teaching progression state' } },
   { match: { prefix: 'guest:' }, disposition: { action: 'include', family: 'guest-ui-state', reason: 'guest-scoped chart UI state' } },
 
   // Plaintext AsyncStorage namespaces that hold durable user state.
   { match: { name: 'anchor-profile-storage' }, disposition: { action: 'include', family: 'profile', reason: 'account-specific profile information' } },
   { match: { name: 'anchor-settings-storage' }, disposition: { action: 'include', family: 'settings', reason: 'user settings' } },
   { match: { prefix: 'anchor:settings:' }, disposition: { action: 'include', family: 'settings', reason: 'user settings keys' } },
+  { match: { name: '@anchor_prime_on_launch' }, disposition: { action: 'include', family: 'settings', reason: 'launch priming preference' } },
   { match: { name: 'anchor-creation-prefs-v1' }, disposition: { action: 'include', family: 'preferences', reason: 'creation preferences' } },
   { match: { name: 'anchor-share-prefs-v1' }, disposition: { action: 'include', family: 'preferences', reason: 'share preferences' } },
+  { match: { name: 'anchor-v2-creation-draft' }, disposition: { action: 'include', family: 'creation-draft', reason: 'active and incomplete v2 creation drafts' } },
+  { match: { name: '@anchor/v2/vision-presentation' }, disposition: { action: 'include', family: 'preferences', reason: 'vision presentation layout preferences' } },
   { match: { name: '@anchor/v2/celebration-records' }, disposition: { action: 'include', family: 'practice-record', reason: 'celebration records of completed practice' } },
   { match: { name: '@anchor/v2/home-glow-seen' }, disposition: { action: 'include', family: 'device-progress', reason: 'one-time experience state' } },
   { match: { name: '@anchor/v2/home-arrival-sound-played' }, disposition: { action: 'include', family: 'device-progress', reason: 'one-time experience state' } },
   { match: { name: 'anchor.splash.firstOpenPlayed.v2' }, disposition: { action: 'include', family: 'device-progress', reason: 'one-time experience state' } },
+  { match: { name: 'anchor-has-seen-heatmap-tip' }, disposition: { action: 'include', family: 'device-progress', reason: 'heatmap tip completion marker' } },
+  { match: { name: 'practice_teaching_auto_seen_v2' }, disposition: { action: 'include', family: 'device-progress', reason: 'teaching completion marker' } },
+  { match: { name: 'anchor-sync-tombstones' }, disposition: { action: 'include', family: 'anchors', reason: 'deleted anchor tombstone ledger for offline sync' } },
+  { match: { name: 'anchor-sync-retry-queue' }, disposition: { action: 'include', family: 'pending-sync', reason: 'pending synchronization retry queue' } },
+  { match: { name: 'ask_chart_dictation_disclosure_v1' }, disposition: { action: 'include', family: 'preferences', reason: 'dictation disclosure acceptance state' } },
+  { match: { name: 'vision_dictation_disclosure_v1' }, disposition: { action: 'include', family: 'preferences', reason: 'dictation disclosure acceptance state' } },
   { match: { name: '@anchor_notification_state' }, disposition: { action: 'include', family: 'notifications', reason: 'notification preferences' } },
   { match: { name: '@anchor_notification_state_pending_sync' }, disposition: { action: 'include', family: 'pending-sync', reason: 'unsynchronized notification state' } },
   { match: { name: '@anchor_pending_smart_notification' }, disposition: { action: 'include', family: 'pending-sync', reason: 'pending local notification' } },
@@ -64,19 +75,31 @@ export const RULES: readonly Rule[] = [
   // Exclusions: secrets and identity caches.
   { match: { name: 'anchor-auth-storage' }, disposition: { action: 'exclude', family: 'auth-secret', reason: EXCLUDE_SECRET } },
   { match: { name: 'anchor:cached_user' }, disposition: { action: 'exclude', family: 'auth-secret', reason: EXCLUDE_SECRET } },
+  { match: { name: '@anchor_recovery_dump_complete' }, disposition: { action: 'exclude', family: 'auth-secret', reason: EXCLUDE_SECRET } },
+  { match: { name: '@anchor_recovery_dump_vault' }, disposition: { action: 'exclude', family: 'auth-secret', reason: EXCLUDE_SECRET } },
 
   // Exclusions: server-authoritative data and rebuildable caches.
   { match: { name: 'anchor-subscription-override-storage' }, disposition: { action: 'exclude', family: 'entitlement-cache', reason: EXCLUDE_SERVER } },
   { match: { prefix: 'anchor:chart:course:' }, disposition: { action: 'exclude', family: 'course-cache', reason: EXCLUDE_SERVER } },
   { match: { prefix: 'anchor:chart:log:' }, disposition: { action: 'exclude', family: 'course-cache', reason: EXCLUDE_SERVER } },
+  { match: { prefix: 'anchor:chart:event-cache:' }, disposition: { action: 'exclude', family: 'course-cache', reason: EXCLUDE_SERVER } },
+  { match: { prefix: 'anchor.weeklyRecap.v2.' }, disposition: { action: 'exclude', family: 'course-cache', reason: EXCLUDE_SERVER } },
+  { match: { prefix: '@anchor/v2/thread-event-receipt/' }, disposition: { action: 'exclude', family: 'event-receipt-cache', reason: EXCLUDE_SERVER } },
   { match: { prefix: 'anchor:v2:recommendation-context:' }, disposition: { action: 'exclude', family: 'recommendation-cache', reason: EXCLUDE_SERVER } },
   { match: { name: '@anchor_widget_snapshot' }, disposition: { action: 'exclude', family: 'widget-cache', reason: EXCLUDE_SERVER } },
   { match: { name: '@anchor_widget_last_sync' }, disposition: { action: 'exclude', family: 'widget-cache', reason: EXCLUDE_SERVER } },
   { match: { name: 'widgetSnapshot' }, disposition: { action: 'exclude', family: 'widget-cache', reason: EXCLUDE_SERVER } },
+  { match: { name: 'anchor-ai-cache' }, disposition: { action: 'exclude', family: 'media-cache', reason: EXCLUDE_SERVER } },
+  { match: { name: 'anchor-image-cache' }, disposition: { action: 'exclude', family: 'media-cache', reason: EXCLUDE_SERVER } },
+  { match: { name: 'anchor-variation-cache' }, disposition: { action: 'exclude', family: 'media-cache', reason: EXCLUDE_SERVER } },
 
   // Exclusions: transient markers.
   { match: { prefix: 'anchor:post_prime_trace:' }, disposition: { action: 'exclude', family: 'diagnostic', reason: EXCLUDE_TRANSIENT } },
   { match: { name: '@anchor/v2/practice-diagnostic' }, disposition: { action: 'exclude', family: 'diagnostic', reason: EXCLUDE_TRANSIENT } },
+  { match: { name: 'anchor-last-backup-at' }, disposition: { action: 'exclude', family: 'diagnostic', reason: EXCLUDE_TRANSIENT } },
+  { match: { name: 'anchor_weekly_summary_dismissed_week' }, disposition: { action: 'exclude', family: 'diagnostic', reason: EXCLUDE_TRANSIENT } },
+  { match: { name: 'anchor_weekly_summary_review_streak' }, disposition: { action: 'exclude', family: 'diagnostic', reason: EXCLUDE_TRANSIENT } },
+  { match: { name: 'anchor.review.lastPromptAttemptAt' }, disposition: { action: 'exclude', family: 'diagnostic', reason: EXCLUDE_TRANSIENT } },
 ];
 
 export function classify(name: string): Disposition | null {
@@ -98,6 +121,7 @@ const OWNER_KEYED_PREFIXES = [
   'anchor:profile-snapshot:',
   'anchor:recovery-metadata:',
   'anchor:chart:reflection-drafts:',
+  'anchor:v2:guidance:',
 ] as const;
 
 /** Candidate owner-scoped names derived from identifiers the device already holds. */

@@ -24,6 +24,8 @@ export type DraftWaypoint = {
   suggestedMoves?: Array<{ title: string; rationale: string | null }>;
   /** Reached waypoints are history: shown, never editable or movable. */
   locked?: boolean;
+  /** Set when a revision added, changed or dropped this waypoint. A removed one stays visible, struck through, until confirmed. */
+  change?: 'added' | 'changed' | 'removed';
 };
 
 const ROW_HEIGHT = 58;
@@ -58,6 +60,8 @@ type Props = {
   onEdit?: (kind: 'reorder' | 'rename' | 'remove' | 'add') => void;
   /** Join the numbered waypoints with a thin rail, so the list reads as one route. */
   showRail?: boolean;
+  /** False shows the route read-only: no drag handles, renaming, removal or Add waypoint. */
+  editable?: boolean;
   testID?: string;
   renderRowExtra?: (waypoint: DraftWaypoint, index: number) => React.ReactNode;
   reducedMotion?: boolean;
@@ -70,7 +74,7 @@ type Props = {
  * Editable route. The human owns the Chart: every AI waypoint can be renamed,
  * removed, reordered, and new ones added. Locked (reached) rows stay put.
  */
-export function ChartRouteEditor({ waypoints, onChange, onEdit, showRail = false, testID, renderRowExtra, reducedMotion = false, entranceDelayMs, enteredKeys }: Props) {
+export function ChartRouteEditor({ waypoints, onChange, onEdit, showRail = false, editable = true, testID, renderRowExtra, reducedMotion = false, entranceDelayMs, enteredKeys }: Props) {
   const localEntered = useRef(new Set<string>());
   const entered = enteredKeys ?? localEntered;
   const initialArrival = useRef(entered.current.size === 0);
@@ -81,7 +85,9 @@ export function ChartRouteEditor({ waypoints, onChange, onEdit, showRail = false
   const dragIndex = useSharedValue(-1);
   const dragY = useSharedValue(0);
   const firstMovable = Math.max(0, waypoints.findIndex((waypoint) => !waypoint.locked));
-  const lastIndex = waypoints.length - 1;
+  const activeCount = waypoints.filter((waypoint) => waypoint.change !== 'removed').length;
+  // Removed rows trail the list (struck through), so nothing can be dropped past the last live waypoint.
+  const lastIndex = Math.max(0, activeCount - 1);
 
   const commitMove = useCallback(
     (from: number, to: number) => {
@@ -97,7 +103,7 @@ export function ChartRouteEditor({ waypoints, onChange, onEdit, showRail = false
   );
 
   const startEdit = (waypoint: DraftWaypoint) => {
-    if (waypoint.locked) return;
+    if (waypoint.locked || !editable) return;
     setEditingKey(waypoint.key);
     setDraftTitle(waypoint.title);
   };
@@ -119,10 +125,10 @@ export function ChartRouteEditor({ waypoints, onChange, onEdit, showRail = false
   };
 
   const add = () => {
-    if (waypoints.length >= MAX_WAYPOINTS) return;
+    if (activeCount >= MAX_WAYPOINTS) return;
     const key = `new-${Date.now().toString(36)}`;
     // New waypoints go just before the destination so the destination stays last.
-    const insertAt = Math.max(firstMovable, waypoints.length - 1);
+    const insertAt = Math.max(firstMovable, activeCount - 1);
     const next = [...waypoints];
     next.splice(insertAt, 0, {
       key,
@@ -147,6 +153,7 @@ export function ChartRouteEditor({ waypoints, onChange, onEdit, showRail = false
           waypoint={waypoint}
           index={index}
           total={waypoints.length}
+          liveTotal={activeCount}
           firstMovable={firstMovable}
           editing={editingKey === waypoint.key}
           draftTitle={draftTitle}
@@ -159,6 +166,7 @@ export function ChartRouteEditor({ waypoints, onChange, onEdit, showRail = false
           dragY={dragY}
           canRemove={waypoints.filter((item) => !item.locked).length > 1}
           showRail={showRail}
+          editable={editable}
           rowHeights={waypoints.map((item) => rowHeights[item.key] ?? ROW_HEIGHT)}
           onHeightChange={(height) => setRowHeights((current) => current[waypoint.key] === height ? current : { ...current, [waypoint.key]: height })}
           extra={renderRowExtra?.(waypoint, index)}
@@ -170,7 +178,7 @@ export function ChartRouteEditor({ waypoints, onChange, onEdit, showRail = false
           })()}
         />
       ))}
-      {waypoints.length < MAX_WAYPOINTS ? (
+      {editable && activeCount < MAX_WAYPOINTS ? (
         <Pressable
           accessibilityRole="button"
           accessibilityLabel={CHART_COPY.review.addWaypoint}
@@ -190,6 +198,7 @@ function Row({
   waypoint,
   index,
   total,
+  liveTotal,
   firstMovable,
   editing,
   draftTitle,
@@ -202,6 +211,7 @@ function Row({
   dragY,
   canRemove,
   showRail,
+  editable,
   rowHeights,
   onHeightChange,
   extra,
@@ -210,6 +220,8 @@ function Row({
   waypoint: DraftWaypoint;
   index: number;
   total: number;
+  /** Waypoints not being removed: what a screen reader counts. */
+  liveTotal: number;
   firstMovable: number;
   editing: boolean;
   draftTitle: string;
@@ -222,12 +234,16 @@ function Row({
   dragY: SharedValue<number>;
   canRemove: boolean;
   showRail: boolean;
+  editable: boolean;
   rowHeights: number[];
   onHeightChange: (height: number) => void;
   extra?: React.ReactNode;
   entering?: ReturnType<typeof FadeInDown.duration>;
 }) {
-  const locked = Boolean(waypoint.locked);
+  const removed = waypoint.change === 'removed';
+  const locked = Boolean(waypoint.locked) || removed || !editable;
+  // Only a waypoint the person has reached is "Reached"; a read-only route still lets them rename nothing.
+  const reached = Boolean(waypoint.locked) && !removed;
   const pan = Gesture.Pan()
     .enabled(!locked && !editing)
     .activeOffsetY([-6, 6])
@@ -257,6 +273,7 @@ function Row({
   });
 
   const number = index + 1;
+  const highlighted = waypoint.change === 'added' || waypoint.change === 'changed';
   const label = waypoint.title || 'New waypoint';
   const actions = locked
     ? []
@@ -268,7 +285,7 @@ function Row({
       ];
 
   return (
-    <Animated.View entering={entering} style={[styles.row, animated]} onLayout={(event: LayoutChangeEvent) => onHeightChange(event.nativeEvent.layout.height)}>
+    <Animated.View entering={entering} style={[styles.row, highlighted && styles.rowChanged, animated]} onLayout={(event: LayoutChangeEvent) => onHeightChange(event.nativeEvent.layout.height)}>
       {showRail && total > 1 ? (
         <View
           pointerEvents="none"
@@ -276,8 +293,8 @@ function Row({
         />
       ) : null}
       <View style={styles.rowContent}>
-      <View style={[styles.badge, locked && styles.badgeLocked]}>
-        {locked ? <Check size={14} color={colors.text.inverse} strokeWidth={3} /> : <Text style={styles.badgeText}>{number}</Text>}
+      <View style={[styles.badge, reached && styles.badgeLocked, removed && styles.badgeRemoved]}>
+        {reached ? <Check size={14} color={colors.text.inverse} strokeWidth={3} /> : <Text style={styles.badgeText}>{removed ? '–' : number}</Text>}
       </View>
       {editing ? (
         <View style={styles.editWrap}>
@@ -306,7 +323,7 @@ function Row({
           onPress={onStartEdit}
           disabled={locked}
           accessibilityRole={locked ? 'text' : 'button'}
-          accessibilityLabel={`Waypoint ${number} of ${total}: ${label}${locked ? ', reached' : ''}`}
+          accessibilityLabel={`Waypoint ${number} of ${liveTotal}: ${label}${reached ? ', reached' : ''}${removed ? ', removed' : ''}${waypoint.change === 'added' ? ', new' : ''}${waypoint.change === 'changed' ? ', updated' : ''}`}
           accessibilityHint={locked ? undefined : 'Double tap to rename'}
           accessibilityActions={actions}
           onAccessibilityAction={(event) => {
@@ -317,14 +334,20 @@ function Row({
             if (name === 'remove') onRemove();
           }}
         >
-          <Text style={[styles.title, !waypoint.title && styles.titlePlaceholder, locked && styles.titleLocked]}>
+          <Text style={[styles.title, !waypoint.title && styles.titlePlaceholder, (reached || removed) && styles.titleLocked, removed && styles.titleRemoved]}>
             {label}
           </Text>
+          {highlighted ? <Text style={styles.changeTag}>{waypoint.change === 'added' ? CHART_COPY.adjust.addedTag : CHART_COPY.adjust.changedTag}</Text> : null}
         </Pressable>
       )}
-      {locked ? (
-        <Lock size={15} color={colors.text.tertiary} />
-      ) : (
+      {reached ? (
+        <View style={styles.reachedTag} testID="chart-route-reached">
+          <Lock size={13} color={colors.text.tertiary} />
+          <Text style={styles.reachedText}>{CHART_COPY.adjust.reached}</Text>
+        </View>
+      ) : removed ? (
+        <Text style={styles.reachedText}>{CHART_COPY.adjust.removed}</Text>
+      ) : !editable ? null : (
         <GestureDetector gesture={pan}>
           <View style={styles.handle} accessible={false} importantForAccessibility="no-hide-descendants">
             {/* DEFERRED: GripHorizontal is replaced by the vertical reorder handle (Oct 2026). */}
@@ -359,6 +382,12 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   badgeLocked: { backgroundColor: colors.semantic.success },
+  badgeRemoved: { backgroundColor: colors.text.tertiary },
+  rowChanged: { backgroundColor: colors.surface },
+  changeTag: { ...typography.labelSM, color: colors.semantic.success, paddingHorizontal: spacing[2] },
+  titleRemoved: { textDecorationLine: 'line-through', color: colors.text.tertiary },
+  reachedTag: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: spacing[2] },
+  reachedText: { ...typography.labelSM, color: colors.text.tertiary },
   rail: { position: 'absolute', left: 13.5, width: 1, backgroundColor: colors.border.default },
   badgeText: { ...typography.labelMD, color: colors.text.inverse },
   titleButton: { flex: 1, justifyContent: 'center', minHeight: 44 },

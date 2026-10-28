@@ -177,6 +177,13 @@ export function useAskChart({ anchorId, api = askChartApi, reducedMotion = false
         queue.current = queue.current.filter(item => item.messageKey !== null);
       }
       dispatch({ type: 'queued', message });
+      trackChart('ask_chart_message_sent', {
+        skill: options.skill ?? 'FREE',
+        has_attachments: attachments.length > 0,
+        attachment_count: attachments.length,
+        has_target_move: Boolean(options.targetMoveId),
+        message_length: clean.length,
+      });
       queue.current.push({
         messageKey: key,
         body: { idempotencyKey: sendKey, text: clean, attachments, skill: options.skill ?? 'FREE', targetMoveId: options.targetMoveId ?? null },

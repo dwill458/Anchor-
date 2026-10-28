@@ -113,12 +113,30 @@ export function useV2Paywall({ context, onEntitled }: UseV2PaywallOptions): V2Pa
     [context],
   );
   const trackConverted = useCallback(
-    (plan: V2PaywallPlanId, productId: string, outcome: V2PaywallEntitlementResult['outcome']) => {
-      trackFunnel(AnalyticsEvents.PAYWALL_CONVERTED, plan, productId, { outcome });
-      // Canonical trial-funnel exit, mirroring paywall_converted as the legacy paywall does.
-      trackFunnel(AnalyticsEvents.TRIAL_CONVERTED, plan, productId, { outcome });
+    (
+      plan: V2PaywallPlanId,
+      productId: string,
+      outcome: V2PaywallEntitlementResult['outcome'],
+      transactionMeta?: { isSandbox?: boolean; store?: string | null }
+    ) => {
+      const storeEnvProps: Record<string, unknown> = {
+        outcome,
+        ...(typeof transactionMeta?.isSandbox === 'boolean'
+          ? {
+              is_sandbox_purchase: transactionMeta.isSandbox,
+              store_environment: transactionMeta.isSandbox ? 'sandbox' : 'production',
+            }
+          : {}),
+        ...(transactionMeta?.store ? { store: transactionMeta.store } : {}),
+      };
+      trackFunnel(AnalyticsEvents.PAYWALL_CONVERTED, plan, productId, storeEnvProps);
+      if (outcome === 'trial_started') {
+        trackFunnel(AnalyticsEvents.TRIAL_STARTED, plan, productId, storeEnvProps);
+      } else if (outcome === 'purchased' && trial.trialState !== 'TRIAL_NOT_STARTED') {
+        trackFunnel(AnalyticsEvents.TRIAL_CONVERTED, plan, productId, storeEnvProps);
+      }
     },
-    [trackFunnel],
+    [trackFunnel, trial.trialState],
   );
 
   const runExclusive = useCallback(async (task: () => Promise<void>) => {
@@ -139,12 +157,14 @@ export function useV2Paywall({ context, onEntitled }: UseV2PaywallOptions): V2Pa
         setPurchaseState('submitting');
         const packageId = packageIdForPlan(pricing, V2_TRIAL_PLAN_ID);
         trackFunnel(AnalyticsEvents.PAYWALL_CTA_TAPPED, V2_TRIAL_PLAN_ID, packageId);
+        trackFunnel(AnalyticsEvents.PURCHASE_STARTED, V2_TRIAL_PLAN_ID, packageId, { is_trial: true });
         try {
           const { status, dismissed } = await revenueCatService.purchasePackageByIdentifier(packageId, {
             syncStatus: false,
           });
           if (dismissed) {
             setPurchaseState('cancelled');
+            trackFunnel(AnalyticsEvents.PURCHASE_CANCELLED, V2_TRIAL_PLAN_ID, packageId, { is_trial: true });
             return;
           }
           // The server stamps `trialStartedAt`; the client never fabricates it.
@@ -155,18 +175,29 @@ export function useV2Paywall({ context, onEntitled }: UseV2PaywallOptions): V2Pa
           if (!status.hasActiveEntitlement && activation.status !== 'activated') {
             setPurchaseState('error');
             setErrorMessage('Your trial is still being confirmed. Your receipt is safe.');
+            trackFunnel(AnalyticsEvents.PURCHASE_FAILED, V2_TRIAL_PLAN_ID, packageId, {
+              is_trial: true,
+              error_code: 'entitlement_not_confirmed',
+            });
             return;
           }
           setPurchaseState('success');
           playCreationSound('paywallSuccess');
           // Keeps the paywall timeline's "Day 5 · We'll remind you" promise.
           void scheduleTrialEndReminder(planForId(pricing, V2_TRIAL_PLAN_ID).priceLabel);
-          trackConverted(V2_TRIAL_PLAN_ID, packageId, 'trial_started');
+          trackConverted(V2_TRIAL_PLAN_ID, packageId, 'trial_started', {
+            isSandbox: status.isSandbox,
+            store: status.store,
+          });
           finishEntitled('trial_started', V2_TRIAL_PLAN_ID);
         } catch (error) {
           logger.error('[v2/paywall] startTrial failed', error);
           setPurchaseState('error');
           setErrorMessage('We could not start your trial. Please try again.');
+          trackFunnel(AnalyticsEvents.PURCHASE_FAILED, V2_TRIAL_PLAN_ID, packageId, {
+            is_trial: true,
+            error_code: 'store_purchase_error',
+          });
         }
       }),
     [context, finishEntitled, pricing, runExclusive, trackConverted, trackFunnel, trial.canStartTrial, trial.isActiveSubscriber],
@@ -180,27 +211,40 @@ export function useV2Paywall({ context, onEntitled }: UseV2PaywallOptions): V2Pa
         setPurchaseState('submitting');
         const packageId = packageIdForPlan(pricing, selectedPlan);
         trackFunnel(AnalyticsEvents.PAYWALL_CTA_TAPPED, selectedPlan, packageId);
+        trackFunnel(AnalyticsEvents.PURCHASE_STARTED, selectedPlan, packageId, { is_trial: false });
         try {
           const { status, dismissed } = await revenueCatService.purchasePackageByIdentifier(packageId, {
             syncStatus: false,
           });
           if (dismissed) {
             setPurchaseState('cancelled');
+            trackFunnel(AnalyticsEvents.PURCHASE_CANCELLED, selectedPlan, packageId, { is_trial: false });
             return;
           }
           if (!status.hasActiveEntitlement) {
             setPurchaseState('error');
             setErrorMessage('Your purchase is still being confirmed. Your receipt is safe.');
+            trackFunnel(AnalyticsEvents.PURCHASE_FAILED, selectedPlan, packageId, {
+              is_trial: false,
+              error_code: 'entitlement_not_confirmed',
+            });
             return;
           }
           setPurchaseState('success');
           playCreationSound('paywallSuccess');
-          trackConverted(selectedPlan, packageId, 'purchased');
+          trackConverted(selectedPlan, packageId, 'purchased', {
+            isSandbox: status.isSandbox,
+            store: status.store,
+          });
           finishEntitled('purchased', selectedPlan);
         } catch (error) {
           logger.error('[v2/paywall] purchase failed', error);
           setPurchaseState('error');
           setErrorMessage('We could not complete the purchase. Please try again.');
+          trackFunnel(AnalyticsEvents.PURCHASE_FAILED, selectedPlan, packageId, {
+            is_trial: false,
+            error_code: 'store_purchase_error',
+          });
         }
       }),
     [finishEntitled, pricing, runExclusive, selectedPlan, trackConverted, trackFunnel, trial.isActiveSubscriber],

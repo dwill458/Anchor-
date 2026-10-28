@@ -37,6 +37,7 @@ export const AskProposalCard = memo(function AskProposalCard({ message, accent, 
   const action = message.action;
   if (!action) return null;
   const isMoves = action.type === 'ADD_MOVES';
+  const isWaypoint = action.scope === 'WAYPOINT';
 
   if (action.status === 'APPLIED') {
     return (
@@ -53,8 +54,9 @@ export const AskProposalCard = memo(function AskProposalCard({ message, accent, 
   const stale = error === 'stale';
   return (
     <View style={[styles.card, { borderColor: accent.border }]} testID="ask-proposal">
-      <Text style={[styles.eyebrow, { color: accent.text }]}>{isMoves ? 'SUGGESTED MOVES' : 'SUGGESTED ROUTE CHANGE'}</Text>
+      <Text style={[styles.eyebrow, { color: accent.text }]}>{isMoves ? 'SUGGESTED MOVES' : isWaypoint ? 'SUGGESTED WAYPOINT CHANGE' : 'SUGGESTED ROUTE CHANGE'}</Text>
       <Text style={styles.summary}>{action.summary}</Text>
+      {!isMoves && action.routeReason ? <Text style={styles.reason} testID="ask-proposal-reason">{action.routeReason}</Text> : null}
       {isMoves && action.waypointTitle ? <Text style={styles.context}>For “{action.waypointTitle}”</Text> : null}
 
       {isMoves ? (
@@ -113,6 +115,7 @@ const styles = StyleSheet.create({
   card: { marginTop: spacing[3], padding: spacing[4], gap: spacing[2], borderRadius: radii.lg, borderWidth: 1, backgroundColor: colors.surface },
   eyebrow: { ...typography.labelSM, letterSpacing: 0.8 },
   summary: { ...typography.headingSM, color: colors.text.primary },
+  reason: { ...typography.bodyMD, color: colors.text.secondary },
   context: { ...typography.bodySM, color: colors.text.secondary },
   list: { gap: spacing[2], paddingTop: spacing[1] },
   row: { flexDirection: 'row', gap: spacing[3], alignItems: 'flex-start' },

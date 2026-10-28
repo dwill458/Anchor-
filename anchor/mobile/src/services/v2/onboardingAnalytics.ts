@@ -100,6 +100,17 @@ export const OnboardingAnalytics = {
       onboardingTrack('onboarding_backgrounded', { step: stepFor(raw) });
     } catch { /* no-op */ }
   },
+  abandoned(raw: FirstRunStep | string, reason: 'backgrounded' | 'exit' = 'exit'): void {
+    try {
+      const step = stepFor(raw);
+      if (step === 'complete') return;
+      onboardingTrack('onboarding_abandoned', {
+        step,
+        reason,
+        duration_ms: currentStepViewedAt > 0 ? Math.max(0, Date.now() - currentStepViewedAt) : 0,
+      });
+    } catch { /* no-op */ }
+  },
   bypassed(reason: 'returning_user' | 'already_complete'): void {
     try {
       if (bypassedThisSession) return;

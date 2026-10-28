@@ -203,7 +203,12 @@ export const CHART_COPY = {
     adjustAhead: 'Adjust what’s ahead',
     protected: 'Waypoints you’ve reached stay as they are.',
     rewriteTitle: 'Rewrite part of your route?',
-    rewriteBody: 'This removes a waypoint you’ve already worked on. Your completed moves stay in your history.',
+    rewriteBody: (titles: string[]) =>
+      `This changes ${titles.length ? titles.map((title) => `‘${title}’`).join(' and ') : 'a waypoint'}, which you’ve already worked on. Your completed moves stay in your history.`,
+    reached: 'Reached',
+    removed: 'Removed',
+    changedTag: 'Updated',
+    addedTag: 'New',
     rewriteConfirm: 'Rewrite it',
     review: 'Here’s the revised route.',
     reviewSupport: 'Keep what fits. Change what doesn’t.',

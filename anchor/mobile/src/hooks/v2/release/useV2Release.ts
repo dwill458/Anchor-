@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { AnalyticsEvents, AnalyticsService } from '@/services/AnalyticsService';
 import { useAnchorStore } from '@/stores/anchorStore';
 import { useCourseStore } from '@/stores/courseStore';
 import {
@@ -223,6 +224,13 @@ export function useV2Release(options: UseV2ReleaseOptions): UseV2ReleaseResult {
       if (committed?.reason === 'evolve' && committed.successor) {
         linkEvolvedFrom(committed.successor.anchorId, { anchorId: committed.anchorId, intention: committed.intentionText });
       }
+      AnalyticsService.track(AnalyticsEvents?.RELEASE_COMPLETED ?? 'release_completed', {
+        anchor_id: anchorId,
+        reason: committed?.reason ?? activeReason ?? 'complete',
+        has_successor: Boolean(committed?.successor),
+        has_linked_course: Boolean(committed?.hasLinkedCourse),
+        has_linked_vision: Boolean(committed?.hasLinkedVision),
+      });
     }
   }, [submissionState, anchorId, releaseAnchor, linkEvolvedFrom]);
 

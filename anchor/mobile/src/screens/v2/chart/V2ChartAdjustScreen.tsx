@@ -1,7 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   Alert,
-  Image,
   KeyboardAvoidingView,
   Platform,
   Pressable,
@@ -13,12 +12,12 @@ import {
 } from 'react-native';
 import { useNavigation, useRoute, type RouteProp } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { ArrowRight, ChevronLeft } from 'lucide-react-native';
-import { V2Button } from '@/components/v2/primitives/V2Button';
+import { ChevronLeft } from 'lucide-react-native';
 import { ArrivalScope, ContentSwap, Reveal } from '@/components/v2/motion';
-import { V2SheetModal } from '@/components/v2/primitives/V2SheetModal';
+import { V2ConfirmSheet } from '@/components/v2/primitives/V2ConfirmSheet';
+import { ChartCourseReviewScreen, ChartDestinationCard } from '@/components/v2/chart/ChartCourseReviewScreen';
 import { ChartAdjustPanel, type ChartAdjustRequest } from '@/components/v2/chart/ChartAdjustPanel';
-import { ChartRouteEditor, type DraftWaypoint } from '@/components/v2/chart/ChartRouteEditor';
+import type { DraftWaypoint } from '@/components/v2/chart/ChartRouteEditor';
 import { CHART_COPY } from '@/constants/v2/chartCopy';
 import { trackChart, useAnchorChart } from '@/hooks/v2/chart/useAnchorChart';
 import { useV2ReduceMotion } from '@/hooks/v2/useV2ReduceMotion';
@@ -28,7 +27,6 @@ import { liveWaypoints } from '@/adapters/v2/chart/chartV2Model';
 import { routeWasRevised } from '@/components/v2/chart/chartRouteRevision';
 import { useChartRouteRevisionStore } from '@/stores/v2/chartRouteRevisionStore';
 import { colors, getCategoryColor, radii, spacing, typography } from '@/theme/v2';
-const ETCHED_MAP_IMAGE = require('@/../assets/chart/chart-landscape-master.webp');
 import type { CourseDetail, WaypointSummary } from '@/types/chart';
 import { CenteredMessage } from './V2ChartScreen';
 import { useChartContext } from './chartScreenSupport';
@@ -82,7 +80,9 @@ export function draftFromProposal(course: CourseDetail, proposal: ChartProposal)
       if (existing?.metric?.current != null && (existing.metric.target !== waypoint.metricTarget || existing.metric.baseline !== waypoint.metricBaseline || existing.metric.label !== waypoint.metricLabel)) existingId = null;
       if (existing?.requirements?.some(r => r.completed && !mergedRequirements.some(next => next.id === r.id && next.completed))) existingId = null;
       if (existingId) byTitle.delete(waypoint.title.trim().toLowerCase());
+      const sameAsBefore = existing ? existing.description === waypoint.rationale && (existing.kind ?? 'MILESTONE') === waypoint.kind : false;
       return {
+        change: existingId ? (sameAsBefore ? undefined : 'changed') : 'added',
         key: existingId ?? waypoint.clientKey,
         id: existingId,
         title: waypoint.title,
@@ -96,7 +96,21 @@ export function draftFromProposal(course: CourseDetail, proposal: ChartProposal)
         suggestedMoves: (waypoint.moves ?? []).map((move) => ({ title: move.title, rationale: move.rationale })),
       };
     });
-  return [...history.map(fromWaypoint), ...proposed];
+  const keptIds = new Set(proposed.map((waypoint) => waypoint.id).filter(Boolean));
+  // Dropped waypoints stay in the list, struck through, until the person confirms the route.
+  const removed: DraftWaypoint[] = ahead
+    .filter((waypoint) => !keptIds.has(waypoint.id))
+    .map((waypoint) => ({ ...fromWaypoint(waypoint), key: `removed-${waypoint.id}`, locked: false, change: 'removed' as const }));
+  return [...history.map(fromWaypoint), ...proposed, ...removed];
+}
+
+/** Titles of waypoints with progress that this draft drops, for the rewrite confirmation. */
+export function affectedWaypointTitles(course: CourseDetail, draft: DraftWaypoint[]): string[] {
+  const kept = new Set(draft.filter((waypoint) => waypoint.change !== 'removed').map((waypoint) => waypoint.id).filter(Boolean));
+  return liveWaypoints(course)
+    .filter((waypoint) => !waypoint.reachedAt && waypoint.state !== 'REACHED' && waypoint.state !== 'SKIPPED' && !kept.has(waypoint.id))
+    .filter((waypoint) => waypoint.id === course.currentWaypointId || waypoint.metric?.current != null || waypoint.requirements?.some((r) => r.completed) || course.moves?.some((move) => move.waypointId === waypoint.id && move.status === 'COMPLETED'))
+    .map((waypoint) => waypoint.title);
 }
 
 export function V2ChartAdjustScreen() {
@@ -118,6 +132,8 @@ export function V2ChartAdjustScreen() {
   const [reason, setReason] = useState<string | null>(null);
   const [applying, setApplying] = useState(false);
   const [confirmRewrite, setConfirmRewrite] = useState(false);
+  const [affectedTitles, setAffectedTitles] = useState<string[]>([]);
+  const [oneMove, setOneMove] = useState('');
   const applyKey = useRef(freshKey(`chart-apply:${anchorId}`));
   // A route Ask Chart prepared opens straight on the review.
   const [loadingProposal, setLoadingProposal] = useState(Boolean(proposalParam));
@@ -127,7 +143,7 @@ export function V2ChartAdjustScreen() {
 
   const back = () => (navigation.canGoBack() ? navigation.goBack() : navigation.navigate('V2Chart', { anchorId }));
 
-  const editedAhead = useMemo(() => draft.filter((waypoint) => !waypoint.locked && waypoint.title.trim()), [draft]);
+  const editedAhead = useMemo(() => draft.filter((waypoint) => !waypoint.locked && waypoint.change !== 'removed' && waypoint.title.trim()), [draft]);
 
   // The heading and panel are staged in once, when the route first appears. Asking and reviewing then swap in place.
   const ready = Boolean(course && (course.status === 'ACTIVE' || (course.status === 'COMPLETED' && course.routeScope === 'NEXT_STRETCH')));
@@ -144,6 +160,7 @@ export function V2ChartAdjustScreen() {
       .getProposal(course.id, proposalParam)
       .then((loaded) => {
         setProposal(loaded);
+        setOneMove(loaded.suggestedOneMove?.title ?? '');
         setDraft(draftFromProposal(course, loaded));
         setReason('ASK_CHART');
         setPhase('review');
@@ -180,6 +197,12 @@ export function V2ChartAdjustScreen() {
   const ask = async ({ reason: chosen, detail }: ChartAdjustRequest) => {
     setLoading(true);
     setError(null);
+    trackChart('chart_adjustment_requested', {
+      courseId: course.id,
+      reason: chosen,
+      stage: 'active',
+      hasDetail: Boolean(detail?.trim()),
+    });
     try {
       const response = await chartV2Api.adjust(anchorId, {
         idempotencyKey: freshKey(`chart-adjust:${course.id}`),
@@ -189,6 +212,7 @@ export function V2ChartAdjustScreen() {
       });
       if (response.status === 'proposal') {
         setProposal(response.proposal);
+        setOneMove(response.proposal.suggestedOneMove?.title ?? '');
         setDraft(draftFromProposal(course, response.proposal));
         setReason(chosen);
         if (response.proposal.generation.fallbackUsed) trackChart('chart_fallback_used', { stage: 'adjust' });
@@ -204,6 +228,7 @@ export function V2ChartAdjustScreen() {
 
   const editDirectly = () => {
     setProposal(null);
+    setOneMove('');
     setReason('MANUAL');
     setDraft(draftFromCourse(course));
     setPhase('review');
@@ -254,7 +279,7 @@ export function V2ChartAdjustScreen() {
         expectedCourseVersion: proposal?.baseCourseVersion ?? course.version,
         routeScope: proposal?.routeScope,
         destinationText: reason === 'CHANGE_DESTINATION' ? proposal?.destination : undefined,
-        oneMove: proposal?.suggestedOneMove,
+        oneMove: proposal?.suggestedOneMove ? { ...proposal.suggestedOneMove, title: oneMove.trim() || proposal.suggestedOneMove.title } : undefined,
         idempotencyKey: applyKey.current,
         waypoints: editedAhead.map((waypoint) => ({
           id: waypoint.id ?? null,
@@ -294,6 +319,9 @@ export function V2ChartAdjustScreen() {
     } catch (caught) {
       const classified = classifyChartError(caught);
       if (classified.kind === 'confirmation_required') {
+        // Name the waypoint with progress that changes: the server's list first, the draft as a fallback.
+        const fromServer = (classified.details as { affectedTitles?: unknown } | undefined)?.affectedTitles;
+        setAffectedTitles(Array.isArray(fromServer) && fromServer.length ? (fromServer as string[]) : affectedWaypointTitles(course, draft));
         setConfirmRewrite(true);
       } else if (classified.kind === 'conflict') {
         applyKey.current = freshKey(`chart-apply:${anchorId}`);
@@ -308,17 +336,22 @@ export function V2ChartAdjustScreen() {
     }
   };
 
+  const reviewing = phase === 'review';
+  const guidance = [
+    proposal?.guidance,
+    reason === 'CHANGE_DESTINATION' && proposal ? `Proposed destination: ${proposal.destination}` : null,
+  ].filter(Boolean).join(' ') || null;
+
   return (
     <View testID="v2-chart-adjust" style={[styles.screen, { paddingTop: insets.top }]}>
       <StatusBar barStyle="dark-content" animated />
 
-      {/* Header */}
       <View style={styles.header}>
         <View style={styles.topRow}>
           <Pressable
             accessibilityRole="button"
             accessibilityLabel="Back"
-            onPress={phase === 'review' ? () => setPhase('ask') : back}
+            onPress={reviewing ? () => setPhase('ask') : back}
             hitSlop={12}
             style={styles.backButton}
             testID="chart-adjust-back"
@@ -328,49 +361,47 @@ export function V2ChartAdjustScreen() {
           <Text style={styles.headerTitle}>Adjust Route</Text>
           <View style={styles.headerSpacer} />
         </View>
-
-        <View style={styles.metaContainer}>
-          <View style={styles.categoryPill}>
-            <View style={[styles.categoryDot, { backgroundColor: categoryColor }]} />
-            <Text style={[styles.categoryText, { color: categoryColor }]}>
-              {context.identity?.category ? context.identity.category.toUpperCase() : 'DESIRE'}
-            </Text>
-          </View>
-          {course.destinationText ? (
-            <Text style={styles.headerDestination} numberOfLines={2}>
-              {course.destinationText}
-            </Text>
-          ) : null}
-        </View>
-
-        {/* Map strip below header */}
-        <View style={styles.mapStripContainer}>
-          <Image source={ETCHED_MAP_IMAGE} style={styles.mapStrip} resizeMode="cover" />
-        </View>
       </View>
 
-      <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={styles.flex}>
-        <ScrollView
-          keyboardShouldPersistTaps="handled"
-          contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + spacing[6] }]}
-          showsVerticalScrollIndicator={false}
-        >
-          <ContentSwap contentKey={phase}>
-            <ArrivalScope animate={animateArrival}>
-              <Reveal order={0}>
-                {/* Headline section */}
-                <View style={styles.hero}>
-                  <Text accessibilityRole="header" style={styles.displayHeading}>
-                    {phase === 'ask' ? 'What should we change?' : CHART_COPY.adjust.review}
-                  </Text>
-                  <Text style={styles.support}>
-                    {phase === 'ask' ? 'Tell Anchor what feels too difficult, too easy, or missing. Use your own words.' : CHART_COPY.adjust.reviewSupport}
-                  </Text>
-                </View>
-              </Reveal>
+      {reviewing ? (
+        // The same screen as the first route, in edit mode. Its footer (Keep route / Use this route) is its own layout box.
+        <ChartCourseReviewScreen
+          mode="edit"
+          testID="chart-adjust-review"
+          destination={course.destinationText ?? ''}
+          waypoints={draft}
+          oneMove={oneMove}
+          onOneMoveChange={setOneMove}
+          onWaypointsChange={setDraft}
+          guidance={guidance}
+          saveError={error}
+          saving={applying}
+          canConfirm={editedAhead.length > 0}
+          onAdjust={back}
+          onConfirm={() => void apply(false)}
+          topInset={0}
+          reducedMotion={reducedMotion}
+        />
+      ) : (
+        <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={styles.flex}>
+          <ScrollView
+            keyboardShouldPersistTaps="handled"
+            contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + spacing[6] }]}
+            showsVerticalScrollIndicator={false}
+          >
+            <ContentSwap contentKey={phase}>
+              <ArrivalScope animate={animateArrival}>
+                <Reveal order={0}>
+                  <View style={styles.hero}>
+                    <ChartDestinationCard destination={course.destinationText ?? ''} compact />
+                    <Text accessibilityRole="header" style={styles.displayHeading}>
+                      What should we change?
+                    </Text>
+                    <Text style={styles.support}>Tell Anchor what feels too difficult, too easy, or missing. Use your own words.</Text>
+                  </View>
+                </Reveal>
 
-              <Reveal order={1}>
-                {phase === 'ask' ? (
+                <Reveal order={1}>
                   <View style={styles.panelContainer}>
                     <ChartAdjustPanel
                       onSubmit={(request) => void ask(request)}
@@ -410,55 +441,25 @@ export function V2ChartAdjustScreen() {
                       </Pressable>
                     </View>
                   </View>
-                ) : (
-                  <View style={styles.panelContainer}>
-                    {proposal?.guidance ? <Text style={styles.note}>{proposal.guidance}</Text> : null}
-                    {reason === 'CHANGE_DESTINATION' && proposal ? <Text style={styles.note}>Proposed destination: {proposal.destination}</Text> : null}
-                    {proposal?.suggestedOneMove ? <Text style={styles.note}>Next move: {proposal.suggestedOneMove.title}</Text> : null}
-                    <ChartRouteEditor waypoints={draft} onChange={setDraft} testID="chart-adjust-editor" />
-                    <Text style={styles.note}>{CHART_COPY.adjust.protected}</Text>
-                    {error ? <Text style={styles.error}>{error}</Text> : null}
+                </Reveal>
+              </ArrivalScope>
+            </ContentSwap>
+          </ScrollView>
+        </KeyboardAvoidingView>
+      )}
 
-                    <View style={styles.reviewCtaContainer}>
-                      <V2Button
-                        size="large"
-                        onPress={() => void apply(false)}
-                        loading={applying}
-                        disabled={editedAhead.length === 0}
-                        style={editedAhead.length > 0 && categoryColor ? { backgroundColor: categoryColor } : undefined}
-                        iconRight={<ArrowRight size={18} color={colors.text.inverse} />}
-                        testID="chart-adjust-apply"
-                      >
-                        {CHART_COPY.adjust.apply}
-                      </V2Button>
-                    </View>
-                  </View>
-                )}
-              </Reveal>
-            </ArrivalScope>
-          </ContentSwap>
-        </ScrollView>
-      </KeyboardAvoidingView>
-
-      <V2SheetModal
+      {/* A modal bottom sheet in its own layer: solid surface, dimmed scrim, stacked buttons. Scrim tap and swipe down keep the route. */}
+      <V2ConfirmSheet
         visible={confirmRewrite}
         onClose={() => setConfirmRewrite(false)}
-        reduceMotion={reducedMotion}
+        title={CHART_COPY.adjust.rewriteTitle}
+        message={CHART_COPY.adjust.rewriteBody(affectedTitles)}
+        confirmLabel={CHART_COPY.adjust.rewriteConfirm}
+        cancelLabel={CHART_COPY.adjust.keep}
+        loading={applying}
+        onConfirm={() => void apply(true)}
         testID="chart-rewrite-confirm"
-      >
-        <View style={styles.sheet}>
-          <Text accessibilityRole="header" style={styles.sheetTitle}>
-            {CHART_COPY.adjust.rewriteTitle}
-          </Text>
-          <Text style={styles.sheetBody}>{CHART_COPY.adjust.rewriteBody}</Text>
-          <V2Button size="large" onPress={() => void apply(true)} loading={applying} testID="chart-rewrite-yes">
-            {CHART_COPY.adjust.rewriteConfirm}
-          </V2Button>
-          <V2Button variant="tertiary" onPress={() => setConfirmRewrite(false)}>
-            {CHART_COPY.adjust.keep}
-          </V2Button>
-        </View>
-      </V2SheetModal>
+      />
     </View>
   );
 }

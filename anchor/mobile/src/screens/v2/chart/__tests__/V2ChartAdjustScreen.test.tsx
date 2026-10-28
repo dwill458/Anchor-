@@ -178,7 +178,7 @@ describe('V2ChartAdjustScreen — Adjust Route redesign', () => {
     expect(root).toBeTruthy();
 
     expect(screen.getByText('Adjust Route')).toBeTruthy();
-    expect(screen.getByText('DESIRE')).toBeTruthy();
+    expect(screen.getByTestId('chart-review-destination')).toBeTruthy();
     expect(screen.getByText('Reach $100k ARR')).toBeTruthy();
     expect(screen.getByTestId('chart-adjust-back')).toBeTruthy();
 
@@ -247,7 +247,7 @@ describe('V2ChartAdjustScreen — Adjust Route redesign', () => {
     expect(within(manualLink).getByText('Edit the route yourself')).toBeTruthy();
 
     fireEvent.press(manualLink);
-    expect(await screen.findByTestId('chart-adjust-editor')).toBeTruthy();
+    expect(await screen.findByTestId('chart-route-editor')).toBeTruthy();
   });
 
   it('renders "Archive this route" link and triggers archive on confirmation', async () => {
@@ -382,7 +382,7 @@ describe('V2ChartAdjustScreen motion', () => {
     expect(afterMount).toBeGreaterThan(0);
 
     fireEvent.press(screen.getByTestId('chart-adjust-manual'));
-    expect(await screen.findByTestId('chart-adjust-editor')).toBeTruthy();
+    expect(await screen.findByTestId('chart-route-editor')).toBeTruthy();
     expect(withDelay.mock.calls.length).toBe(afterMount);
 
     fireEvent.press(screen.getByTestId('chart-adjust-back'));
@@ -410,8 +410,8 @@ describe('V2ChartAdjustScreen — route-revised signal (R1)', () => {
   async function openEditorAndApply(screen: ReturnType<typeof render>) {
     await screen.findByTestId('v2-chart-adjust');
     fireEvent.press(screen.getByTestId('chart-adjust-manual'));
-    await screen.findByTestId('chart-adjust-editor');
-    fireEvent.press(screen.getByTestId('chart-adjust-apply'));
+    await screen.findByTestId('chart-route-editor');
+    fireEvent.press(screen.getByTestId('chart-review-confirm'));
   }
 
   const changedCourse = () => ({
@@ -445,7 +445,7 @@ describe('V2ChartAdjustScreen — route-revised signal (R1)', () => {
     const screen = render(<V2ChartAdjustScreen />);
     await openEditorAndApply(screen);
     await waitFor(() => expect(put).toHaveBeenCalled());
-    await waitFor(() => expect(screen.getByTestId('chart-adjust-apply').props.accessibilityState?.busy ?? false).toBe(false));
+    await waitFor(() => expect(screen.getByTestId('chart-review-confirm').props.accessibilityState?.busy ?? false).toBe(false));
     expect(mockGoBack).not.toHaveBeenCalled();
     expect(pending()).toBeNull();
   });
@@ -454,7 +454,7 @@ describe('V2ChartAdjustScreen — route-revised signal (R1)', () => {
     const screen = render(<V2ChartAdjustScreen />);
     await screen.findByTestId('v2-chart-adjust');
     fireEvent.press(screen.getByTestId('chart-adjust-manual'));
-    await screen.findByTestId('chart-adjust-editor');
+    await screen.findByTestId('chart-route-editor');
     fireEvent.press(screen.getByTestId('chart-adjust-back'));
     fireEvent.press(await screen.findByTestId('chart-adjust-back'));
     expect(put).not.toHaveBeenCalled();
@@ -467,7 +467,7 @@ describe('V2ChartAdjustScreen — route-revised signal (R1)', () => {
     put.mockResolvedValueOnce({ data: { success: true, data: changedCourse() } });
     const screen = render(<V2ChartAdjustScreen />);
     await openEditorAndApply(screen);
-    fireEvent.press(await screen.findByTestId('chart-rewrite-yes'));
+    fireEvent.press(await screen.findByTestId('chart-rewrite-confirm-confirm'));
     await waitFor(() => expect(mockReplace).toHaveBeenCalledWith('V2ChartRouteUpdated', expect.anything()));
     expect(put).toHaveBeenCalledTimes(2);
     expect(pending()).toMatchObject({ nonce: 1, courseId: 'course-1' });
@@ -514,7 +514,7 @@ describe('V2ChartAdjustScreen — opened on a route Ask Chart prepared', () => {
 
   it('opens straight on the review of that route, without asking the question again', async () => {
     const screen = render(<V2ChartAdjustScreen />);
-    await screen.findByTestId('chart-adjust-editor');
+    await screen.findByTestId('chart-route-editor');
     expect(get).toHaveBeenCalledWith('/api/v2/charts/course-1/proposals/prop-1');
     expect(screen.queryByTestId('chart-adjust-manual')).toBeNull();
     // Reading the proposal changed nothing.
@@ -525,8 +525,8 @@ describe('V2ChartAdjustScreen — opened on a route Ask Chart prepared', () => {
     put.mockResolvedValueOnce({ data: { success: true, data: { ...activeCourse, version: 2, waypoints: activeCourse.waypoints.map((item) => (item.id === 'wp-3' ? { ...item, title: 'Reach $50k ARR' } : item)) } } });
     post.mockResolvedValue({ data: { success: true, data: { applied: true } } });
     const screen = render(<V2ChartAdjustScreen />);
-    await screen.findByTestId('chart-adjust-editor');
-    fireEvent.press(screen.getByTestId('chart-adjust-apply'));
+    await screen.findByTestId('chart-route-editor');
+    fireEvent.press(screen.getByTestId('chart-review-confirm'));
     await waitFor(() => expect(mockReplace).toHaveBeenCalled());
     expect(put.mock.calls[0][1]).toMatchObject({ expectedCourseVersion: 1, proposalId: 'prop-1', adjustmentReason: 'ASK_CHART' });
     expect(post).toHaveBeenCalledWith('/api/v2/charts/course-1/ask/msg-1/route-applied');
@@ -536,8 +536,8 @@ describe('V2ChartAdjustScreen — opened on a route Ask Chart prepared', () => {
   it('does not tell Ask Chart anything when the route was not saved', async () => {
     put.mockRejectedValueOnce(new Error('network'));
     const screen = render(<V2ChartAdjustScreen />);
-    await screen.findByTestId('chart-adjust-editor');
-    fireEvent.press(screen.getByTestId('chart-adjust-apply'));
+    await screen.findByTestId('chart-route-editor');
+    fireEvent.press(screen.getByTestId('chart-review-confirm'));
     await waitFor(() => expect(put).toHaveBeenCalled());
     expect(post).not.toHaveBeenCalled();
     expect(mockReplace).not.toHaveBeenCalled();
@@ -550,6 +550,6 @@ describe('V2ChartAdjustScreen — opened on a route Ask Chart prepared', () => {
     });
     const screen = render(<V2ChartAdjustScreen />);
     await screen.findByTestId('chart-adjust-manual');
-    expect(screen.queryByTestId('chart-adjust-editor')).toBeNull();
+    expect(screen.queryByTestId('chart-route-editor')).toBeNull();
   });
 });

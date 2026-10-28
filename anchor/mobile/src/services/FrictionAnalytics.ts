@@ -5,7 +5,11 @@ export type FrictionFlow =
   | 'activation'
   | 'paywall'
   | 'burn_release'
-  | 'onboarding_auth';
+  | 'onboarding_auth'
+  | 'practice'
+  | 'vision'
+  | 'chart'
+  | 'weekly_insight';
 
 type RouteFlowStep = {
   flow: FrictionFlow;
@@ -71,6 +75,20 @@ const ROUTE_FLOW_STEPS: Record<string, RouteFlowStep> = {
   BurningRitual: { flow: 'burn_release', step: 'burning_ritual' },
 
   Paywall: { flow: 'paywall', step: 'paywall' },
+  V2Paywall: { flow: 'paywall', step: 'paywall' },
+
+  // Anchor 2.0 routes
+  V2FirstRun: { flow: 'onboarding_auth', step: 'first_run' },
+  V2Auth: { flow: 'onboarding_auth', step: 'v2_auth' },
+  V2Creation: { flow: 'anchor_creation', step: 'v2_creation' },
+  V2Practice: { flow: 'practice', step: 'practice_hub' },
+  V2PracticeSession: { flow: 'practice', step: 'practice_session' },
+  V2Vision: { flow: 'vision', step: 'vision_board' },
+  V2Chart: { flow: 'chart', step: 'chart_active' },
+  V2ChartAdjust: { flow: 'chart', step: 'chart_adjust' },
+  V2ChartAsk: { flow: 'chart', step: 'ask_chart' },
+  V2Release: { flow: 'burn_release', step: 'v2_release' },
+  V2WeeklyInsight: { flow: 'weekly_insight', step: 'weekly_insight' },
 };
 
 const FRICTION_EVENT_NAMES = {

@@ -500,6 +500,8 @@ function ScopedVisionCeremony(props: VisionCeremonyProps) {
       }
       if (result === false) throw new Error(ownPhoto ? copy.photoError : copy.saveError);
       savedRef.current = true;
+      if (ownPhoto) AnalyticsService.track('vision_photo_added', { anchor_id: anchorId, count: photos.length, mode: analyticsMode, source_type: 'USER_UPLOAD' });
+      AnalyticsService.track('vision_board_saved', { anchor_id: anchorId, mode: analyticsMode, path, first_image: firstImage });
       // The board save already validated the exact asset. Session completion is replayable and
       // must never repeat the board mutation if the network drops during this acknowledgement.
       if (!ownPhoto && candidate && session) void conversation?.update({ selectedCandidateId: candidate.id, viewedRoundId: displayedRound?.id, status: 'SEALED' }).catch(() => undefined);

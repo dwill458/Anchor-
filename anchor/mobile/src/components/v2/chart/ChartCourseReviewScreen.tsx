@@ -15,6 +15,13 @@ import { CHART_TRANSITION_TIMING as TT } from './chartMotion';
 import Animated, { FadeIn, ReduceMotion } from 'react-native-reanimated';
 
 type Props = {
+  /**
+   * `view` is the first route ("Here's the course I'd start with"). `edit` is the same screen while a route is being
+   * changed: revised copy, highlighted and struck-through waypoints, locked reached waypoints, Keep route / Use this route.
+   */
+  mode?: 'view' | 'edit';
+  /** Drag handles, renaming and Add waypoint. Defaults to on in edit mode only. */
+  canEditRoute?: boolean;
   destination: string;
   waypoints: DraftWaypoint[];
   oneMove: string;
@@ -55,6 +62,8 @@ export function ChartDestinationCard({ destination, compact = false }: { destina
 }
 
 export function ChartCourseReviewScreen({
+  mode = 'view',
+  canEditRoute,
   destination,
   waypoints,
   oneMove,
@@ -79,7 +88,11 @@ export function ChartCourseReviewScreen({
   const reducedMotion = motionOverride ?? systemReducedMotion;
   const { fontScale } = useWindowDimensions();
   const largeType = fontScale >= 1.3;
-  const firstNamedIndex = waypoints.findIndex((waypoint) => waypoint.title.trim());
+  const isEdit = mode === 'edit';
+  const editable = canEditRoute ?? isEdit;
+  // The next-move card sits on the active waypoint: the first one that is neither reached nor being removed.
+  const firstNamedIndex = waypoints.findIndex((waypoint) => waypoint.title.trim() && !waypoint.locked && waypoint.change !== 'removed');
+  const liveCount = waypoints.filter((waypoint) => waypoint.change !== 'removed').length;
   const arrival = TT.panelIn + 80;
   const localProposals = useRef(new Set<string | number>());
   const proposals = enteredProposals ?? localProposals;
@@ -97,19 +110,19 @@ export function ChartCourseReviewScreen({
         restingBottom={spacing[3]}
         footer={(
           <View style={[styles.actions, largeType && styles.actionsWrap]}>
-            <V2Button variant="secondary" size="large" onPress={onAdjust} style={[styles.actionAdjust, largeType && styles.actionWrap]} numberOfLines={largeType ? undefined : 1} testID="chart-review-adjust" accessibilityLabel={CHART_COPY.review.adjust} disabled={saving}>
-              {CHART_COPY.review.adjust}
+            <V2Button variant="secondary" size="large" onPress={onAdjust} style={[styles.actionAdjust, largeType && styles.actionWrap]} numberOfLines={largeType ? undefined : 1} testID="chart-review-adjust" accessibilityLabel={isEdit ? CHART_COPY.adjust.keep : CHART_COPY.review.adjust} disabled={saving}>
+              {isEdit ? CHART_COPY.adjust.keep : CHART_COPY.review.adjust}
             </V2Button>
-            <V2Button size="large" onPress={onConfirm} loading={saving} disabled={!canConfirm} iconRight={<Text style={styles.arrow}>→</Text>} style={[styles.actionConfirm, largeType && styles.actionWrap]} numberOfLines={largeType ? undefined : 1} testID="chart-review-confirm" accessibilityLabel="Reveal my Chart">
-              Reveal my Chart
+            <V2Button size="large" onPress={onConfirm} loading={saving} disabled={!canConfirm} iconRight={<Text style={styles.arrow}>→</Text>} style={[styles.actionConfirm, largeType && styles.actionWrap]} numberOfLines={largeType ? undefined : 1} testID="chart-review-confirm" accessibilityLabel={isEdit ? CHART_COPY.adjust.apply : 'Reveal my Chart'}>
+              {isEdit ? CHART_COPY.adjust.apply : 'Reveal my Chart'}
             </V2Button>
           </View>
         )}
         footerStyle={styles.footer}
       >
-        <Text accessibilityRole="header" style={styles.headline}>{CHART_COPY.review.headline.replace(/[’]/g, "'")}</Text>
+        <Text accessibilityRole="header" style={styles.headline}>{(isEdit ? CHART_COPY.adjust.review : CHART_COPY.review.headline).replace(/[’]/g, "'")}</Text>
         <Animated.View key={`intro-${proposalKey}`} entering={introArrival}>
-          <Text style={styles.intro}>{needsNaming ? CHART_COPY.review.outline : `We found ${waypoints.length} meaningful waypoint${waypoints.length === 1 ? '' : 's'} for this destination. Keep what fits. Change what doesn't.`}</Text>
+          <Text style={styles.intro}>{isEdit ? CHART_COPY.adjust.reviewSupport : needsNaming ? CHART_COPY.review.outline : `We found ${liveCount} meaningful waypoint${liveCount === 1 ? '' : 's'} for this destination. Keep what fits. Change what doesn't.`}</Text>
         </Animated.View>
         <Animated.View key={`destination-${proposalKey}`} entering={destinationArrival}>
           <ChartDestinationCard destination={destination} compact />
@@ -120,14 +133,15 @@ export function ChartCourseReviewScreen({
         <View style={styles.routeSection}>
           <View style={styles.routeHeader}>
             <ChartEyebrow tone="cream">YOUR ROUTE</ChartEyebrow>
-            <View style={styles.routeCount} testID="chart-review-count"><Text style={styles.routeCountText}>{`${waypoints.length} waypoint${waypoints.length === 1 ? '' : 's'}`}</Text></View>
+            <View style={styles.routeCount} testID="chart-review-count"><Text style={styles.routeCountText}>{`${liveCount} waypoint${liveCount === 1 ? '' : 's'}`}</Text></View>
           </View>
           {guidance ? <Text style={styles.guidance}>{guidance}</Text> : null}
-          <ChartRouteEditor key={proposalKey} waypoints={waypoints} onChange={onWaypointsChange} onEdit={onEdit} showRail testID="chart-route-editor" reducedMotion={reducedMotion} entranceDelayMs={arrival + 440} enteredKeys={enteredWaypointKeys}
+          <ChartRouteEditor key={proposalKey} waypoints={waypoints} onChange={onWaypointsChange} onEdit={onEdit} showRail editable={editable} testID="chart-route-editor" reducedMotion={reducedMotion} entranceDelayMs={arrival + 440} enteredKeys={enteredWaypointKeys}
             renderRowExtra={(_, index) => index === firstNamedIndex ? (
               <OneMoveBlock oneMove={oneMove} onOneMoveChange={onOneMoveChange} waypointNumber={index + 1} waypointTitle={waypoints[index].title} />
             ) : null}
           />
+          {isEdit ? <Text style={styles.protectedNote} testID="chart-review-protected">{CHART_COPY.adjust.protected}</Text> : null}
           {saveError ? <Text style={styles.saveError} accessibilityLiveRegion="polite">{saveError}</Text> : null}
         </View>
       </ChartKeyboardFrame>
@@ -199,6 +213,7 @@ const styles = StyleSheet.create({
   routeCount: { paddingHorizontal: spacing[3], paddingVertical: 5, borderRadius: radii.pill, backgroundColor: colors.grouped },
   routeCountText: { ...typography.labelMD, color: colors.text.secondary },
   guidance: { ...typography.bodyMD, lineHeight: 23, color: colors.text.secondary, marginBottom: spacing[2] },
+  protectedNote: { ...typography.bodySM, color: colors.text.secondary, marginTop: spacing[3] },
   saveError: { ...typography.bodySM, color: colors.semantic.error, marginTop: spacing[2] },
   footer: { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: colors.border.subtle, backgroundColor: colors.canvas },
   actions: { flexDirection: 'row', flexWrap: 'nowrap', gap: spacing[3], paddingHorizontal: spacing[5], paddingTop: spacing[3] },

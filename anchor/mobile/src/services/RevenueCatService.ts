@@ -8,6 +8,7 @@ import {
   REVENUECAT_WEEKLY_PACKAGE_ID,
 } from '@/config';
 import { useSubscriptionStore } from '@/stores/subscriptionStore';
+import { AnalyticsService } from '@/services/AnalyticsService';
 import { logger } from '@/utils/logger';
 
 export interface TrialStatusSnapshot {
@@ -16,12 +17,16 @@ export interface TrialStatusSnapshot {
   hasActiveEntitlement: boolean;
   daysRemaining: number | null;
   trialExpired: boolean;
+  isSandbox?: boolean;
+  store?: string | null;
 }
 
 interface CustomerEntitlementInfo {
   isActive?: boolean;
   periodType?: string | null;
   expirationDate?: string | null;
+  isSandbox?: boolean;
+  store?: string | null;
 }
 
 interface CustomerInfo {
@@ -210,6 +215,8 @@ function deriveTrialStatus(customerInfo: CustomerInfo | null | undefined): Trial
   const isInTrial = isActive && periodType === 'trial';
   const isSubscribed = isActive && !isInTrial;
   const daysRemaining = getDaysRemaining(entitlement.expirationDate);
+  const isSandbox = typeof entitlement.isSandbox === 'boolean' ? entitlement.isSandbox : undefined;
+  const store = typeof entitlement.store === 'string' ? entitlement.store : null;
 
   return {
     isInTrial,
@@ -217,6 +224,8 @@ function deriveTrialStatus(customerInfo: CustomerInfo | null | undefined): Trial
     hasActiveEntitlement: isInTrial || isSubscribed,
     daysRemaining,
     trialExpired: !isActive && entitlement.periodType === 'trial',
+    ...(isSandbox !== undefined ? { isSandbox } : {}),
+    ...(store ? { store } : {}),
   };
 }
 
@@ -302,6 +311,14 @@ function buildPlanMetadata(
 }
 
 class RevenueCatService {
+  constructor() {
+    AnalyticsService.onDistinctIdChange?.((distinctId) => {
+      if (sdkConfigured) {
+        this.syncPostHogSubscriberAttribute(distinctId ?? configuredUserId ?? undefined);
+      }
+    });
+  }
+
   private resolveOfferingFromCollection(offerings: RevenueCatOfferings): RevenueCatOffering | null {
     if (offerings.current) {
       return offerings.current;
@@ -392,6 +409,30 @@ class RevenueCatService {
     purchases.configure(options);
     sdkConfigured = true;
     configuredUserId = userId ?? null;
+    this.syncPostHogSubscriberAttribute(userId);
+  }
+
+  private syncPostHogSubscriberAttribute(fallbackUserId?: string): void {
+    try {
+      const purchases = getPurchasesModule() as { setAttributes?: (attrs: Record<string, string | null>) => Promise<void> | void } | null;
+      if (!purchases?.setAttributes) {
+        return;
+      }
+      // Respect user analytics consent: never transmit $posthogUserId when analytics is opted out,
+      // and clear any previously synced attribute on opt-out.
+      const analyticsConsented =
+        typeof AnalyticsService.isEnabled === 'function' ? AnalyticsService.isEnabled() : true;
+      if (!analyticsConsented) {
+        void Promise.resolve(purchases.setAttributes({ $posthogUserId: null })).catch(() => undefined);
+        return;
+      }
+      const distinctId = AnalyticsService.getDistinctId?.() ?? fallbackUserId ?? null;
+      if (distinctId) {
+        void Promise.resolve(purchases.setAttributes({ $posthogUserId: distinctId })).catch(() => undefined);
+      }
+    } catch {
+      // Never block RevenueCat flows on analytics attribute sync
+    }
   }
 
   async logIn(userId: string): Promise<TrialStatusSnapshot> {
@@ -411,6 +452,7 @@ class RevenueCatService {
     try {
       const response = await purchases.logIn(userId);
       configuredUserId = userId;
+      this.syncPostHogSubscriberAttribute(userId);
       const status = deriveTrialStatus(extractCustomerInfo(response));
       return applyTrialStatus(status, true);
     } catch (error) {
@@ -448,6 +490,7 @@ class RevenueCatService {
     }
 
     try {
+      this.syncPostHogSubscriberAttribute(configuredUserId ?? undefined);
       const currentOffering = await this.getCurrentOffering();
       const availablePackages = currentOffering.availablePackages ?? [];
       const selectedPackage = this.findPackageByIdentifier(availablePackages, productId);

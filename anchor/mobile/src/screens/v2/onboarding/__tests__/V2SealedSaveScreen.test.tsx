@@ -385,4 +385,39 @@ describe('V2SealedSaveScreen', () => {
       expect(screen.queryByTestId('v2-sealed-save-retry')).toBeNull();
     });
   });
+
+  describe('keyboard avoidance', () => {
+    it('scrolls the email form into view on input focus and keyboard appearance', () => {
+      const { ScrollView, Keyboard } = require('react-native');
+      const { act } = require('@testing-library/react-native');
+      const listeners = new Map<string, (...args: unknown[]) => void>();
+      jest.spyOn(Keyboard, 'addListener').mockImplementation(((event: string, listener: (...args: unknown[]) => void) => {
+        listeners.set(event, listener);
+        return { remove: jest.fn() } as any;
+      }) as any);
+      const scrollToEnd = jest.spyOn(ScrollView.prototype, 'scrollToEnd');
+
+      setup();
+      fireEvent.press(screen.getByTestId('v2-sealed-save-email-toggle'));
+      expect(screen.getByTestId('v2-sealed-save-email-panel')).toBeTruthy();
+
+      // Focus email input
+      fireEvent(screen.getByTestId('v2-sealed-save-email'), 'focus');
+      expect(scrollToEnd).toHaveBeenCalled();
+
+      // Focus password input
+      fireEvent(screen.getByTestId('v2-sealed-save-password'), 'focus');
+      expect(scrollToEnd).toHaveBeenCalled();
+
+      scrollToEnd.mockClear();
+
+      // Keyboard appears
+      act(() => {
+        listeners.get('keyboardDidShow')?.({ endCoordinates: { height: 320 } } as any);
+      });
+
+      // Verify scrollToEnd was called when keyboard became active with email open
+      expect(scrollToEnd).toHaveBeenCalled();
+    });
+  });
 });

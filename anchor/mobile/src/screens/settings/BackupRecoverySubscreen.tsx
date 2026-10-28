@@ -1,8 +1,9 @@
 import React, { useState } from 'react';
-import { ActivityIndicator, StyleSheet, Text, TextInput, View } from 'react-native';
+import { ActivityIndicator, Platform, Share, StyleSheet, Text, TextInput, View } from 'react-native';
 import { requireOptionalNativeModule } from 'expo';
 import * as DocumentPicker from 'expo-document-picker';
 import * as FileSystem from 'expo-file-system/legacy';
+import * as Sharing from 'expo-sharing';
 import Svg, { Circle, Path } from 'react-native-svg';
 import {
   ActionButton,
@@ -17,6 +18,7 @@ import { createBackup, restoreBackup } from '@/storage/backup/backupRuntime';
 import { bytesToBase64, base64ToBytes } from '@/storage/backup/base64';
 import { BackupError } from '@/storage/backup/archiveCrypto';
 import { formatLastBackup, recordBackupSaved, useLastBackupAt } from '@/storage/backup/lastBackup';
+import type { BackupCatalog } from '@/storage/backup/namespaceRegistry';
 import { logger } from '@/utils/logger';
 
 const errorMessage = (error: unknown) => {
@@ -55,24 +57,28 @@ export function BackupRecoverySubscreen({ onBack }: { onBack: () => void }) {
   const [keyConfirmed, setKeyConfirmed] = useState(false);
   const [key, setKey] = useState('');
   const [pickedFile, setPickedFile] = useState<{ uri: string; name: string } | null>(null);
-  const [status, setStatus] = useState('');
+  const [backupStatus, setBackupStatus] = useState('');
+  const [unresolvedCoverage, setUnresolvedCoverage] = useState<BackupCatalog | null>(null);
+  const [restoreStatus, setRestoreStatus] = useState('');
   const lastBackupAt = useLastBackupAt();
 
-  const startBackup = async () => {
+  const startBackup = async (acknowledgeUnresolved = false) => {
     setBusy(true);
-    setStatus('Checking local storage and backup coverage…');
+    setBackupStatus('Checking local storage and backup coverage…');
     try {
-      const result = await createBackup();
+      const result = await createBackup({ acknowledgeUnresolved });
       if (!result.ok) {
+        setUnresolvedCoverage(result.coverage);
         const omissions = result.coverage.unresolved.map((item) => item.name).join(', ');
-        setStatus(`A complete backup is not available yet. Unresolved local data: ${omissions || 'unknown namespace'}.`);
+        setBackupStatus(`A complete backup is not available yet. Unresolved local data: ${omissions || 'unknown namespace'}.`);
         return;
       }
       setBackup(result);
       setKeyConfirmed(false);
-      setStatus('');
+      setUnresolvedCoverage(null);
+      setBackupStatus('');
     } catch (error) {
-      setStatus(errorMessage(error));
+      setBackupStatus(errorMessage(error));
     } finally {
       setBusy(false);
     }
@@ -81,36 +87,67 @@ export function BackupRecoverySubscreen({ onBack }: { onBack: () => void }) {
   const exportBackup = async () => {
     if (!backup || !keyConfirmed) return;
     setBusy(true);
+    setBackupStatus('Saving encrypted backup file…');
     try {
-      const permission = await FileSystem.StorageAccessFramework.requestDirectoryPermissionsAsync();
-      if (!permission.granted) {
-        setStatus('Save canceled. No backup was reported as saved.');
-        return;
-      }
       const filename = `Anchor-backup-${new Date().toISOString().slice(0, 10)}.anchorbackup`;
-      const uri = await FileSystem.StorageAccessFramework.createFileAsync(permission.directoryUri, filename, 'application/octet-stream');
       const encoded = bytesToBase64(backup.archive);
-      await FileSystem.writeAsStringAsync(uri, encoded, { encoding: FileSystem.EncodingType.Base64 });
-      const readBack = await FileSystem.readAsStringAsync(uri, { encoding: FileSystem.EncodingType.Base64 });
+
+      if (Platform.OS === 'android' && FileSystem.StorageAccessFramework?.requestDirectoryPermissionsAsync) {
+        try {
+          const permission = await FileSystem.StorageAccessFramework.requestDirectoryPermissionsAsync();
+          if (permission.granted) {
+            const uri = await FileSystem.StorageAccessFramework.createFileAsync(permission.directoryUri, filename, 'application/octet-stream');
+            await FileSystem.writeAsStringAsync(uri, encoded, { encoding: FileSystem.EncodingType.Base64 });
+            const readBack = await FileSystem.readAsStringAsync(uri, { encoding: FileSystem.EncodingType.Base64 });
+            if (readBack !== encoded) throw new Error('External archive read-back did not match');
+            await recordBackupSaved();
+            setBackup(null);
+            setBackupStatus('Backup saved and verified outside Anchor. Keep your recovery key separate from this file.');
+            return;
+          } else {
+            setBackupStatus('Save canceled. No backup was reported as saved.');
+            return;
+          }
+        } catch (safError) {
+          logger.warn('[BackupRecovery] StorageAccessFramework failed, falling back to share sheet', safError);
+        }
+      }
+
+      // iOS or Android SAF fallback
+      const baseDir = FileSystem.cacheDirectory ?? FileSystem.documentDirectory ?? '';
+      const tempUri = `${baseDir}${filename}`;
+      await FileSystem.writeAsStringAsync(tempUri, encoded, { encoding: FileSystem.EncodingType.Base64 });
+      const readBack = await FileSystem.readAsStringAsync(tempUri, { encoding: FileSystem.EncodingType.Base64 });
       if (readBack !== encoded) throw new Error('External archive read-back did not match');
+
+      if (await Sharing.isAvailableAsync()) {
+        await Sharing.shareAsync(tempUri, {
+          mimeType: 'application/octet-stream',
+          dialogTitle: 'Save your Anchor backup',
+          UTI: 'public.data',
+        });
+      } else {
+        await Share.share({ url: tempUri, title: filename });
+      }
       await recordBackupSaved();
       setBackup(null);
-      setStatus('Backup saved and verified outside Anchor. Keep your recovery key separate from this file.');
-    } catch {
-      setStatus('Anchor could not verify the external backup file. It has not reported success.');
+      setBackupStatus('Backup saved and verified outside Anchor. Keep your recovery key separate from this file.');
+    } catch (error) {
+      logger.warn('[BackupRecovery] exportBackup error', error);
+      setBackupStatus('Anchor could not verify the external backup file. It has not reported success.');
     } finally {
       setBusy(false);
     }
   };
 
   const chooseFile = async () => {
-    setStatus('');
+    setRestoreStatus('');
     try {
       const picked = await DocumentPicker.getDocumentAsync({ type: '*/*', copyToCacheDirectory: true, multiple: false });
       if (picked.canceled || !picked.assets[0]) return;
       setPickedFile({ uri: picked.assets[0].uri, name: picked.assets[0].name });
     } catch {
-      setStatus('Anchor could not open that file. Your current data is unchanged.');
+      setRestoreStatus('Anchor could not open that file. Your current data is unchanged.');
     }
   };
 
@@ -119,24 +156,24 @@ export function BackupRecoverySubscreen({ onBack }: { onBack: () => void }) {
     if (text?.trim()) {
       setKey(text.trim());
     } else {
-      setStatus('Nothing to paste. Copy your recovery key first, or type it in.');
+      setRestoreStatus('Nothing to paste. Copy your recovery key first, or type it in.');
     }
   };
 
   const restore = async () => {
     if (!pickedFile) return;
     setBusy(true);
-    setStatus('');
+    setRestoreStatus('');
     try {
       const archiveBase64 = await FileSystem.readAsStringAsync(pickedFile.uri, { encoding: FileSystem.EncodingType.Base64 });
       const result = await restoreBackup({ archive: base64ToBytes(archiveBase64), recoverySecret: key });
-      setStatus(
+      setRestoreStatus(
         result.status === 'complete'
           ? `Recovery verified: ${result.records} records restored. Sign in to the same account to access account-owned content.`
           : 'Private records were verified, but some preferences could not be restored yet. Your encrypted archive remains safe; retry recovery to finish.'
       );
     } catch (error) {
-      setStatus(errorMessage(error));
+      setRestoreStatus(errorMessage(error));
     } finally {
       setBusy(false);
     }
@@ -161,7 +198,36 @@ export function BackupRecoverySubscreen({ onBack }: { onBack: () => void }) {
 
       {!backup ? (
         <View style={styles.buttonBlock}>
-          <ActionButton label="Back up now" onPress={() => void startBackup()} disabled={busy} testID="backup-start" />
+          <ActionButton
+            label={busy ? 'Checking coverage…' : 'Back up now'}
+            onPress={() => void startBackup(false)}
+            disabled={busy}
+            testID="backup-start"
+          />
+          {busy ? <ActivityIndicator color={T.ink2} style={styles.inlineSpinner} /> : null}
+          {backupStatus ? (
+            <Text accessibilityRole="alert" style={styles.sectionStatus} testID="backup-status">
+              {backupStatus}
+            </Text>
+          ) : null}
+          {unresolvedCoverage && unresolvedCoverage.unresolved.length > 0 ? (
+            <View style={styles.unresolvedBox}>
+              <Text style={styles.unresolvedHeading}>Local items not in standard backup:</Text>
+              {unresolvedCoverage.unresolved.map((item) => (
+                <Text key={`${item.store}:${item.name}`} style={styles.unresolvedLine}>
+                  • {item.name}{item.reason ? ` — ${item.reason}` : ''}
+                </Text>
+              ))}
+              <View style={styles.unresolvedAction}>
+                <ActionButton
+                  label="Back up anyway (exclude these items)"
+                  onPress={() => void startBackup(true)}
+                  disabled={busy}
+                  testID="backup-start-acknowledged"
+                />
+              </View>
+            </View>
+          ) : null}
         </View>
       ) : (
         <SettingsGroup style={styles.keyCard}>
@@ -188,6 +254,12 @@ export function BackupRecoverySubscreen({ onBack }: { onBack: () => void }) {
               disabled={busy}
               testID="backup-confirm-key"
             />
+            {busy ? <ActivityIndicator color={T.ink2} style={styles.inlineSpinner} /> : null}
+            {backupStatus ? (
+              <Text accessibilityRole="alert" style={styles.sectionStatus}>
+                {backupStatus}
+              </Text>
+            ) : null}
           </View>
         </SettingsGroup>
       )}
@@ -244,12 +316,15 @@ export function BackupRecoverySubscreen({ onBack }: { onBack: () => void }) {
             disabled={busy || !pickedFile || !key.trim()}
             testID="backup-restore"
           />
+          {busy && pickedFile ? <ActivityIndicator color={T.ink2} style={styles.inlineSpinner} /> : null}
+          {restoreStatus ? (
+            <Text accessibilityRole="alert" style={styles.sectionStatus} testID="restore-status">
+              {restoreStatus}
+            </Text>
+          ) : null}
         </View>
       </SettingsGroup>
       <SettingsNote>Account-owned content stays unavailable until you sign in to the matching account.</SettingsNote>
-
-      {busy ? <ActivityIndicator color={T.ink2} style={styles.spinner} /> : null}
-      {status ? <Text accessibilityRole="alert" style={styles.status}>{status}</Text> : null}
     </SettingsScreenFrame>
   );
 }
@@ -277,6 +352,38 @@ const styles = StyleSheet.create({
   statusTitle: { fontFamily: settingsTypography.bodySemiBold, fontSize: 16, color: cardTheme.ink },
   statusBody: { fontFamily: settingsTypography.body, fontSize: 14, color: cardTheme.muted },
   buttonBlock: { marginHorizontal: 16, marginTop: 12 },
+  inlineSpinner: { marginTop: 12 },
+  sectionStatus: {
+    marginTop: 10,
+    fontFamily: settingsTypography.body,
+    fontSize: 14,
+    lineHeight: 20,
+    color: cardTheme.muted,
+  },
+  unresolvedBox: {
+    marginTop: 12,
+    padding: 14,
+    backgroundColor: cardTheme.card,
+    borderWidth: 1,
+    borderColor: cardTheme.cardBorder,
+    borderRadius: 14,
+  },
+  unresolvedHeading: {
+    fontFamily: settingsTypography.bodySemiBold,
+    fontSize: 14,
+    color: cardTheme.ink,
+    marginBottom: 6,
+  },
+  unresolvedLine: {
+    fontFamily: settingsTypography.body,
+    fontSize: 13,
+    lineHeight: 18,
+    color: cardTheme.muted,
+    marginTop: 2,
+  },
+  unresolvedAction: {
+    marginTop: 12,
+  },
   keyCard: { marginTop: 12 },
   keyBody: { padding: 16 },
   keyTitle: { fontFamily: settingsTypography.bodySemiBold, fontSize: 17, color: cardTheme.ink },
@@ -324,14 +431,5 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: cardTheme.ink,
   },
-  pasteButton: { width: 84 },
-  spinner: { marginTop: 18 },
-  status: {
-    marginHorizontal: 20,
-    marginTop: 16,
-    fontFamily: settingsTypography.body,
-    fontSize: 14,
-    lineHeight: 21,
-    color: cardTheme.muted,
-  },
+  pasteButton: { minWidth: 92 },
 });

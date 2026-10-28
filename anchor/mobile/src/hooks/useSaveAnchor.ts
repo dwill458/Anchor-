@@ -385,6 +385,16 @@ export function useSaveAnchor(input: SaveAnchorInput, routing: SaveAnchorRouting
       structure_variant: structureVariant || 'balanced',
       backend_synced: isBackendAnchorId(anchorId),
     });
+    if (isFirstAnchor) {
+      AnalyticsService.trackFirstAnchorCreatedOnce?.({
+        anchor_id: anchorId,
+        category,
+        is_guest: isGuestFirstAnchor,
+        backend_synced: isBackendAnchorId(anchorId),
+        has_enhanced_image: Boolean(enhancedImageUrl),
+        structure_variant: structureVariant || 'balanced',
+      });
+    }
     FrictionAnalytics.stepCompleted('anchor_creation', 'anchor_reveal', {
       is_first_anchor: isGuestFirstAnchor,
       category,

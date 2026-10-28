@@ -285,6 +285,7 @@ function CinematicRun({ anchor, accountId, statement, visionId, notes, boardLayo
   const endSession = useCallback(() => {
     if (exiting.current) return;
     exiting.current = true;
+    AnalyticsService.track(AnalyticsEvents.VISUALIZE_ABANDONED, { practice_mode: 'visualize', session_id: sessionId.current, anchor_id: anchor.id, planned_duration_ms: plan.durationMs, actual_duration_ms: Math.round(engineRef.current.positionMs), exit_reason: 'user_ended_early' });
     void engineRef.current.endEarly().finally(onExit);
   }, [onExit]);
   useEffect(() => {
@@ -341,6 +342,11 @@ function CinematicRun({ anchor, accountId, statement, visionId, notes, boardLayo
   }, [displayLine, line, engine.positionMs, resolved.caption?.phraseId, resolved.chapter, segment.kind, voice, durationSeconds]);
   const textStyle = useAnimatedStyle(() => ({ opacity: textOpacity.value }));
 
+  useEffect(() => {
+    if (engine.state === 'failed') {
+      AnalyticsService.track(AnalyticsEvents.PRACTICE_FAILED, { practice_mode: 'visualize', session_id: sessionId.current, anchor_id: anchor.id, planned_duration_ms: plan.durationMs, error_code: 'guided_audio_unavailable' });
+    }
+  }, [anchor.id, engine.state, plan.durationMs]);
   if (engine.state === 'failed') return <View testID="v2-visualize-session" style={styles.root}>
     <View style={styles.recovery}>
       <Text style={styles.recoveryTitle}>Guided audio unavailable</Text>

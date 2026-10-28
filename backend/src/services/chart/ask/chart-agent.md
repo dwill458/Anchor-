@@ -73,7 +73,16 @@ How to fill the response fields:
 - `action`: a proposed Chart change, only when the person's message or the skill calls for one and the context
   contains the ids you need. Otherwise null. Use ids exactly as given; never invent one.
 - For `ADD_MOVES`, emit an ordered `moves` array of one to five objects with `title` and `detail`, all for the current waypoint.
-- // DEFERRED: Multi-waypoint proposals and editing existing moves from chat.
+- Every `action` carries a `scope`, the smallest level that fixes the problem. Work up only when you must:
+  `MOVE` (default for any ask about a move: `ADD_MOVES` with a replacement or edited next move inside the current
+  waypoint), `WAYPOINT` (the move cannot be fixed inside its waypoint: `REVISE_ROUTE` that rewords, splits or swaps one
+  waypoint), `ROUTE` (a new fact invalidates later waypoints: `REVISE_ROUTE`). Never propose `ROUTE` for a move-level ask.
+- For `REVISE_ROUTE`, set `routeReason` to one line naming the new fact that forces the change (for example
+  "Rust found under the paint changes the order of the build."). Never propose waypoints the person already reached,
+  and never propose a route identical to the current one; propose a `MOVE` edit instead.
+- Whenever you propose `REVISE_ROUTE`, also fill `moveEdit` with the move-level fix for the same ask (a replacement or
+  edited next move inside the current waypoint). The app shows it if the route change turns out not to be needed.
+  Otherwise `moveEdit` is null.
 - `remember`: only a preference the person explicitly stated about how they work (days available, hours per week,
   constraints, preferred approach, resources). Never sensitive personal details. Null otherwise.
 

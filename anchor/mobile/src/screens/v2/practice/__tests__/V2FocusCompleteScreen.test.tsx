@@ -153,6 +153,31 @@ describe('V2FocusCompleteScreen', () => {
     });
   });
 
+  it('renders sub-point fractional Thread Strength movement with 1 decimal place', () => {
+    const anchor = makeAnchor({
+      id: 'a1',
+      category: 'desire',
+      threadStrength: 13.58,
+    });
+
+    render(
+      <V2FocusCompleteScreen
+        anchor={anchor}
+        durationSeconds={10}
+        beforeStrength={13.58}
+        afterStrength={13.66}
+        onDone={jest.fn()}
+        onAgain={jest.fn()}
+      />
+    );
+
+    expect(screen.getByTestId('focus-complete-thread-bar')).toBeTruthy();
+    expect(screen.getByText('13.6%')).toBeTruthy();
+    expect(screen.getByText('13.7%')).toBeTruthy();
+    expect(screen.getByTestId('focus-thread-delta')).toBeTruthy();
+    expect(screen.getByText('+0.08')).toBeTruthy();
+  });
+
   it('records completion without fabricating a Thread movement when strength is unmeasured', () => {
     const anchor = makeAnchor({
       id: 'a1',

@@ -30,6 +30,7 @@ import {
   type GenerationFailureKind,
 } from '@/services/AnchorGenerationService';
 import { ErrorTrackingService } from '@/services/ErrorTrackingService';
+import { AnalyticsEvents, AnalyticsService } from '@/services/AnalyticsService';
 import { FrictionAnalytics } from '@/services/FrictionAnalytics';
 import { useAnchorStore, useTempStore } from '@/stores/anchorStore';
 import { useAuthStore } from '@/stores/authStore';
@@ -245,6 +246,13 @@ export default function AnchorCreationFlowScreen() {
       if (!firedEventsRef.current.has('revealSettle')) {
         firedEventsRef.current.add('revealSettle');
         playCreationSound('revealSettle');
+        AnalyticsService.track(AnalyticsEvents.ANCHOR_VARIATIONS_PRESENTED, {
+          category: params.category,
+          variation_count: forms.length,
+          received_two_variations: forms.length >= 2,
+          style_choice: generationRef.current.style?.generationStyle ?? 'default',
+          from_onboarding: Boolean(params.fromOnboarding),
+        });
       }
     }
   }, [phase]);
@@ -774,6 +782,13 @@ export default function AnchorCreationFlowScreen() {
       const variationCount = forms.length;
       const heavyInline = form.isHeavyInline;
       deferUntilArrived(() => {
+        AnalyticsService.track(AnalyticsEvents.ANCHOR_SELECTED, {
+          category: params.category,
+          selected_index: pageIndex,
+          variation_count: variationCount,
+          style_choice: style.generationStyle,
+          from_onboarding: Boolean(params.fromOnboarding),
+        });
         FrictionAnalytics.stepCompleted('anchor_creation', 'variation_picker', {
           selected_index: pageIndex,
           variation_count: variationCount,

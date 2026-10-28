@@ -903,11 +903,21 @@ export class ChartService {
           row.moves.some(move => move.waypointId === waypoint.id && move.status === 'COMPLETED')
       );
       if ((removesCurrent || removesWorkedWaypoint) && !input.confirmRewrite) {
+        const hasProgress = (waypoint: (typeof removed)[number]) =>
+          waypoint.id === row.currentWaypointId ||
+          (waypoint.metricCurrent !== null && waypoint.metricCurrent !== undefined) ||
+          (Array.isArray(waypoint.requirements) &&
+            waypoint.requirements.some(r => typeof r === 'object' && r && 'completed' in r && r.completed === true)) ||
+          row.moves.some(move => move.waypointId === waypoint.id && move.status === 'COMPLETED');
         throw new AppError(
           'This change removes a waypoint you have already worked on',
           409,
           'ROUTE_REWRITE_CONFIRMATION_REQUIRED',
-          { removesCurrent, removesWorkedWaypoint }
+          {
+            removesCurrent,
+            removesWorkedWaypoint,
+            affectedTitles: removed.filter(hasProgress).map(waypoint => waypoint.title),
+          }
         );
       }
 

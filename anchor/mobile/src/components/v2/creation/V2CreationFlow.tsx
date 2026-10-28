@@ -156,8 +156,14 @@ export function V2CreationFlow({ saveAnchor, generateExpression, onComplete, onP
     // The stage mounts when the intention is accepted; it remembers where it was entered.
     if (lastStep.current === 'intention' && step && step !== 'intention') setEntryStep(step);
     lastStep.current = step;
-    if (step) track('v2_creation_step_viewed', { step });
-  }, [step]);
+    if (step) {
+      track('v2_creation_step_viewed', { step });
+      if (step === 'choose') {
+        const count = store.getState().draft?.generatedCandidates?.length ?? 0;
+        track('anchor_variations_presented', { variation_count: count, received_two_variations: count >= 2 });
+      }
+    }
+  }, [step, store]);
 
   const goBack = useCallback(() => {
     if (sealIsCommitted(store.getState().draft?.draftId)) return;
@@ -177,6 +183,8 @@ export function V2CreationFlow({ saveAnchor, generateExpression, onComplete, onP
     if (store.getState().distill(chosenCategory)) {
       v2Haptics.selection();
       track('v2_creation_intention_completed');
+      const d = store.getState().draft;
+      track('intention_submitted', { category: d?.category ?? chosenCategory ?? 'custom', intention_length: d?.intention?.trim().length ?? 0 });
     }
   }, [chosenCategory, store]);
 
@@ -213,6 +221,10 @@ export function V2CreationFlow({ saveAnchor, generateExpression, onComplete, onP
       store.getState().completeSave(anchorId);
       v2Haptics.completion();
       track('v2_creation_saved', { expression: current.expression, category: current.category ?? 'custom' });
+      track('anchor_selected', { expression: current.expression, category: current.category ?? 'custom', selected_index: current.selectedCandidateIndex });
+      if (isFirstAnchor) {
+        AnalyticsService.trackFirstAnchorCreatedOnce?.({ anchor_id: anchorId, category: current.category ?? 'custom', has_enhanced_image: Boolean(current.enhancedImageUrl) });
+      }
     } catch (error) {
       const failure = failureOf(error);
       store.getState().failSave(failure);
