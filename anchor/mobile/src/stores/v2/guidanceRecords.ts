@@ -17,13 +17,13 @@ const LEGACY_MIGRATED_IDS: readonly GuidanceId[] = [
   'progress.levels',
 ];
 
-let practiceSnapshotProvider: (() => boolean) | null = null;
-export function setGuidancePracticeSnapshotProvider(provider: (() => boolean) | null) {
+let practiceSnapshotProvider: ((account: string) => boolean) | null = null;
+export function setGuidancePracticeSnapshotProvider(provider: ((account: string) => boolean) | null) {
   practiceSnapshotProvider = provider;
 }
-function snapshotPracticeBeforeGuidance(): boolean {
+function snapshotPracticeBeforeGuidance(account: string): boolean {
   try {
-    return Boolean(practiceSnapshotProvider?.());
+    return Boolean(practiceSnapshotProvider?.(account));
   } catch {
     return false;
   }
@@ -43,9 +43,9 @@ export function mergeGuidanceRecords(account: GuidanceData, guest: GuidanceData)
     records,
     discovery: { ...guest.discovery, ...account.discovery },
     replayedIds: [...new Set([...(guest.replayedIds ?? []), ...(account.replayedIds ?? [])])],
-    ...(account.hadPracticeBeforeGuidance !== undefined || guest.hadPracticeBeforeGuidance !== undefined
-      ? { hadPracticeBeforeGuidance: Boolean(account.hadPracticeBeforeGuidance || guest.hadPracticeBeforeGuidance) }
-      : {}),
+    // The account stamps itself from its own practice. A guest stamp must not make a brand-new account look like an existing user.
+    ...(account.hadPracticeBeforeGuidance !== undefined ? { hadPracticeBeforeGuidance: account.hadPracticeBeforeGuidance }
+      : guest.hadPracticeBeforeGuidance !== undefined ? { hadPracticeBeforeGuidance: guest.hadPracticeBeforeGuidance } : {}),
     ...(dismissedAt ? { gettingStarted: { dismissedAt } } : account.gettingStarted ? { gettingStarted: { ...account.gettingStarted } } : {}),
   };
 }
@@ -74,10 +74,10 @@ export function createGuidanceRecords(storage: Storage) {
         if (!Number.isFinite(value.displayCount) || !Number.isFinite(value.presentAttempts) || !Number.isFinite(value.interruptCount)) throw new Error('Invalid guidance record');
       }
       if (blob.hadPracticeBeforeGuidance === undefined) {
-        blob.hadPracticeBeforeGuidance = snapshotPracticeBeforeGuidance();
+        blob.hadPracticeBeforeGuidance = snapshotPracticeBeforeGuidance(account);
       }
     } else {
-      blob = { schema: 1, bootedAt: new Date().toISOString(), records: {}, discovery: {}, hadPracticeBeforeGuidance: snapshotPracticeBeforeGuidance() };
+      blob = { schema: 1, bootedAt: new Date().toISOString(), records: {}, discovery: {}, hadPracticeBeforeGuidance: snapshotPracticeBeforeGuidance(account) };
       const legacyDefs = GUIDANCE_REGISTRY.filter(def => LEGACY_MIGRATED_IDS.includes(def.id));
       await Promise.all(legacyDefs.map(async def => {
         const beats = def.id === 'today.recommended' ? ['home.today', 'practice.today'] : def.beat ? [def.beat] : [];

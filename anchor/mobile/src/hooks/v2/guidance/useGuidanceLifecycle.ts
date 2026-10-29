@@ -5,9 +5,13 @@ import { useSessionStore } from '@/stores/sessionStore';
 import { setGuidancePracticeSnapshotProvider } from '@/stores/v2/guidanceRecords';
 import { bindGuidanceAccount, discoverGuidance, mountGuidanceRuntime } from './guidanceRuntime';
 
-setGuidancePracticeSnapshotProvider(() => {
+setGuidancePracticeSnapshotProvider(account => {
   const state = useSessionStore.getState();
-  return Boolean((state?.sessionLog?.length ?? 0) > 0 || (state?.practiceHistory?.length ?? 0) > 0 || (state?.totalSessionsCount ?? 0) > 0);
+  // The session store is device-wide: only practice this account (or this device's guest) made counts.
+  const history = state?.practiceHistory ?? [];
+  const ownHistory = history.some(entry => !entry?.accountId || entry.accountId === account || entry.accountId === 'guest' || entry.accountId === 'legacy');
+  const legacyLog = history.length === 0 && ((state?.sessionLog?.length ?? 0) > 0 || (state?.totalSessionsCount ?? 0) > 0);
+  return ownHistory || legacyLog;
 });
 
 /** Shell lifetime covers account changes even when no teaching screen is mounted. */
