@@ -70,6 +70,24 @@ describe('useV2VisionSceneGeneration durable requests and foreground recovery', 
     useAuthStore.setState({ user: { id: 'owner-a' } as never });
   });
 
+  it('stops a stalled draft write without starting generation later', async () => {
+    const pending = deferred<void>();
+    mockWriteSecureValue.mockImplementation(() => pending.promise);
+    const hook = renderHook(() => useV2VisionSceneGeneration('anchor-1'));
+    await waitFor(() => expect(hook.result.current.conversation.loaded).toBe(true));
+    jest.useFakeTimers();
+    try {
+      let started!: Promise<boolean>;
+      act(() => { started = hook.result.current.start('A quiet morning at the beach', null, null, options); });
+      await act(async () => { await Promise.resolve(); jest.advanceTimersByTime(45000); await Promise.resolve(); });
+      await act(async () => { expect(await started).toBe(false); });
+      expect(hook.result.current.error).toMatch(/saving|saved|storage/i);
+      expect(mockPost).not.toHaveBeenCalled();
+      await act(async () => { pending.resolve(); await pending.promise; });
+      expect(mockPost).not.toHaveBeenCalled();
+    } finally { jest.useRealTimers(); hook.unmount(); }
+  });
+
   it('reuses the same persisted idempotency key when a network failure is retried', async () => {
     let serverSession: ReturnType<typeof makeSession> | null = null;
     mockGet.mockImplementation(async (url: string) => envelope(url.endsWith('/creation-sessions') ? serverSession : null));

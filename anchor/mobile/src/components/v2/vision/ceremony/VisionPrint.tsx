@@ -29,8 +29,8 @@ function sourceUri(source?: ImageSourcePropType): string | undefined {
 }
 
 /** Stable slot: the frame and its photograph keep the same native view through every beat. */
-export function VisionPrintSlot({ placement, children, nodeRef, testID, zIndex = 30 }: {
-  placement: PrintPlacement; children: React.ReactNode; nodeRef?: React.Ref<ViewInstance>; testID?: string; zIndex?: number;
+export function VisionPrintSlot({ placement, children, nodeRef, testID, zIndex = 30, pointerEvents }: {
+  placement: PrintPlacement; children: React.ReactNode; nodeRef?: React.Ref<ViewInstance>; testID?: string; zIndex?: number; pointerEvents?: 'auto' | 'none' | 'box-none' | 'box-only';
 }) {
   const reduced = useV2ReduceMotion();
   const x = useSharedValue(placement.x), y = useSharedValue(placement.y);
@@ -47,7 +47,7 @@ export function VisionPrintSlot({ placement, children, nodeRef, testID, zIndex =
   }, [placement.x, placement.y, placement.width, placement.height, placement.rotation, placement.opacity, reduced]);
   const style = useAnimatedStyle(() => ({ left: x.value, top: y.value, width: width.value, height: height.value,
     opacity: opacity.value, transform: [{ rotate: `${rotation.value}deg` }] }));
-  return <Animated.View ref={nodeRef} collapsable={false} testID={testID} style={[styles.slot, { zIndex }, style]}>{children}</Animated.View>;
+  return <Animated.View ref={nodeRef} collapsable={false} testID={testID} pointerEvents={pointerEvents} style={[styles.slot, { zIndex }, style]}>{children}</Animated.View>;
 }
 
 export interface VisionPrintProps {

@@ -7,12 +7,13 @@ import { apiClient, ApiClientError } from '@/services/ApiClient';
 import { isProFeatureLocked } from '@/utils/premiumAccess';
 import { visionApiData } from './visionApi';
 import { generationMessage, type VisionGenerationJob } from './useV2VisionGeneration';
-import { useVisionConversation } from './useVisionConversation';
+import { useVisionConversation, VisionDraftWriteTimeout } from './useVisionConversation';
 import type { VisionSceneRequestOptions } from '@/types/visionConversation';
 
 const POLL_MS = 2000;
 
 function sceneMessage(cause: unknown): string {
+  if (cause instanceof VisionDraftWriteTimeout) return cause.message;
   if (cause instanceof ApiClientError) {
     if (cause.code === 'VISION_IMAGE_LIMIT') return 'Your board is full. Remove an image to add another.';
     if (cause.code === 'VISION_NOT_FOUND') return 'Create your Vision before adding to it.';

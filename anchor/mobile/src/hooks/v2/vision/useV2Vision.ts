@@ -8,7 +8,7 @@ import { encryptedPersistStorage } from '@/stores/encryptedPersistStorage';
 import { visionApiData } from './visionApi';
 import { resolveSlotMap } from '@/components/v2/vision/board/visionBoardSlots';
 import { clampVisionNotePresentationForAspect } from '@/components/v2/vision/notes/visionNotePlacement';
-import { retainPendingVisionWrite,clearPendingVisionWrite,takePendingVisionWrites,releasePendingVisionWrites } from './visionPendingWrites';
+import { retainPendingVisionWrite,clearPendingVisionWrite,takePendingVisionWrites,releasePendingVisionWrites,holdPendingVisionWrites } from './visionPendingWrites';
 import { enqueueVisionMutation, getVisionMutationFeedback, subscribeVisionMutations, resetVisionMutationQueues, type VisionMutationFeedback } from './visionMutationQueue';
 import type { VisionBoardLayout, VisionNoteLayoutPositions } from '@/adapters/v2/vision';
 import { toV2VisionPresentationState, toVisualizeHandoff, type VisionReadModel, type V2VisionPresentationState, type V2VisionTile, type V2VisualizeHandoff, type VisionSceneSource, type VisionNotePresentation } from '@/adapters/v2/vision';
@@ -164,23 +164,50 @@ export function peekV2Vision(anchorId: string, accountId = currentAccountId()): 
   return visionReadCache.get(key) ?? null;
 }
 
-const inFlightVision = new Map<string, Promise<VisionReadModel | null>>();
+type SharedVisionRead = { promise: Promise<VisionReadModel | null>; controller: AbortController; consumers: number };
+const inFlightVision = new Map<string, SharedVisionRead>();
+
+function joinVisionRead(key: string, read: SharedVisionRead, signal?: AbortSignal): Promise<VisionReadModel | null> {
+  if (signal?.aborted) return Promise.reject(new Error('Vision read cancelled'));
+  read.consumers += 1;
+  return new Promise((resolve, reject) => {
+    let finished = false;
+    const release = () => {
+      if (finished) return false;
+      finished = true;
+      signal?.removeEventListener('abort', onAbort);
+      read.consumers -= 1;
+      if (read.consumers === 0 && inFlightVision.get(key) === read) {
+        inFlightVision.delete(key);
+        read.controller.abort();
+      }
+      return true;
+    };
+    const onAbort = () => { if (release()) reject(new Error('Vision read cancelled')); };
+    signal?.addEventListener('abort', onAbort, { once: true });
+    read.promise.then(value => { if (release()) resolve(value); }, error => { if (release()) reject(error); });
+  });
+}
 
 /** One shared request path for bootstrap prefetch and mounted Home hooks. */
 function requestV2Vision(anchorId: string, signal?: AbortSignal, accountId = currentAccountId()): Promise<VisionReadModel | null> {
   const key = visionCacheKey(anchorId, accountId);
   const existing = inFlightVision.get(key);
-  if (existing) return existing;
+  if (existing) return joinVisionRead(key, existing, signal);
+  if (signal?.aborted) return Promise.reject(new Error('Vision read cancelled'));
 
   const mutationVersion = visionMutationVersions.get(key) ?? 0;
   const span = HomeStartupProfiler.start('vision_request', { anchorId });
+  const controller = new AbortController();
+  let shared: SharedVisionRead;
   const request = (async () => {
     const timeZone = resolveUserTimeZone();
     try {
       const response = await apiClient.get<VisionReadModel>(
         `/api/v2/anchors/${encodeURIComponent(anchorId)}/vision`,
-        { params: { timeZone }, signal },
+        { params: { timeZone }, signal: controller.signal },
       );
+      if (controller.signal.aborted) throw new Error('Vision read cancelled');
       // A GET started before a confirmed write must not erase that write on
       // the board, even when it finishes after the composer has returned.
       if ((visionMutationVersions.get(key) ?? 0) !== mutationVersion) return visionReadCache.get(key) ?? null;
@@ -201,12 +228,13 @@ function requestV2Vision(anchorId: string, signal?: AbortSignal, accountId = cur
       span({ ok: status === 404, status: status ?? null });
       throw err;
     } finally {
-      inFlightVision.delete(key);
+      if (inFlightVision.get(key) === shared) inFlightVision.delete(key);
     }
   })();
 
-  inFlightVision.set(key, request);
-  return request;
+  shared = { promise: request, controller, consumers: 0 };
+  inFlightVision.set(key, shared);
+  return joinVisionRead(key, shared, signal);
 }
 
 /** Pre-warms Vision cache in the background; never throws on failure. */
@@ -491,13 +519,16 @@ export function useV2Vision(anchorId: string): UseV2VisionResult {
     [anchorId, commitMutation],
   );
 
-  const sendChange = useCallback(async (method: 'patch' | 'put' | 'post' | 'delete', path: string, body?: object, confirms?: (value: VisionReadModel) => boolean): Promise<VisionReadModel | null> => {
+  const sendChange = useCallback(async (method: 'patch' | 'put' | 'post' | 'delete', path: string, body?: object, confirms?: (value: VisionReadModel) => boolean, concurrentRetention = false): Promise<VisionReadModel | null> => {
     if (currentAccountId() !== accountId) return null;
     const payload = { ...body } as Record<string, unknown>;
     if (!payload.expectedUpdatedAt) delete payload.expectedUpdatedAt;
     let retained=false;
+    let retention: Promise<boolean> | null = null;
+    const releaseHold = concurrentRetention && accountId ? holdPendingVisionWrites(accountId, anchorId) : null;
     if(accountId&&(method==='patch'||method==='put')){
-      try {await retainPendingVisionWrite(accountId,anchorId,method,path,payload);retained=true;}catch{/* Online saves may still succeed when local storage is unavailable. */}
+      retention = retainPendingVisionWrite(accountId,anchorId,method,path,payload).then(() => true, () => false);
+      if (!concurrentRetention) retained = await retention;
     }
     let activePayload = payload;
     try {
@@ -529,16 +560,21 @@ export function useV2Vision(anchorId: string): UseV2VisionResult {
         return null;
       }
       commitMutation(updated,anchorId);
-      if(accountId&&(method==='patch'||method==='put'))void clearPendingVisionWrite(accountId,anchorId,method,path,payload).catch(()=>undefined);
+      if(accountId&&(method==='patch'||method==='put')) {
+        void (retention ?? Promise.resolve(false)).then(() => clearPendingVisionWrite(accountId,anchorId,method,path,payload)).catch(()=>undefined).finally(() => releaseHold?.());
+      } else releaseHold?.();
       return updated;
     } catch(err) {
+      if (retention && concurrentRetention) retained = await retention;
       if(accountId&&(method==='patch'||method==='put')&&err instanceof Error&&/network|timeout|timed out|offline|connection|fetch/i.test(err.message)) {
         setIsOffline(true);
         try { if(!retained)await retainPendingVisionWrite(accountId,anchorId,method,path,activePayload); }
-        catch { if(isMountedRef.current&&currentCacheKey.current===key)setError('Your change could not be saved or retained for retry. Please keep your draft and try again.');return null; }
+        catch { releaseHold?.(); if(isMountedRef.current&&currentCacheKey.current===key)setError('Your change could not be saved or retained for retry. Please keep your draft and try again.');return null; }
+        releaseHold?.();
       }
       // Validation/conflict rejections require a deliberate edit after refresh; never replay them automatically.
-      else if(accountId&&(method==='patch'||method==='put')&&!confirms)void clearPendingVisionWrite(accountId,anchorId,method,path,payload).catch(()=>undefined);
+      else if(accountId&&(method==='patch'||method==='put')&&!confirms)void clearPendingVisionWrite(accountId,anchorId,method,path,payload).catch(()=>undefined).finally(()=>releaseHold?.());
+      else releaseHold?.();
       if(isMountedRef.current && currentCacheKey.current===key) setError(err instanceof Error ? err.message : 'Your change could not be saved. Try again.');
       return null;
     }
@@ -655,7 +691,7 @@ export function useV2Vision(anchorId: string): UseV2VisionResult {
       ? { ...input, presentation: clampVisionNotePresentationForAspect(input.presentation, 1) }
       : input;
     return queueChange(input.content?'Note saved':'Note moved',before=>sendChange('patch',`/api/v2/visions/${encodeURIComponent(before.id)}/notes/${encodeURIComponent(noteId)}`,
-      {...sanitizedInput,expectedUpdatedAt:before.notes?.find(n=>n.id===noteId)?.updatedAt}),
+      {...sanitizedInput,expectedUpdatedAt:before.notes?.find(n=>n.id===noteId)?.updatedAt},undefined,true),
       (before,result)=>{
         const old=before.notes?.find(n=>n.id===noteId), saved=result.notes?.find(n=>n.id===noteId);
         if(!old||!saved) return Promise.resolve(null);
@@ -670,7 +706,7 @@ export function useV2Vision(anchorId: string): UseV2VisionResult {
   const deleteNote = useCallback((id:string)=>mutateNoteState(id,false),[mutateNoteState]);
   const restoreNote = useCallback((id:string)=>mutateNoteState(id,true),[mutateNoteState]);
   const updateSceneCaption = useCallback((sceneId:string,caption:string|null)=>queueChange('Caption saved',
-    before=>sendChange('patch',`/api/v2/visions/${encodeURIComponent(before.id)}/scenes/${encodeURIComponent(sceneId)}`,{caption:caption?.trim()||null,expectedUpdatedAt:before.scenes.find(s=>s.id===sceneId)?.updatedAt}),
+    before=>sendChange('patch',`/api/v2/visions/${encodeURIComponent(before.id)}/scenes/${encodeURIComponent(sceneId)}`,{caption:caption?.trim()||null,expectedUpdatedAt:before.scenes.find(s=>s.id===sceneId)?.updatedAt},undefined,true),
     (before,result)=>sendChange('patch',`/api/v2/visions/${encodeURIComponent(result.id)}/scenes/${encodeURIComponent(sceneId)}`,{caption:before.scenes.find(s=>s.id===sceneId)?.caption??null,expectedUpdatedAt:result.scenes.find(s=>s.id===sceneId)?.updatedAt})),[queueChange,sendChange]);
   const replaceScene = useCallback((sceneId:string,replacement:{assetId:string;sourceType:VisionSceneSource;prompt?:string|null;caption?:string|null})=>queueChange('Photo replaced',
     before=>sendChange('patch',`/api/v2/visions/${encodeURIComponent(before.id)}/scenes/${encodeURIComponent(sceneId)}`,{replacement,expectedUpdatedAt:before.scenes.find(s=>s.id===sceneId)?.updatedAt}),
@@ -717,7 +753,7 @@ export function useV2Vision(anchorId: string): UseV2VisionResult {
     },value=>value.boardLayout===(before.boardLayout??'CLASSIC')),
   ),[accountId,anchorId,commitMutation,key,queueChange,schedulePendingRetry,sendChange]);
   const updateSceneSlots = useCallback((slots:Array<{sceneId:string;slotIndex:number}>)=>queueChange('Moved',
-    before=>sendChange('put',`/api/v2/visions/${encodeURIComponent(before.id)}/scenes/slots`,{slots,expectedUpdatedAt:before.updatedAt}),
+    before=>sendChange('put',`/api/v2/visions/${encodeURIComponent(before.id)}/scenes/slots`,{slots,expectedUpdatedAt:before.updatedAt},undefined,true),
     (before,result)=>sendChange('put',`/api/v2/visions/${encodeURIComponent(result.id)}/scenes/slots`,{
       slots:resolveSlotMap(before.scenes.filter(s=>!s.isArchived).map(s=>s.id),Object.fromEntries(before.scenes.filter(s=>s.slotIndex!=null).map(s=>[s.id,s.slotIndex!]))).flatMap((sceneId,slotIndex)=>sceneId?[{sceneId,slotIndex}]:[]),expectedUpdatedAt:result.updatedAt})),[queueChange,sendChange]);
 

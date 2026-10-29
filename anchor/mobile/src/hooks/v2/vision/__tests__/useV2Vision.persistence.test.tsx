@@ -3,6 +3,7 @@ import type { VisionReadModel } from '@/adapters/v2/vision';
 
 const mockGet = jest.fn();
 const mockPatch = jest.fn();
+const mockPut = jest.fn();
 const mockPersistedSet = jest.fn();
 
 jest.mock('@/stores/encryptedPersistStorage', () => ({
@@ -20,7 +21,7 @@ jest.mock('@/services/ApiClient', () => ({
     get: (...args: unknown[]) => mockGet(...args),
     patch: (...args: unknown[]) => mockPatch(...args),
     post: jest.fn(),
-    put: jest.fn(),
+    put: (...args: unknown[]) => mockPut(...args),
     delete: jest.fn(),
   },
   ApiClientError: class MockApiClientError extends Error {
@@ -80,9 +81,77 @@ describe('useV2Vision confirmed board persistence', () => {
     jest.clearAllMocks();
     mockGet.mockReset();
     mockPatch.mockReset();
+    mockPut.mockReset();
     mockPersistedSet.mockResolvedValue(undefined);
     useAuthStore.setState({ user: { id: 'vision-persistence-user' } as never });
     resetV2VisionReadCache();
+  });
+
+  it('sends and confirms an online caption while its encrypted retry record is slow', async () => {
+    const initial = savedVision();
+    mockGet.mockResolvedValue(envelope(initial));
+    const board = renderHook(() => useV2Vision(initial.anchorId));
+    await waitFor(() => expect(board.result.current.loading).toBe(false));
+    const pendingWrite = deferred<void>();
+    mockPersistedSet.mockImplementation((key: string) => key.startsWith('anchor:v2:vision-pending:') ? pendingWrite.promise : Promise.resolve());
+    const confirmed = { ...initial, scenes: [{ ...initial.scenes[0], caption: 'New caption' }] };
+    mockPatch.mockResolvedValueOnce(envelope(confirmed));
+    let outcome: VisionReadModel | null = null;
+    await act(async () => { outcome = await board.result.current.updateSceneCaption('scene-persistence', 'New caption'); });
+    expect(outcome).toEqual(confirmed);
+    expect(mockPatch).toHaveBeenCalledTimes(1);
+    await act(async () => { pendingWrite.resolve(); await pendingWrite.promise; });
+    board.unmount();
+  });
+
+  it('waits for durable retention before reporting an offline caption failure', async () => {
+    const initial = savedVision();
+    mockGet.mockResolvedValue(envelope(initial));
+    const board = renderHook(() => useV2Vision(initial.anchorId));
+    await waitFor(() => expect(board.result.current.loading).toBe(false));
+    const pendingWrite = deferred<void>();
+    mockPersistedSet.mockImplementation((key: string) => key.startsWith('anchor:v2:vision-pending:') ? pendingWrite.promise : Promise.resolve());
+    mockPatch.mockRejectedValueOnce(new Error('Network unavailable'));
+    let settled = false;
+    let operation!: Promise<VisionReadModel | null>;
+    act(() => { operation = board.result.current.updateSceneCaption('scene-persistence', 'Offline caption'); void operation.then(() => { settled = true; }); });
+    await waitFor(() => expect(mockPatch).toHaveBeenCalledTimes(1));
+    expect(settled).toBe(false);
+    await act(async () => { pendingWrite.resolve(); expect(await operation).toBeNull(); });
+    expect(board.result.current.error).toBe('Network unavailable');
+    board.unmount();
+  });
+
+  it('confirms an added photo placement while the encrypted retry record is slow', async () => {
+    const initial = savedVision();
+    mockGet.mockResolvedValue(envelope(initial));
+    const board = renderHook(() => useV2Vision(initial.anchorId));
+    await waitFor(() => expect(board.result.current.loading).toBe(false));
+    const pendingWrite = deferred<void>();
+    mockPersistedSet.mockImplementation((key: string) => key.startsWith('anchor:v2:vision-pending:') ? pendingWrite.promise : Promise.resolve());
+    const confirmed = { ...initial, scenes: [{ ...initial.scenes[0], slotIndex: 2 }] };
+    mockPut.mockResolvedValueOnce(envelope(confirmed));
+    await act(async () => { expect(await board.result.current.updateSceneSlots([{ sceneId: 'scene-persistence', slotIndex: 2 }])).toEqual(confirmed); });
+    expect(mockPut).toHaveBeenCalledTimes(1);
+    await act(async () => { pendingWrite.resolve(); await pendingWrite.promise; });
+    board.unmount();
+  });
+
+  it('confirms a note edit while its encrypted retry record is slow', async () => {
+    const base = savedVision();
+    const note = { id: 'note-1', visionId: base.id, content: { text: 'Old' }, presentation: { styleId: 'sticky_blush_pink' as const, x: .5, y: .5, width: .3, height: .3, rotation: 0, scale: 1, layerOrder: 0 }, createdAt: '2026-10-01T00:00:00.000Z', updatedAt: '2026-10-01T00:00:00.000Z' };
+    const initial = { ...base, notes: [note] };
+    mockGet.mockResolvedValue(envelope(initial));
+    const board = renderHook(() => useV2Vision(initial.anchorId));
+    await waitFor(() => expect(board.result.current.loading).toBe(false));
+    const pendingWrite = deferred<void>();
+    mockPersistedSet.mockImplementation((key: string) => key.startsWith('anchor:v2:vision-pending:') ? pendingWrite.promise : Promise.resolve());
+    const confirmed = { ...initial, notes: [{ ...note, content: { text: 'Updated' } }] };
+    mockPatch.mockResolvedValueOnce(envelope(confirmed));
+    await act(async () => { expect(await board.result.current.updateNote('note-1', { content: { text: 'Updated' } })).toEqual(confirmed); });
+    expect(mockPatch).toHaveBeenCalledTimes(1);
+    await act(async () => { pendingWrite.resolve(); await pendingWrite.promise; });
+    board.unmount();
   });
 
   it('reports a failed photo position save and preserves the last confirmed framing', async () => {

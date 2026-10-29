@@ -4,8 +4,9 @@ import { VisionReferenceStrip } from '../VisionReferenceStrip';
 import type { VisionReferenceAttachment } from '@/types/visionConversation';
 
 const mockPickVisionPhoto = jest.fn();
+const mockPickVisionReferences = jest.fn();
 
-jest.mock('@/hooks/v2/vision', () => ({ pickVisionPhoto: (...args: unknown[]) => mockPickVisionPhoto(...args) }));
+jest.mock('@/hooks/v2/vision', () => ({ pickVisionPhoto: (...args: unknown[]) => mockPickVisionPhoto(...args), pickVisionReferences: (...args: unknown[]) => mockPickVisionReferences(...args) }));
 jest.mock('@/hooks/v2', () => ({ v2Haptics: { selection: jest.fn() } }));
 jest.mock('../VisionChoiceSheet', () => ({
   VisionChoiceSheet: (props: { visible: boolean; actions: Array<{ key: string; label: string }>; onChoose: (key: string) => void; testID: string }) => {
@@ -30,7 +31,7 @@ describe('VisionReferenceStrip', () => {
   beforeEach(() => { jest.clearAllMocks(); });
 
   it('adds a picked photo as an inspiration reference at quality 0.6', async () => {
-    mockPickVisionPhoto.mockResolvedValue({ status: 'picked', photo: { uri: 'file:///new.jpg', mimeType: 'image/jpeg' } });
+    mockPickVisionReferences.mockResolvedValue({ status: 'picked', photos: [{ uri: 'file:///new.jpg', mimeType: 'image/jpeg' }, { uri: 'file:///second.jpg', mimeType: 'image/jpeg' }] });
     const onChange = jest.fn();
     const view = render(<VisionReferenceStrip references={[]} onChange={onChange} />);
 
@@ -49,10 +50,10 @@ describe('VisionReferenceStrip', () => {
     expect(view.getByLabelText('Take photo')).toBeTruthy();
     fireEvent.press(view.getByLabelText('Choose from library'));
 
-    expect(mockPickVisionPhoto).toHaveBeenCalledWith('library', 0.6);
+    expect(mockPickVisionReferences).toHaveBeenCalledWith(5, 0.6);
     await waitFor(() => expect(onChange).toHaveBeenCalledWith([expect.objectContaining({
       uri: 'file:///new.jpg', mimeType: 'image/jpeg', role: 'inspiration',
-    })]));
+    }), expect.objectContaining({ uri: 'file:///second.jpg', role: 'inspiration' })]));
   });
 
   it('lets a full gallery replace a selected photo in place and preserve its role', async () => {

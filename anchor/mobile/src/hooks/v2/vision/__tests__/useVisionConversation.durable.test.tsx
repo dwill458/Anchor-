@@ -54,6 +54,30 @@ describe('useVisionConversation durable owner-bound drafts', () => {
     useAuthStore.setState({ user: { id: 'owner-a' } as never });
   });
 
+  it('coalesces queued draft snapshots and waits for the latest durable value', async () => {
+    const firstWrite = deferred<void>();
+    mockWriteSecureValue.mockImplementationOnce(() => firstWrite.promise)
+      .mockImplementation(async (key, value) => { mockSecureValues.set(key, value); });
+    const hook = renderHook(() => useVisionConversation('anchor-1'));
+    await waitFor(() => expect(hook.result.current.loaded).toBe(true));
+    let first!: Promise<void>, second!: Promise<void>, third!: Promise<void>;
+    act(() => {
+      hook.result.current.saveDraft({ description: 'First' });
+      first = hook.result.current.flushDraft();
+    });
+    await waitFor(() => expect(mockWriteSecureValue).toHaveBeenCalledTimes(1));
+    act(() => {
+      hook.result.current.saveDraft({ description: 'Second' });
+      second = hook.result.current.flushDraft();
+      hook.result.current.saveDraft({ description: 'Latest' });
+      third = hook.result.current.flushDraft();
+    });
+    await act(async () => { firstWrite.resolve(); await Promise.all([first, second, third]); });
+    expect(mockWriteSecureValue).toHaveBeenCalledTimes(2);
+    expect(JSON.parse([...mockSecureValues.values()][0]).description).toBe('Latest');
+    hook.unmount();
+  });
+
   it('restores an encrypted local draft after the hook is remounted', async () => {
     const first = renderHook(() => useVisionConversation('anchor-1'));
     await waitFor(() => expect(first.result.current.loaded).toBe(true));

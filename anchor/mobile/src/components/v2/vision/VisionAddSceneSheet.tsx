@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Keyboard, Platform, Pressable, ScrollView, StyleSheet, Switch, Text, useWindowDimensions, View, type ScrollViewInstance } from 'react-native';
 import Animated, { useAnimatedKeyboard, useAnimatedStyle } from 'react-native-reanimated';
+import { Camera, Images, StickyNote } from 'lucide-react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { V2SheetGrabZone, V2SheetModal, V2_SHEET_SKIRT } from '@/components/v2/primitives/V2SheetModal';
 import { useV2ReduceMotion } from '@/hooks/v2';
@@ -192,6 +193,18 @@ export function VisionAddSceneSheet({ visible, onClose, anchorIntention, onSubmi
           </View>
         ) : (
         <ScrollView ref={scrollRef} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false} contentContainerStyle={styles.body}>
+          <View onLayout={event => { fieldY.current = event.nativeEvent.layout.y; }}>
+          <VisionSceneField
+            handleRef={fieldRef}
+            testID="vision-scene-input"
+            accessibilityLabel="Describe the next scene"
+            value={text}
+            onChangeText={value => { setText(value); if (notice) setNotice(null); onDraftChange?.(draftRequest(value)); }}
+            maxChars={ADD_SCENE_MAX_CHARS}
+            placeholder="Describe your next scene…"
+            minHeight={64}
+          />
+          </View>
           <VisionReferenceStrip references={references} onChange={updateReferences} onNotice={setNotice}
             collapsed={keyboardOpen} compact={keyboardOpen} testID="vision-add-scene-reference" />
           {boardReferencePhotos.length > 0 ? (
@@ -205,18 +218,6 @@ export function VisionAddSceneSheet({ visible, onClose, anchorIntention, onSubmi
                 trackColor={{ false: colors.border.default, true: colors.paywall.gold }} thumbColor={colors.canvas} />
             </View>
           ) : null}
-          <View onLayout={event => { fieldY.current = event.nativeEvent.layout.y; }}>
-          <VisionSceneField
-            handleRef={fieldRef}
-            testID="vision-scene-input"
-            accessibilityLabel="Describe the next scene"
-            value={text}
-            onChangeText={value => { setText(value); if (notice) setNotice(null); onDraftChange?.(draftRequest(value)); }}
-            maxChars={ADD_SCENE_MAX_CHARS}
-            placeholder="Describe your next scene…"
-            minHeight={64}
-          />
-          </View>
           {!keyboardOpen ? <View style={styles.suggestions}>
             <Pressable testID="vision-add-scene-show-suggestions" accessibilityRole="button" accessibilityLabel={showSuggestions ? 'Hide suggestions' : text.trim() ? 'Show suggestions' : 'Need a spark? Show suggestions'}
               onPress={() => setShowSuggestions(value => !value)} style={styles.suggestionToggle}>
@@ -233,17 +234,20 @@ export function VisionAddSceneSheet({ visible, onClose, anchorIntention, onSubmi
             onDisabledPress={() => setNotice(`Describe the scene in ${ADD_SCENE_MIN_CHARS}–${ADD_SCENE_MAX_CHARS} characters, or add a reference photo.`)} onPress={() => { void submit(); }} /> : null}
           {onAddOwnPhoto && canAddImage && !keyboardOpen ? (
             <View style={styles.ownRow}>
-              <Pressable testID="vision-add-own-photo" accessibilityRole="button" accessibilityLabel="Use my own photo" onPress={() => addOwn('library')} style={styles.ownAction}>
-                <Text style={styles.ownLabel}>Use my own photo</Text>
+              <Pressable testID="vision-add-own-photo" accessibilityRole="button" accessibilityLabel="Use my own photo" onPress={() => addOwn('library')} style={styles.photoAction}>
+                <Images size={16} color={colors.text.primary} strokeWidth={1.7} />
+                <Text style={styles.photoLabel}>Use my own photo</Text>
               </Pressable>
-              <Pressable testID="vision-add-own-camera" accessibilityRole="button" accessibilityLabel="Take a photo" onPress={() => addOwn('camera')} style={styles.ownAction}>
-                <Text style={styles.ownLabel}>Take a photo</Text>
+              <Pressable testID="vision-add-own-camera" accessibilityRole="button" accessibilityLabel="Take a photo" onPress={() => addOwn('camera')} style={styles.photoAction}>
+                <Camera size={16} color={colors.text.primary} strokeWidth={1.7} />
+                <Text style={styles.photoLabel}>Take a photo</Text>
               </Pressable>
             </View>
           ) : null}
           {onAddNote && !keyboardOpen ? (
-            <Pressable testID="vision-add-note" accessibilityRole="button" accessibilityLabel="Add a note" onPress={addNote} style={[styles.ownAction, styles.noteAction]}>
-              <Text style={styles.ownLabel}>Add a note</Text>
+            <Pressable testID="vision-add-note" accessibilityRole="button" accessibilityLabel="Add a note" onPress={addNote} style={[styles.photoAction, styles.noteAction]}>
+              <StickyNote size={16} color={colors.text.primary} strokeWidth={1.7} />
+              <Text style={styles.photoLabel}>Add a note</Text>
             </Pressable>
           ) : null}
         </View>
@@ -280,9 +284,9 @@ const styles = StyleSheet.create({
   suggestionToggleText: { ...typography.bodySM, color: colors.text.secondary, textDecorationLine: 'underline' },
   notice: { ...typography.bodySM, color: colors.semantic.error },
   sub: { ...typography.bodyMD, color: colors.text.secondary, textAlign: 'center', marginTop: spacing[1], marginBottom: spacing[3] },
-  noteAction: { alignSelf: 'center' },
+  noteAction: { alignSelf: 'center', flex: 0, width: '50%' },
   actions: { gap: spacing[2], paddingTop: spacing[2] },
-  ownRow: { flexDirection: 'row', justifyContent: 'center', gap: spacing[5] },
-  ownAction: { minHeight: 44, justifyContent: 'center' },
-  ownLabel: { fontFamily: 'Inter-Regular', fontSize: 13, color: colors.text.secondary, textDecorationLine: 'underline' },
+  ownRow: { flexDirection: 'row', gap: spacing[2] },
+  photoAction: { flex: 1, minHeight: 44, flexDirection: 'row', gap: spacing[2], alignItems: 'center', justifyContent: 'center', paddingHorizontal: spacing[2], borderWidth: 1, borderColor: colors.border.default, borderRadius: radii.pill, backgroundColor: colors.surface },
+  photoLabel: { flexShrink: 1, fontFamily: 'Inter-SemiBold', fontSize: 12, textAlign: 'center', color: colors.text.primary },
 });

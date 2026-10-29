@@ -26,6 +26,7 @@ export function useVisionCreationActions(props: VisionCeremonyActionsProps) {
   const generation = useV2VisionSceneGeneration(props.anchorId, props.onPremiumRequired);
   const [notice, setNotice] = useState<string | null>(null);
   const [starting, setStarting] = useState(false);
+  const [preparation, setPreparation] = useState<{ stage: 'uploading'; current: number; total: number } | { stage: 'saving' } | null>(null);
   const startingRef = useRef(false);
   // Successful uploads survive a failed scene save, so retry never uploads them twice.
   const uploaded = useRef(new Map<string, VisionFlowAsset>());
@@ -45,6 +46,7 @@ export function useVisionCreationActions(props: VisionCeremonyActionsProps) {
     }
     if (startingRef.current) return false;
     startingRef.current = true; setStarting(true); setNotice(null);
+    setPreparation({ stage: 'saving' });
     try {
       if (references && references.length > 0) {
         if (references.length > 5) { setNotice('Choose up to five reference photos.'); return false; }
@@ -53,6 +55,7 @@ export function useVisionCreationActions(props: VisionCeremonyActionsProps) {
         for (const reference of references) {
           let assetId = reference.assetId ?? referenceUploads.current.get(reference.uri);
           if (!assetId) {
+            if (mounted.current) setPreparation({ stage: 'uploading', current: uploaded.length + 1, total: references.length });
             const result = await uploadVisionPhoto(reference, props.onUploadAsset);
             if (!result.ok) { setNotice(result.message); return false; }
             assetId = result.assetId; referenceUploads.current.set(reference.uri, assetId);
@@ -60,11 +63,12 @@ export function useVisionCreationActions(props: VisionCeremonyActionsProps) {
           uploaded.push({ ...reference, assetId });
           generation.conversation?.saveDraft({ references: [...uploaded, ...references.slice(uploaded.length)] });
         }
+        if (mounted.current) setPreparation({ stage: 'saving' });
         if (!generation.conversation?.session && props.mode === 'create' && props.onSaveDescription && !await props.onSaveDescription(trimmed)) {
           setNotice('Your description could not be saved. Please try again.'); return false;
         }
         generation.conversation?.saveDraft({ description: options?.operation === 'EDIT' || options?.operation === 'VARIATE' ? generation.conversation.draft.current?.description ?? '' : trimmed, references: uploaded });
-        return generation.start(trimmed, null, null, {
+        return await generation.start(trimmed, null, null, {
           operation: uploaded.length > 1 ? 'COMPOSE' : 'CREATE', ...options,
           references: uploaded.map(ref => ({ assetId: ref.assetId!, role: ref.role, ...(ref.label ? { label: ref.label } : {}) })),
         });
@@ -72,10 +76,12 @@ export function useVisionCreationActions(props: VisionCeremonyActionsProps) {
       let startAssetId: string | null = null;
       // This is Describe's photo-to-generation input, not the direct own-photo path.
       if (photo) {
+        if (mounted.current) setPreparation({ stage: 'uploading', current: 1, total: 1 });
         const result = await uploadVisionPhoto(photo, props.onUploadAsset);
         if (!result.ok) { setNotice(result.message); return false; }
         startAssetId = result.assetId;
       }
+      if (mounted.current) setPreparation({ stage: 'saving' });
       const visionDescription = photo ? photoVisionDescription(trimmed, props.anchorIntention) : trimmed;
       if (props.onSaveDescription && !await props.onSaveDescription(visionDescription)) {
         setNotice('Your description could not be saved. Please try again.'); return false;
@@ -85,7 +91,7 @@ export function useVisionCreationActions(props: VisionCeremonyActionsProps) {
         : await generation.start(trimmed, appearanceReferenceId);
     } catch (cause) {
       setNotice(cause instanceof Error ? cause.message : 'Image creation is unavailable right now.'); return false;
-    } finally { startingRef.current = false; setStarting(false); }
+    } finally { startingRef.current = false; if (mounted.current) { setStarting(false); setPreparation(null); } }
   };
 
   const pickImages = async (multiple: boolean, source: 'library' | 'camera'): Promise<CeremonyPhoto[] | null> => {
@@ -157,5 +163,5 @@ export function useVisionCreationActions(props: VisionCeremonyActionsProps) {
       selectedAssets: assets.map((asset, i) => ({ ...asset, caption: photoCaptions ? photoCaptions[photos[i].key] : i === 0 ? caption : undefined })), selection });
   };
 
-  return { generation, starting, notice, setNotice, generate, pickImages, saveUploads, prepareUploads, uploadingCount };
+  return { generation, starting, preparation, notice, setNotice, generate, pickImages, saveUploads, prepareUploads, uploadingCount };
 }

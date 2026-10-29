@@ -2,11 +2,17 @@ import { act, fireEvent, render } from '@testing-library/react-native';
 import { ExpoSpeechRecognitionModule } from 'expo-speech-recognition';
 import { VisionAddSceneSheet } from '../VisionAddSceneSheet';
 import { VISION_ADD_SHEET_HANDOFF_MS } from '../VisionAddSheet';
-import { Keyboard, Platform } from 'react-native';
+import { Keyboard, Platform, StyleSheet } from 'react-native';
 import { V2SheetModal } from '@/components/v2/primitives/V2SheetModal';
 
 const mockPick = jest.fn();
-jest.mock('@/hooks/v2/vision', () => ({ pickVisionPhoto: (...args: unknown[]) => mockPick(...args) }));
+jest.mock('@/hooks/v2/vision', () => ({
+  pickVisionPhoto: (...args: unknown[]) => mockPick(...args),
+  pickVisionReferences: async (_limit: number, quality: number) => {
+    const result = await mockPick('library', quality);
+    return result?.status === 'picked' ? { status: 'picked', photos: [result.photo] } : result;
+  },
+}));
 
 const available = ExpoSpeechRecognitionModule.isRecognitionAvailable as jest.Mock;
 const mockReferenceRoleRender = jest.fn();
@@ -64,6 +70,19 @@ describe('VisionAddSceneSheet', () => {
     expect(view.getByTestId('vision-scene-input')).toBeTruthy();
     expect(view.getByTestId('vision-scene-generate')).toBeTruthy();
     expect(view.getByText('Generate Images')).toBeTruthy();
+  });
+
+  it('puts the description before references and presents photo actions as secondary buttons', () => {
+    const view = renderSheet();
+    const input = view.getByTestId('vision-scene-input');
+    const gallery = view.getByTestId('vision-add-scene-reference');
+    const body = gallery.parent;
+    expect(body?.children.indexOf(input.parent)).toBeLessThan(body?.children.indexOf(gallery) ?? -1);
+    for (const id of ['vision-add-own-photo', 'vision-add-own-camera', 'vision-add-note']) {
+      const style = StyleSheet.flatten(view.getByTestId(id).props.style);
+      expect(style.minHeight).toBe(44);
+      expect(style.borderWidth).toBe(1);
+    }
   });
 
   it('keeps the five-slot reference gallery visible and accessible', () => {

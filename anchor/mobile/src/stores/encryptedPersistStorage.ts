@@ -27,8 +27,8 @@ async function gated<T>(lane: 'read' | 'bulk', call: () => Promise<T>): Promise<
 }
 const gatedSecureStore = {
   getItemAsync: (key: string) => gated('read', () => SecureStore.getItemAsync(key)),
-  setItemAsync: (key: string, value: string) => gated('bulk', () => SecureStore.setItemAsync(key, value)),
-  deleteItemAsync: (key: string) => gated('bulk', () => SecureStore.deleteItemAsync(key)),
+  setItemAsync: (key: string, value: string, lane: 'read' | 'bulk' = 'bulk') => gated(lane, () => SecureStore.setItemAsync(key, value)),
+  deleteItemAsync: (key: string, lane: 'read' | 'bulk' = 'bulk') => gated(lane, () => SecureStore.deleteItemAsync(key)),
 };
 
 type AsyncStateStorage = StateStorage & {
@@ -194,6 +194,9 @@ const processGeneration = `${Date.now().toString(36)}-${Math.random().toString(3
 
 export async function writeLegacySecureValue(name: string, value: string): Promise<void> {
   const startedAt = Date.now();
+  // A Vision draft must be durable before its image job can start. Do not queue
+  // these small writes behind hundreds of vault chunks from unrelated work.
+  const lane = name.startsWith('vision-conversation.') ? 'read' : 'bulk';
   const revision = (requestedGeneration.get(name) ?? 0) + 1;
   requestedGeneration.set(name, revision);
   const generation = `${processGeneration}-${revision.toString(36)}`;
@@ -201,7 +204,7 @@ export async function writeLegacySecureValue(name: string, value: string): Promi
   const chunks = splitIntoChunks(value);
   await Promise.all(
     chunks.map((chunk, index) =>
-      gatedSecureStore.setItemAsync(secureStoreKey(secureChunkKey(generationName, index)), chunk)
+      gatedSecureStore.setItemAsync(secureStoreKey(secureChunkKey(generationName, index)), chunk, lane)
     )
   );
 
@@ -216,7 +219,7 @@ export async function writeLegacySecureValue(name: string, value: string): Promi
   const commit = (manifestWrites.get(name) ?? Promise.resolve()).catch(() => {}).then(async () => {
     if (revision < (committedGeneration.get(name) ?? 0)) {
       await Promise.all(chunks.map((_, index) =>
-        gatedSecureStore.deleteItemAsync(secureStoreKey(secureChunkKey(generationName, index)))
+        gatedSecureStore.deleteItemAsync(secureStoreKey(secureChunkKey(generationName, index)), lane)
       ));
       return;
     }
@@ -227,7 +230,7 @@ export async function writeLegacySecureValue(name: string, value: string): Promi
     }
     const meta: SecureChunkMeta = { chunks: chunks.length, generation, length: value.length,
       previousGeneration: previous?.generation, previousChunks: previous?.chunks };
-    await gatedSecureStore.setItemAsync(secureStoreKey(secureMetaKey(name)), JSON.stringify(meta));
+    await gatedSecureStore.setItemAsync(secureStoreKey(secureMetaKey(name)), JSON.stringify(meta), lane);
     committedGeneration.set(name, revision);
     // Only obsolete generations from this new writer are reclaimed. Keep the
     // previous commit and every legacy chunk; a racing reader retries the pointer.
@@ -235,7 +238,7 @@ export async function writeLegacySecureValue(name: string, value: string): Promi
       await Promise.all(Array.from({ length: previous.previousChunks }, (_, index) =>
         gatedSecureStore.deleteItemAsync(secureStoreKey(secureChunkKey(
           `${name}__generation_${previous.previousGeneration}`, index
-        )))
+        )), lane)
       )).catch((error) => logger.warn('Failed to reclaim obsolete secure generation', error));
     }
   });

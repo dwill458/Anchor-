@@ -1,0 +1,647 @@
+<title>Anchor First Course</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=EB+Garamond:ital,wght@0,400;0,500;0,600;1,400;1,500&family=Figtree:wght@400;500;600;700;800&display=swap">
+<style>
+/* Layout: phone mockup of the real Anchor 2.0 Home (left) with review controls and notes (right); stacks on phones. */
+:root{
+  --page:#ECE6DA; --page-ink:#1D1B18; --page-muted:#6E675C; --page-line:#D3CABA; --page-card:#F6F1E7;
+  --cream:#F4F0E8; --cream-2:#EAE3D6; --ring:#EFE8DB; --ink:#1B1A17; --ink-2:#5B564E; --ink-3:#8C867B;
+  --navy:#131821; --navy-2:#1C222C; --navy-3:#252C38; --n-text:#EEEAE2; --n-text-2:#A7A9AE; --n-text-3:#6C717A; --hair:rgba(238,234,226,.1);
+  --cat:#C8457E; --gold:#C9A24A; --focus:#8B5CF6; --vis:#3B82C4;
+  --serif:"EB Garamond",Georgia,serif; --sans:"Figtree",system-ui,sans-serif;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--page:#0E1014;--page-ink:#E9E3D6;--page-muted:#9A9488;--page-line:#262A31;--page-card:#161A20;color-scheme:dark}}
+:root[data-theme="dark"]{--page:#0E1014;--page-ink:#E9E3D6;--page-muted:#9A9488;--page-line:#262A31;--page-card:#161A20;color-scheme:dark}
+body{background:var(--page);color:var(--page-ink);font-family:var(--sans);padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:24px}
+.wrap{max-width:1060px;margin:0 auto;display:flex;gap:40px;align-items:flex-start;flex-wrap:wrap;justify-content:center}
+.stage{flex:0 1 390px;width:100%;max-width:390px;min-width:0}
+.side{flex:1 1 340px;min-width:0;max-width:520px;display:flex;flex-direction:column;gap:18px}
+
+.phone{width:100%;height:820px;max-height:calc(100vh - 48px);min-height:640px;border-radius:44px;background:#000;padding:9px;box-shadow:0 30px 60px -20px rgba(20,22,43,.45)}
+.screen{position:relative;width:100%;height:100%;border-radius:35px;overflow:hidden;overflow:clip;background:var(--navy)}
+.scroller{position:absolute;inset:0;overflow-y:auto;overflow-x:hidden;scroll-behavior:smooth;scrollbar-width:none}
+.scroller::-webkit-scrollbar,.page::-webkit-scrollbar{display:none}
+
+/* ---------- cream hero ---------- */
+.hero{background:var(--cream);padding:46px 18px 30px;position:relative}
+.hdr{display:flex;align-items:center;gap:12px}
+.av{width:48px;height:48px;border-radius:50%;background:radial-gradient(circle at 40% 35%,#8a6a55,#3b2b22);position:relative;flex:none}
+.av i{position:absolute;right:-3px;bottom:-3px;width:20px;height:20px;border-radius:50%;background:#F4F0E8;border:1px solid #ddd5c6;display:grid;place-items:center;font:700 9px var(--sans);color:var(--ink-2)}
+.hi{font:400 13.5px/1.15 var(--serif);color:var(--ink-2)}
+.hi b{display:block;font:500 18px var(--serif);color:var(--ink)}
+.plus{margin-left:auto;appearance:none;border:0;background:none;width:40px;height:40px;display:grid;place-items:center;cursor:pointer;border-radius:50%;color:var(--ink)}
+.catrow{display:flex;align-items:center;gap:10px;margin-top:18px}
+.catbar{width:24px;height:6px;border-radius:3px;background:var(--cat)}
+.cat{font:700 11.5px var(--sans);letter-spacing:2.2px;color:var(--cat)}
+.cnt{font:700 11px var(--sans);letter-spacing:2px;color:var(--ink-3)}
+.allanch{margin-left:auto;font:500 14px var(--serif);color:var(--ink)}
+.carousel{position:relative;height:236px;margin-top:16px}
+.ring{position:absolute;left:50%;top:6px;width:224px;height:224px;margin-left:-112px;border-radius:50%;background:var(--ring);padding:11px;box-shadow:0 8px 20px -10px rgba(60,40,20,.25);cursor:pointer;border:0;appearance:none;isolation:isolate}
+.ring::before{content:"";position:absolute;inset:-34px;border-radius:50%;background:radial-gradient(circle,rgba(200,69,126,.85) 0,rgba(200,69,126,.35) 52%,transparent 70%);opacity:var(--glow,0);z-index:-1;transition:opacity 1.8s ease}
+.ring svg{width:100%;height:100%;border-radius:50%;display:block}
+.peek{position:absolute;top:50px;width:136px;height:136px;border-radius:50%;background:var(--ring);padding:7px;cursor:pointer;transition:opacity .5s}
+.peek.l{left:-104px}.peek.r{right:-104px}
+.peek div{width:100%;height:100%;border-radius:50%}
+.tapchip{position:absolute;left:50%;top:216px;transform:translateX(-50%);background:var(--ink);color:var(--cream);font:600 11px var(--sans);padding:6px 11px;border-radius:999px;white-space:nowrap;pointer-events:none;animation:bob 2.4s ease-in-out infinite}
+@keyframes bob{0%,100%{transform:translate(-50%,0)}50%{transform:translate(-50%,-3px)}}
+.intent{text-align:center;font:500 23px/1.2 var(--serif);color:var(--ink);margin-top:26px;text-wrap:balance}
+.uline{display:block;margin:-2px auto 0;width:140px;height:8px}
+.tline{display:flex;justify-content:center;align-items:baseline;gap:8px;margin:18px auto 0;width:fit-content;padding:6px 10px;border-radius:12px;cursor:pointer;font:600 14px var(--sans);color:var(--ink)}
+.tline .pct{font:400 22px var(--sans);color:var(--cat);font-variant-numeric:tabular-nums}
+.tline .tw{font:500 13px var(--sans);color:var(--ink-2)}
+.tline .beg{font:400 14px var(--sans);color:var(--ink-2)}
+.splice{display:block;width:100%;height:56px;margin-top:-1px;background:var(--navy)}
+
+/* ---------- navy system world ---------- */
+.g{padding:0 18px 70px;display:flex;flex-direction:column}
+.mark{display:flex;justify-content:center;margin:-6px 0 22px}
+.today{position:relative;padding-bottom:22px;border-bottom:1px solid var(--hair)}
+.today .glowimg{position:absolute;right:-18px;top:6px;width:200px;height:170px;background:radial-gradient(ellipse 60% 6% at 55% 40%,rgba(255,190,110,.9),transparent 70%),radial-gradient(ellipse 40% 9% at 58% 78%,transparent 60%,rgba(255,190,110,.6) 64%,transparent 70%),radial-gradient(ellipse at 60% 50%,#203248,transparent 70%);opacity:.9}
+.tag{display:inline-block;position:relative;font:700 11.5px var(--sans);letter-spacing:2.6px;color:#fff;background:var(--focus);padding:6px 14px 6px 10px;clip-path:polygon(0 0,88% 0,100% 50%,88% 100%,0 100%)}
+.tag.done{background:var(--navy-3);color:var(--n-text-2)}
+.today h3{position:relative;margin:12px 0 2px;font:700 38px/1 var(--sans);color:var(--n-text)}
+.begin{position:relative;appearance:none;border:0;background:none;padding:6px 0;cursor:pointer;font:400 20px var(--sans);color:var(--n-text);display:flex;gap:10px;align-items:center}
+.begin[disabled]{color:var(--n-text-3);cursor:default}
+.today p{position:relative;margin:6px 0 10px;font:400 15.5px var(--sans);color:var(--n-text-2)}
+.allp{position:relative;font:600 14.5px var(--sans);color:var(--n-text-2)}
+.sec{padding:22px 0;border-bottom:1px solid var(--hair)}
+.kick{font:700 11px var(--sans);letter-spacing:2.6px;color:var(--n-text-3);text-transform:uppercase}
+.prog{cursor:pointer}
+.prog h4{margin:14px 0 14px;font:400 23px/1.2 var(--serif);color:var(--n-text);text-wrap:balance}
+.prog .est{display:flex;align-items:center;gap:14px;font:400 15px var(--sans);color:var(--n-text-2)}
+.prog .est i{display:inline-block;width:40px;height:2px;background:var(--n-text)}
+.prog .foot{display:flex;justify-content:space-between;align-items:center;margin-top:10px;font:400 15px var(--sans);color:var(--n-text-2)}
+.circ{width:38px;height:38px;border-radius:50%;border:1px solid rgba(238,234,226,.3);display:grid;place-items:center;color:var(--n-text)}
+.vcard{background:#EFE7D8;border-radius:20px;padding:14px 16px 16px;color:var(--ink);margin-top:2px}
+.vhead{display:flex;justify-content:space-between;font:500 17px var(--serif)}
+.vhead span{font:400 13px var(--sans);color:var(--ink-3)}
+.polas{position:relative;height:118px;margin:12px 0 8px}
+.pola{position:absolute;background:#fff;padding:5px 5px 14px;box-shadow:0 4px 10px rgba(0,0,0,.15)}
+.pola div{width:100%;height:100%}
+.vcap{font:italic 400 14.5px/1.3 var(--serif);color:var(--ink-2)}
+.chead{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:12px}
+.chead b{font:600 19px var(--sans);color:var(--n-text)}
+.chead span{font:400 14px var(--sans);color:var(--n-text-2)}
+.ccard{height:150px;border-radius:18px;position:relative;overflow:hidden;border:1px solid rgba(238,234,226,.4);background:linear-gradient(180deg,#F2EFEA 0,#d9d2c9 45%,#45424a 100%)}
+.ccard .hill{position:absolute;left:0;bottom:28px;width:58%;height:90px;background:radial-gradient(ellipse at 30% 100%,#C8457E 0,#8d2f5a 50%,transparent 72%);opacity:.75}
+.ccard .t{position:absolute;left:16px;bottom:18px;font:500 18px var(--serif);color:#fff}
+.ccard .n{position:absolute;right:12px;top:10px;font:500 12px var(--sans);background:rgba(255,255,255,.85);padding:3px 8px;border-radius:8px;color:var(--ink)}
+.ccard .bars{position:absolute;left:16px;bottom:8px;display:flex;gap:4px}
+.ccard .bars i{width:46px;height:3px;border-radius:2px;background:rgba(255,255,255,.35)}
+.ccard .bars i:first-child{background:var(--gold)}
+.rp{display:flex;align-items:center;gap:14px;padding:12px 0;border-bottom:1px solid var(--hair);font:400 16px var(--sans);color:var(--n-text)}
+.rp span{margin-left:auto;font-size:13.5px;color:var(--n-text-3)}
+
+/* ---------- First Course ---------- */
+.course{margin:22px 0 4px;background:var(--navy-2);border:1px solid var(--hair);border-radius:22px;padding:16px 16px 6px;overflow:hidden;transition:max-height .7s ease,opacity .5s,margin .5s,padding .5s;max-height:1100px}
+.course.gone{max-height:0;opacity:0;margin:0;padding-top:0;padding-bottom:0;border-width:0}
+.c-top{display:flex;justify-content:space-between;align-items:flex-start;gap:12px}
+.c-title{margin:5px 0 0;font:500 22px/1.15 var(--serif);color:var(--n-text);text-wrap:balance}
+.c-count{font:600 12px var(--sans);color:var(--n-text-2);white-space:nowrap;font-variant-numeric:tabular-nums;text-align:right}
+.c-hide{appearance:none;border:0;background:none;color:var(--n-text-3);font:500 12px var(--sans);cursor:pointer;padding:4px 0 0}
+.cbar{display:grid;grid-template-columns:repeat(6,1fr);gap:4px;margin:12px 0 6px}.cbar i{height:4px;border-radius:2px;background:rgba(238,234,226,.14);transition:background .5s}.cbar i.f{background:var(--n-text)}
+.row{display:grid;grid-template-columns:30px 1fr auto;gap:12px;align-items:center;padding:12px 0;border-top:1px solid var(--hair)}
+.row .ic{width:30px;height:30px;border-radius:50%;border:1.5px dashed rgba(238,234,226,.3);display:grid;place-items:center;color:var(--n-text-2);transition:all .4s}
+.row.done .ic{border:1.5px solid var(--n-text);background:var(--n-text);color:var(--navy)}
+.row.locked{opacity:.45}
+.row .t{font:600 14.5px var(--sans);color:var(--n-text)}
+.row .d{font:400 12.5px/1.35 var(--sans);color:var(--n-text-2);margin-top:2px}
+.row.done .t{color:var(--n-text-2);text-decoration:line-through;text-decoration-color:rgba(238,234,226,.35)}
+.row.done .d{display:none}
+.pill{appearance:none;border:1px solid rgba(238,234,226,.28);background:transparent;color:var(--n-text);font:600 12px var(--sans);padding:7px 12px;border-radius:999px;cursor:pointer;white-space:nowrap}
+.row.done .pill,.row.locked .pill{display:none}
+.lockt{font:500 11px var(--sans);color:var(--n-text-3);white-space:nowrap}
+.row:not(.locked) .lockt{display:none}
+.finish{display:none;text-align:center;padding:4px 0 14px}
+.course.complete .rows{display:none}
+.course.complete .finish{display:block}
+.finish p{margin:0 0 12px;font:400 13px/1.45 var(--sans);color:var(--n-text-2)}
+
+/* ---------- teaching surfaces (match the app's cream coach card) ---------- */
+.pulse{position:absolute;pointer-events:none;border-radius:22px;border:2px solid var(--cat);z-index:80;opacity:0;transition:opacity .25s}
+.pulse.round{border-radius:50%}
+.pulse.on{opacity:1;animation:pulse 1.6s ease-out infinite}
+@keyframes pulse{0%{box-shadow:0 0 0 0 rgba(200,69,126,.45)}100%{box-shadow:0 0 0 14px rgba(200,69,126,0)}}
+.tip{position:absolute;z-index:81;box-sizing:border-box;background:#F2EEE6;color:var(--ink);border-radius:18px;padding:14px 16px;font:400 14px/1.42 var(--sans);box-shadow:0 14px 30px -10px rgba(0,0,0,.45);opacity:0;transform:translateY(4px);transition:opacity .25s,transform .25s;pointer-events:none}
+.tip.on{opacity:1;transform:none;pointer-events:auto}
+.tip b{display:block;font:500 19px/1.2 var(--serif);margin-bottom:4px;padding-right:18px}
+.tip span{color:var(--ink-2)}
+.tip::after{content:"";position:absolute;left:var(--ax,50%);width:14px;height:14px;background:inherit;transform:translateX(-50%) rotate(45deg)}
+.tip.up::after{top:-6px}.tip.down::after{bottom:-6px}
+.tip .x{position:absolute;right:6px;top:4px;border:0;background:none;color:var(--ink-3);font-size:18px;cursor:pointer;padding:4px 8px}
+.tip .act{display:block;margin:12px 0 0 auto;appearance:none;border:0;border-radius:999px;padding:9px 18px;font:600 14px var(--sans);cursor:pointer;background:#1D1B18;color:#F2EEE6}
+
+/* ---------- pages ---------- */
+.page{position:absolute;inset:0;z-index:50;transform:translateX(100%);transition:transform .45s cubic-bezier(.2,.8,.2,1);overflow-y:auto;scrollbar-width:none}
+.page.on{transform:none}
+.page.up{transform:translateY(100%)}.page.up.on{transform:none}
+.pbtn{appearance:none;border:0;width:44px;height:44px;border-radius:50%;cursor:pointer;display:grid;place-items:center;font:500 20px var(--sans)}
+/* details */
+#details{background:var(--cream);color:var(--ink)}
+.dtop{display:flex;justify-content:space-between;padding:44px 18px 0}
+.dtop .pbtn{background:var(--cream-2);color:var(--ink)}
+.dring{width:250px;height:250px;margin:6px auto 0;border-radius:50%;background:var(--ring);padding:10px;box-shadow:0 0 50px rgba(200,69,126,.28)}
+.dring svg{width:100%;height:100%;border-radius:50%;display:block}
+.dint{text-align:center;font:500 26px/1.15 var(--serif);margin:20px 24px 4px;text-wrap:balance}
+.dcat{text-align:center;font:700 12px var(--sans);letter-spacing:3px;color:var(--cat)}
+.dts{display:flex;align-items:center;gap:10px;justify-content:center;margin:14px 20px 0;font:500 12px var(--sans);letter-spacing:1.6px;color:var(--ink-2)}
+.dts b{font:500 17px var(--serif);letter-spacing:0;color:var(--ink)}
+.dts .bar{width:80px;height:3px;border-radius:2px;background:#e3dccf;position:relative}
+.dts .bar i{position:absolute;left:0;top:-1px;height:5px;border-radius:3px;background:var(--cat)}
+.dts .st{color:var(--cat);font-weight:700;letter-spacing:2px}
+.dsheet{background:var(--navy);border-radius:26px 26px 0 0;margin-top:26px;padding:12px 16px 40px;min-height:420px;color:var(--n-text)}
+.dsheet .grab{width:40px;height:4px;border-radius:2px;background:rgba(238,234,226,.25);margin:0 auto 16px}
+.rec{display:flex;gap:12px;align-items:center;background:var(--navy-2);border-radius:18px;padding:12px}
+.rec .th{width:56px;height:56px;border-radius:12px;background:linear-gradient(180deg,#3a4a66,#d8935a 55%,#2a2e3a 60%);flex:none}
+.rec .k{font:500 11.5px var(--sans);letter-spacing:.6px;color:var(--n-text-2)}
+.rec .m{font:700 18px var(--sans)}
+.rec .play{margin-left:auto;width:46px;height:46px;border-radius:50%;background:var(--focus);display:grid;place-items:center;flex:none}
+.allm{text-align:center;font:400 14px var(--sans);color:var(--n-text-2);margin:14px 0 6px}
+.dsec{margin-top:22px}
+.dsec h5{margin:0 0 10px;font:700 21px var(--sans);display:flex;justify-content:space-between;align-items:baseline}
+.dsec h5 span{font:400 14px var(--sans);color:var(--n-text-2)}
+.empty{border:1.5px dashed rgba(238,234,226,.25);border-radius:18px;padding:16px;display:grid;grid-template-columns:1fr auto;gap:12px;align-items:center}
+.empty .t{font:600 15px var(--sans)}
+.empty .d{font:400 12.5px/1.4 var(--sans);color:var(--n-text-2);margin-top:2px}
+.empty.filled{border-style:solid;border-color:var(--cat);background:rgba(200,69,126,.08)}
+.btn{appearance:none;border:0;cursor:pointer;font:600 13px var(--sans);border-radius:999px;padding:10px 14px;background:var(--n-text);color:var(--navy);white-space:nowrap}
+/* progress */
+#progress{background:var(--cream)}
+.phero{background:var(--navy);color:var(--n-text);border-radius:0 0 28px 28px;padding:42px 18px 18px}
+.ptop{display:grid;grid-template-columns:44px 1fr 44px;align-items:center;text-align:center}
+.ptop .pbtn{background:transparent;border:1px solid rgba(238,234,226,.25);color:var(--n-text)}
+.ptop .ttl{font:600 12px var(--sans);letter-spacing:3.4px;color:var(--n-text-2)}
+.ptop .sw{display:inline-block;margin-top:6px;border:1px solid rgba(238,234,226,.25);border-radius:999px;padding:6px 14px;font:600 14px var(--sans);color:var(--n-text)}
+.pcat{margin-top:14px;font:700 11px var(--sans);letter-spacing:2.4px;color:var(--n-text-2)}
+.pcat i{display:inline-block;width:7px;height:7px;border-radius:50%;background:var(--cat);margin-right:6px}
+.pint{font:500 21px var(--serif);margin:4px 0 12px}
+.pmain{display:flex;gap:16px;align-items:center}
+.pmini{width:104px;height:104px;border-radius:50%;flex:none;box-shadow:0 0 22px rgba(200,69,126,.35);overflow:hidden}
+.pmini svg{width:100%;height:100%;display:block}
+.plab{font:700 11px var(--sans);letter-spacing:2.4px;color:var(--n-text-2)}
+.pnum{display:flex;align-items:center;gap:10px;margin-top:4px;font:500 46px/1 var(--serif)}
+.pst{font:700 11px var(--sans);letter-spacing:2.4px;color:var(--gold);border:1.5px solid var(--gold);border-radius:999px;padding:4px 10px}
+.pwk{font:400 14px var(--sans);color:var(--n-text-2);margin-top:4px}
+.pret{margin:12px 0 10px;font:400 14.5px var(--sans)}
+.pladder{display:grid;grid-template-columns:repeat(5,1fr);gap:5px}
+.pladder div{font:500 10.5px var(--sans);color:var(--n-text-2);text-align:center;padding-top:7px;border-top:3px solid var(--navy-3)}
+.pladder div.on{border-top-color:var(--gold);color:var(--gold)}
+.pstats{display:grid;grid-template-columns:repeat(3,1fr);margin-top:14px;border:1px solid rgba(238,234,226,.15);border-radius:16px;background:var(--navy-2)}
+.pstats div{text-align:center;padding:10px 4px;font:400 11px var(--sans);color:var(--n-text-2)}
+.pstats div+div{border-left:1px solid rgba(238,234,226,.12)}
+.pstats b{display:block;font:500 21px var(--serif);color:var(--n-text)}
+.pbody{padding:18px 18px 40px;color:var(--ink)}
+.pbody .k2{font:700 11px var(--sans);letter-spacing:2.4px;color:var(--ink-2);margin-bottom:10px}
+.wk{display:flex;justify-content:space-between;background:#FBF8F2;border:1px solid #e6dfd2;border-radius:18px;padding:14px}
+.wk span{display:flex;flex-direction:column;align-items:center;gap:7px;font:500 12px var(--sans);color:var(--ink-2)}
+.wk i{width:22px;height:22px;border-radius:50%;border:1.5px dashed #b9b1a3}
+.wk i.f{background:var(--ink);border:0}
+/* create */
+#create{background:var(--cream);color:var(--ink);padding:44px 20px 30px}
+#create .pbtn{background:var(--cream-2);color:var(--ink)}
+#create h4{margin:26px 0 6px;font:500 30px/1.1 var(--serif)}
+#create p{margin:0 0 18px;font:400 14.5px/1.45 var(--sans);color:var(--ink-2)}
+#create textarea{width:100%;box-sizing:border-box;min-height:120px;border:0;border-bottom:1.5px solid var(--ink);background:transparent;font:500 24px/1.25 var(--serif);color:var(--ink);resize:none;outline:none}
+#create .go{margin-top:22px;width:100%;padding:15px;border-radius:999px;border:0;background:var(--ink);color:var(--cream);font:600 15px var(--sans);cursor:pointer}
+.scrimfake{display:none}
+#vision{background:#F3EFE7;color:var(--ink)}
+.vtop{display:grid;grid-template-columns:44px 1fr 44px;align-items:center;padding:42px 14px 0;text-align:center}
+.vtop .pbtn{background:none;color:var(--ink);font-size:24px}
+.vtop h4{margin:0;font:500 26px var(--serif)}
+.vcat2{margin:14px 18px 2px;font:600 11px var(--sans);letter-spacing:2.2px;color:var(--ink-2)}
+.vcat2 i{display:inline-block;width:6px;height:6px;border-radius:50%;background:var(--cat);margin-right:7px;vertical-align:2px}
+.vint{margin:0 18px;font:500 30px/1.1 var(--serif)}
+.vrule{width:56px;height:1px;background:var(--ink-3);margin:12px 18px 0}
+.board{position:relative;height:410px;margin:16px 10px 0}
+.ph{position:absolute;background:#fff;padding:6px 6px 22px;box-shadow:0 6px 16px rgba(0,0,0,.18);transition:all .6s cubic-bezier(.2,.8,.2,1);cursor:pointer}
+.ph div{width:100%;height:100%}
+.ph em{position:absolute;left:0;right:0;bottom:3px;text-align:center;font:italic 400 12px var(--serif);color:var(--ink-2)}
+.ph.lead{left:6px;top:0;width:calc(100% - 12px);height:210px;transform:rotate(0)}
+.ph.s1{left:14px;top:236px;width:150px;height:150px;transform:rotate(-3deg)}
+.ph.hide{opacity:0;transform:scale(.6);pointer-events:none}
+.medal{position:absolute;right:40px;top:262px;width:96px;height:96px;border-radius:50%;background:var(--ring);padding:5px;box-shadow:0 6px 14px rgba(0,0,0,.2);z-index:2}
+.medal svg{width:100%;height:100%;border-radius:50%;display:block}
+.vact{display:flex;justify-content:center;gap:10px;margin-top:6px}
+.vact button{appearance:none;border:0;background:#E8E2D7;border-radius:999px;padding:11px 18px;font:600 15px var(--sans);color:var(--ink);cursor:pointer}
+.myv{margin:22px 18px 0}
+.myv h5{margin:0 0 6px;font:500 26px var(--serif)}
+.myv p{margin:0;font:400 15.5px/1.45 var(--sans);color:var(--ink-2)}
+.bviz{display:block;width:calc(100% - 36px);margin:18px 18px 40px;padding:15px;border:0;border-radius:999px;background:#151a22;color:#F3EFE7;font:500 19px var(--serif);cursor:pointer}
+.whisper{position:absolute;left:16px;right:16px;bottom:24px;z-index:85;background:#F2EEE6;color:var(--ink);border-radius:16px;padding:14px 46px 14px 16px;font:500 16.5px/1.3 var(--serif);box-shadow:0 12px 26px -8px rgba(0,0,0,.4);opacity:0;transform:translateY(8px);transition:all .25s;pointer-events:none}
+.whisper.on{opacity:1;transform:none;pointer-events:auto}
+.whisper button{position:absolute;right:4px;top:4px;width:40px;height:40px;border:0;background:none;font-size:20px;color:var(--ink-3);cursor:pointer}
+.session{position:absolute;inset:0;z-index:60;background:radial-gradient(circle at 50% 40%,#2C2147,#100E18 70%);display:grid;place-items:center;opacity:0;pointer-events:none;transition:opacity .4s;color:#EDE7F8;text-align:center}
+.session.on{opacity:1;pointer-events:auto}
+.session .m{font:700 11px var(--sans);letter-spacing:2.4px;opacity:.7}
+.session .c{font:500 46px var(--serif);margin:8px 0}
+.session .bar{width:180px;height:3px;background:rgba(255,255,255,.15);border-radius:2px;overflow:hidden;margin:0 auto}
+.session .bar i{display:block;height:100%;width:0;background:#B9A3F7;transition:width 2.2s linear}
+.toast{position:absolute;left:50%;top:52px;z-index:90;transform:translate(-50%,-14px);background:#1D1B18;color:#F2EEE6;font:600 13px var(--sans);padding:10px 16px;border-radius:999px;opacity:0;transition:all .3s;white-space:nowrap}
+.toast.on{opacity:1;transform:translate(-50%,0)}
+
+/* ---------- side panel ---------- */
+.side h1{margin:0;font:500 34px/1.05 var(--serif);text-wrap:balance}
+.side .lede{margin:8px 0 0;font:400 15px/1.55 var(--sans);color:var(--page-muted);max-width:60ch}
+.panel{background:var(--page-card);border:1px solid var(--page-line);border-radius:16px;padding:16px 18px}
+.panel h2{margin:0 0 10px;font:700 11px var(--sans);letter-spacing:1.8px;text-transform:uppercase;color:var(--page-muted)}
+.jump{display:flex;flex-wrap:wrap;gap:8px}
+.jump button{appearance:none;cursor:pointer;border:1px solid var(--page-line);background:transparent;color:var(--page-ink);font:600 13px var(--sans);padding:8px 12px;border-radius:999px}
+.jump button:hover,.jump button:focus-visible{border-color:var(--page-ink);outline:none}
+.panel ul,.panel ol{margin:0;padding-left:18px;display:flex;flex-direction:column;gap:8px;font:400 14px/1.5 var(--sans)}
+.panel b{font-weight:600}
+.panel .ref{font-size:13px;color:var(--page-muted)}
+.panel a{color:inherit}
+.copyt{width:100%;border-collapse:collapse;font:400 13px/1.45 var(--sans)}
+.copyt td{padding:7px 0;border-top:1px solid var(--page-line);vertical-align:top}
+.copyt td:first-child{width:96px;font-weight:600;padding-right:10px}
+.tbl{overflow-x:auto}
+button:focus-visible,[role=button]:focus-visible{outline:2px solid var(--cat);outline-offset:2px}
+@media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important;scroll-behavior:auto!important}}
+@media (max-width:440px){.phone{border-radius:38px;padding:7px}.screen{border-radius:31px}}
+</style>
+
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <defs>
+    <radialGradient id="gA" cx="45%" cy="40%" r="70%"><stop offset="0" stop-color="#FFF3A6"/><stop offset=".45" stop-color="#F9C93A"/><stop offset=".8" stop-color="#F09A2A"/><stop offset="1" stop-color="#4A74C9"/></radialGradient>
+    <radialGradient id="gB" cx="40%" cy="35%" r="75%"><stop offset="0" stop-color="#d8d8d8"/><stop offset=".35" stop-color="#555"/><stop offset="1" stop-color="#050505"/></radialGradient>
+    <symbol id="markA" viewBox="0 0 200 200"><rect width="200" height="200" fill="url(#gA)"/><g fill="none" stroke="#141414" stroke-width="5" stroke-linejoin="round"><path d="M64 160 L104 52 L136 120 L170 98 L58 70 L150 140 L78 112 Z"/><path d="M42 100 L160 80"/></g></symbol>
+    <symbol id="markB" viewBox="0 0 200 200"><rect width="200" height="200" fill="url(#gB)"/><g fill="none" stroke="#9a9a9a" stroke-width="3"><path d="M50 140 V96 H150 V66 H120 V128 M74 140 L100 90 L130 130 Z"/></g></symbol>
+  </defs>
+</svg>
+
+<div class="wrap">
+  <div class="stage">
+    <div class="phone"><div class="screen" id="screen">
+      <div class="scroller" id="scroller">
+        <section class="hero">
+          <div class="hdr">
+            <div class="av"><i>⚙</i></div>
+            <div class="hi">Good evening,<b>Deontrez Williams</b></div>
+            <button class="plus" id="plusBtn" aria-label="New anchor"><svg width="26" height="26" viewBox="0 0 26 26" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M13 3v20M3 13h20"/></svg></button>
+          </div>
+          <div class="catrow"><span class="catbar"></span><span class="cat">DESIRE</span><span class="cnt" id="cnt">· 1 OF 1</span><span class="allanch">All Anchors ›</span></div>
+          <div class="carousel" id="carousel">
+            <div class="peek l" id="peekL" hidden><div style="background:radial-gradient(circle,#b35a7a,#3a2030)"></div></div>
+            <div class="peek r" id="peekR" hidden><div style="background:radial-gradient(circle at 40% 40%,#ddd,#222)"></div></div>
+            <button class="ring" id="anchorArt" aria-label="Open your anchor"><svg><use href="#markA"/></svg></button>
+            <span class="tapchip" id="tapchip">Tap your anchor</span>
+          </div>
+          <div class="intent">I am disciplined with my mornings</div>
+          <svg class="uline" viewBox="0 0 140 8" aria-hidden="true"><path d="M4 5 C40 2,100 2,136 4" stroke="#C8457E" stroke-width="2.2" fill="none" stroke-linecap="round"/></svg>
+          <div class="tline" id="thread" role="button" tabindex="0" aria-label="Thread Strength, open progress"><span>Thread Strength</span><span id="threadVal"></span></div>
+        </section>
+        <svg class="splice" viewBox="0 0 390 56" preserveAspectRatio="none" aria-hidden="true"><path d="M0 0 H390 V4 C300 10,232 18,210 40 L195 54 L180 40 C158 18,90 10,0 4 Z" fill="#F4F0E8"/></svg>
+
+        <section class="g">
+          <div class="mark"><svg width="30" height="40" viewBox="0 0 30 40" fill="none" stroke="#EEEAE2" stroke-width="1.6"><circle cx="15" cy="4" r="3"/><path d="M15 7v30M4 14l22 12M26 14L4 26M6 30l9 8 9-8"/><path d="M15 16l-6 6 6 6 6-6z" stroke="#C9A24A"/></svg></div>
+
+          <div class="today" id="today">
+            <div class="glowimg"></div>
+            <span class="tag" id="tag">TODAY</span>
+            <h3>Focus</h3>
+            <button class="begin" id="beginBtn">Begin · 1 min <svg width="22" height="14" viewBox="0 0 22 14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M1 7h19M14 1l6 6-6 6"/></svg></button>
+            <p id="todayCopy">Hold your anchor in focus.</p>
+            <span class="allp">All Practices →</span>
+          </div>
+
+          <div class="course" id="course" aria-label="Getting started">
+            <div class="c-top">
+              <div><div class="kick">Getting started</div><h3 class="c-title" id="cTitle"></h3></div>
+              <div><div class="c-count" id="cCount"></div><button class="c-hide" id="hideBtn">Hide</button></div>
+            </div>
+            <div class="cbar" id="cbar" aria-hidden="true"></div>
+            <div class="rows" id="rows"></div>
+            <div class="finish"><p>You know the way around. Practice daily and watch the glow behind your anchor grow.</p><button class="pill" id="closeCourse">Close</button></div>
+          </div>
+
+          <div class="sec" id="visionSec" hidden>
+            <div class="vcard"><div class="vhead">Your Vision <span>1 item ›</span></div>
+              <div class="polas"><div class="pola" style="left:20%;top:4px;width:132px;height:96px;transform:rotate(-2deg)"><div id="homeLead"></div></div></div>
+              <div class="vcap">I wake at six, train, and write before the day starts.</div></div>
+          </div>
+          <div class="sec prog" id="progSec" role="button" tabindex="0" aria-label="Open progress">
+            <div class="kick">Progress ılı</div>
+            <h4 id="progH">Your first practice starts the record.</h4>
+            <div class="est"><i></i><span id="progEst">— Not established yet</span></div>
+            <svg viewBox="0 0 350 40" width="100%" height="40" style="margin-top:14px" aria-hidden="true"><path d="M0 20 C40 0,80 40,120 20 S200 0,240 20 S310 40,350 20" stroke="rgba(238,234,226,.28)" fill="none"/><path d="M0 20 C40 40,80 0,120 20 S200 40,240 20 S310 0,350 20" stroke="rgba(238,234,226,.28)" fill="none"/><path id="weaveInk" d="M0 20 C40 0,80 40,120 20" stroke="#C8457E" stroke-width="2.4" fill="none" stroke-dasharray="130" stroke-dashoffset="112"/></svg>
+            <div class="foot"><span id="progFoot">Nothing recorded yet.</span><span class="circ">›</span></div>
+          </div>
+          <div class="sec" id="chartSec" hidden>
+            <div class="chead"><b>Your Chart</b><span>View all ›</span></div>
+            <div class="ccard"><div class="hill"></div><span class="n">1 of 5</span><div class="t">Lights out by eleven, five nights</div><div class="bars"><i></i><i></i><i></i><i></i><i></i></div></div>
+          </div>
+          <div class="sec" style="border:0">
+            <div class="chead"><b>Recent Practice</b><span>View all ›</span></div>
+            <div id="recent"></div>
+          </div>
+        </section>
+      </div>
+
+      <div class="pulse" id="pulse"></div>
+      <div class="tip" id="tip"></div>
+
+      <!-- Anchor details -->
+      <div class="page" id="details" aria-label="Anchor details">
+        <div class="dtop"><button class="pbtn" id="closeDetail" aria-label="Back">‹</button><button class="pbtn" aria-label="More">•••</button></div>
+        <div class="dring"><svg><use href="#markA"/></svg></div>
+        <div class="dint">I am disciplined with my mornings</div>
+        <div class="dcat">DESIRE</div>
+        <div class="dts"><b id="dPct">0%</b>THREAD STRENGTH<span class="bar"><i id="dBar" style="width:0"></i></span><span class="st" id="dSt">SURFACE</span></div>
+        <div class="dsheet">
+          <div class="grab"></div>
+          <div class="rec"><div class="th"></div><div><div class="k">Recommended practice</div><div class="m">Focus <span style="font-weight:400;font-size:14px;color:var(--n-text-2)">· 1 min</span></div></div><span class="play"><svg width="14" height="16" viewBox="0 0 14 16"><path d="M1 1l12 7-12 7z" fill="#fff"/></svg></span></div>
+          <div class="allm">All practice modes ›</div>
+          <div class="dsec"><h5>Vision</h5><div class="empty" id="visionEmpty"><div><div class="t" id="vT">Add a Vision</div><div class="d" id="vD">A picture of where you're headed.</div></div><button class="btn" id="addVision">Add Vision</button></div></div>
+          <div class="dsec"><h5>Chart</h5><div class="empty" id="chartEmpty"><div><div class="t" id="cT">Create a Chart</div><div class="d" id="cD">Waypoints and your next move to get there.</div></div><button class="btn" id="addChart">Create Chart</button></div></div>
+        </div>
+      </div>
+
+      <!-- Vision -->
+      <div class="page" id="vision" aria-label="Vision">
+        <div class="vtop"><button class="pbtn" id="closeVision" aria-label="Back">←</button><h4>Vision</h4><span style="font:700 18px var(--sans);letter-spacing:2px">···</span></div>
+        <div class="vcat2"><i></i>DESIRE</div>
+        <div class="vint">I am disciplined with my mornings</div>
+        <div class="vrule"></div>
+        <div class="board" id="board">
+          <div class="ph lead" data-img="a"><div style="background:linear-gradient(160deg,#f2a65a 0,#c96a3a 35%,#3d2f2a 70%,#1c1816)"></div><em>Up before the sun.</em></div>
+          <div class="ph s1 hide" data-img="b" id="phB"><div style="background:linear-gradient(170deg,#9fb6c9,#5d7c95 50%,#26323d)"></div><em>Training, every morning.</em></div>
+          <div class="medal"><svg><use href="#markA"/></svg></div>
+        </div>
+        <div class="vact"><button id="vAdd">+ Add</button><button>▭ Layout</button></div>
+        <div class="myv"><h5>My Vision</h5><p>I wake at six, train, and write before the day starts.</p></div>
+        <button class="bviz" id="bviz">◉ Begin Visualize ›</button>
+      </div>
+
+      <!-- Progress -->
+      <div class="page" id="progress" aria-label="Progress">
+        <div class="phero" id="pHero">
+          <div class="ptop"><button class="pbtn" id="closeProgress" aria-label="Back">←</button><div><div class="ttl">PROGRESS</div><span class="sw">My Anchors ⌄</span></div><span></span></div>
+          <div class="pcat"><i></i>DESIRE</div>
+          <div class="pint">I am disciplined with my mornings</div>
+          <div class="pmain" id="pMain"><div class="pmini"><svg><use href="#markA"/></svg></div>
+            <div><div class="plab">THREAD STRENGTH</div><div class="pnum"><span id="pNum">6</span><span class="pst" id="pSt">SURFACE</span></div><div class="pwk" id="pWk">+6 this week</div></div></div>
+          <div class="pret" id="pRet">You've returned to this intention 1 time.</div>
+          <div class="pladder" id="pLadder"></div>
+          <div class="pstats"><div><b id="sDays">1</b>Days invested</div><div><b id="sMin">1m</b>Total focus time</div><div><b id="sPr">1</b>Practices completed</div></div>
+        </div>
+        <div class="pbody"><div class="k2">YOUR COMMITMENT</div><div class="wk" id="pWeek"></div></div>
+      </div>
+
+      <!-- Create -->
+      <div class="page up" id="create" aria-label="New anchor">
+        <button class="pbtn" id="closeCreate" aria-label="Close">×</button>
+        <h4>What do you want to anchor?</h4>
+        <p>Write it as if it's already true. This is the first step of making your next anchor.</p>
+        <label for="newIntent" style="position:absolute;left:-9999px">New intention</label>
+        <textarea id="newIntent">I am the owner of a finished studio album</textarea>
+        <button class="go" id="forgeBtn">Continue</button>
+        <p style="margin-top:12px;font-size:12px;text-align:center">Prototype: skips straight to a sealed anchor.</p>
+      </div>
+
+      <div class="session" id="session"><div><div class="m">FOCUS PRACTICE</div><div class="c" id="sessClock">1:00</div><div class="bar"><i id="sessBar"></i></div><div style="margin-top:14px;font:400 12px var(--sans);opacity:.6">Prototype: plays in 2 seconds</div></div></div>
+      <div class="whisper" id="whisper"><span id="whisperT"></span><button id="whisperX" aria-label="Dismiss tip">×</button></div>
+      <div class="toast" id="toast"></div>
+    </div></div>
+  </div>
+
+  <aside class="side">
+    <div>
+      <h1>Home teaching, rebuilt as getting-started steps</h1>
+      <p class="lede">Matched to the live 2.0 screens. A getting-started card on Home teaches every path by having the user walk it once. Tips appear at the moment they apply, or when the user taps “Show me”.</p>
+    </div>
+    <div class="panel">
+      <h2>Jump to a state</h2>
+      <div class="jump">
+        <button data-jump="fresh">First arrival</button>
+        <button data-jump="practiced">After first practice</button>
+        <button data-jump="vision">Vision added</button>
+        <button data-jump="done">Course complete</button>
+        <button data-jump="weeks">Two weeks in</button>
+      </div>
+    </div>
+    <div class="panel">
+      <h2>The six steps</h2>
+      <ol>
+        <li><b>Do your first practice.</b> On return, the glow fades in and a tip says it's your Thread Strength.</li>
+        <li><b>See your progress.</b> Before a Vision it's the Progress section on Home. After, a one-time tip says Progress moved to Thread Strength.</li>
+        <li><b>Open your anchor.</b> The “Tap your anchor” chip stays until they do.</li>
+        <li><b>Add a Vision</b> and <b>5. Chart your path.</b> Both on the anchor's page; the tip points there first.</li>
+        <li value="6"><b>Make another anchor.</b> Show me points at +. Once there are two, a tip teaches swiping and All Anchors.</li>
+      </ol>
+    </div>
+    <div class="panel">
+      <h2>Copy changes to existing tips</h2>
+      <div class="tbl"><table class="copyt">
+        <tr><td>progress.thread</td><td>“It grows when you practice and fades slowly when you don't. <b>The glow behind your anchor shows it.</b> The five stages show how established your thread has become.”</td></tr>
+        <tr><td>home.anchor</td><td>Becomes the persistent “Tap your anchor” chip instead of a one-time bubble.</td></tr>
+      </table></div>
+    </div>
+    <div class="panel">
+      <h2>What the code does today</h2>
+      <ul>
+        <li><b>One spotlight per app session</b> (<code>MAX_COACH_SEQUENCES_PER_SESSION = 1</code>, Home <code>cap: 1</code>).</li>
+        <li><b>Home has two beats live:</b> <code>home.today</code> and <code>home.anchor</code>. <code>home.progress</code> and <code>home.thread</code> are retired.</li>
+        <li><b>Vision, Chart and +</b> aren't taught anywhere. <code>detailsTeachingBeats()</code> returns <code>[]</code>.</li>
+      </ul>
+    </div>
+    <div class="panel">
+      <h2>Mobbin references</h2>
+      <ul><li class="ref">Checklist that completes by doing: <a href="https://mobbin.com/screens/987b88a5-3b61-4a7b-9b79-744167fc9320" target="_blank" rel="noopener">Strava</a> · <a href="https://mobbin.com/screens/17658b1b-2a5e-4f8e-a4e9-dfcf1523cd7f" target="_blank" rel="noopener">monday.com</a> · <a href="https://mobbin.com/screens/b524a06c-8757-4348-ac5c-e0708e564150" target="_blank" rel="noopener">Origin</a>. Anchored tips without a scrim: <a href="https://mobbin.com/screens/c991401a-cc03-4eb2-9143-e775e8b15865" target="_blank" rel="noopener">Gentler Streak</a> · <a href="https://mobbin.com/screens/f4513145-c411-4ce5-8733-b606d04463e5" target="_blank" rel="noopener">Alan</a>.</li></ul>
+    </div>
+  </aside>
+</div>
+
+<script>
+(function(){
+  const $=id=>document.getElementById(id);
+  const STAGES=['Surface','Grounded','Rooted','Embedded','Sovereign'];
+  const stageOf=p=>STAGES[Math.min(4,Math.floor(p/20))];
+  const steps=[
+    {id:'practice',t:'Do your first practice',d:'Today picks one for you. One minute.',lock:null},
+    {id:'thread',t:'See your progress',d:null,lock:'After practice'},
+    {id:'anchor',t:'Open your anchor',d:'Tap it. Vision and Chart live on its page.',lock:null},
+    {id:'vision',t:'Add a Vision',d:'On your anchor’s page. A picture of where you’re headed.',lock:null},
+    {id:'chart',t:'Chart your path',d:'On your anchor’s page. Waypoints and your next move.',lock:null},
+    {id:'another',t:'Make another anchor',d:'Tap + at the top. Each anchor gets its own Home.',lock:null},
+  ];
+  const N=steps.length;
+  const icons={
+    practice:'<circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="2.5" fill="currentColor"/>',
+    thread:'<path d="M3 17c4-8 7 4 10-4s5-3 8-6"/>',
+    anchor:'<path d="M12 3v18M5 9l14 6M19 9L5 15"/>',
+    vision:'<rect x="4" y="5" width="16" height="14" rx="2"/><path d="M4 16l5-5 4 4 3-3 4 4"/>',
+    chart:'<path d="M4 20l5-7 4 3 7-11"/><path d="M17 5h3v3"/>',
+    another:'<path d="M12 5v14M5 12h14"/>'};
+  const ico=k=>`<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">${icons[k]}</svg>`;
+  const check='<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12l5 5 9-10"/></svg>';
+  let S,pending=null;
+  function reset(){S={practice:false,thread:false,anchor:false,vision:false,chart:false,another:false,hidden:false,pct:0,days:0,count:1,movedTaught:false,progTaught:false,vimgs:0,lead:'a',leadTaught:false};pending=null;}
+  reset();
+  const scroller=$('scroller'),screen=$('screen'),pulse=$('pulse'),tip=$('tip');
+  let ignoreUntil=0;const _st=scroller.scrollTo.bind(scroller);scroller.scrollTo=o=>{ignoreUntil=Date.now()+1100;_st(o);};
+
+  /* ---------- tips ---------- */
+  const rectIn=el=>{const a=el.getBoundingClientRect(),b=screen.getBoundingClientRect();return{x:a.left-b.left,y:a.top-b.top,w:a.width,h:a.height};};
+  let tipTarget=null;
+  function clearTip(){$('tapchip').style.visibility='';pulse.classList.remove('on');tip.classList.remove('on');tipTarget=null;}
+  function showTip(id,title,body,o={}){
+    const el=$(id);tipTarget=id;clearTimeout(showTip.t);$('tapchip').style.visibility=id==='anchorArt'?'hidden':'';
+    const place=()=>{
+      if(tipTarget!==id)return;
+      const r=rectIn(el),pad=8,sw=screen.clientWidth,sh=screen.clientHeight;
+      if(o.ring!==false){pulse.className='pulse'+(o.round?' round':'');pulse.style.cssText=`left:${r.x-pad}px;top:${r.y-pad}px;width:${r.w+pad*2}px;height:${r.h+pad*2}px`;requestAnimationFrame(()=>pulse.classList.add('on'));}
+      tip.className='tip';
+      tip.innerHTML=`<b>${title}</b><span>${body}</span>${o.action?`<button class="act">${o.action.label}</button>`:''}<button class="x" aria-label="Dismiss tip">×</button>`;
+      tip.querySelector('.x').onclick=e=>{e.stopPropagation();clearTip();};
+      if(o.action)tip.querySelector('.act').onclick=e=>{e.stopPropagation();clearTip();o.action.fn&&o.action.fn();};
+      const tw=Math.min(300,sw-28);tip.style.width=tw+'px';
+      const th=tip.offsetHeight;const roomAbove=r.y-pad-th-16>40;const roomBelow=r.y+r.h+pad+16+th<sh-10;
+      const above=o.prefer==='below'?!roomBelow:roomAbove&&(o.prefer==='above'||!roomBelow||true);
+      const left=Math.max(14,Math.min(sw-tw-14,r.x+r.w/2-tw/2));
+      tip.style.left=left+'px';tip.style.top=(above?r.y-pad-th-16:r.y+r.h+pad+16)+'px';
+      tip.classList.add(above?'down':'up');tip.style.setProperty('--ax',Math.max(20,Math.min(tw-20,r.x+r.w/2-left))+'px');
+      requestAnimationFrame(()=>tip.classList.add('on'));
+    };
+    if(o.noScroll){place();return;}
+    const r=rectIn(el);scroller.scrollTo({top:Math.max(0,scroller.scrollTop+r.y-(o.at??screen.clientHeight*.55)+r.h/2)});
+    // Wait for the scroll to actually settle before measuring, so the ring and tip land on the real target.
+    const started=Date.now();let last=-1,still=0;
+    const tick=()=>{if(tipTarget!==id)return;const t=scroller.scrollTop;
+      if(Math.abs(t-last)<0.5){if(++still>=4)return place();}else{still=0;last=t;}
+      if(Date.now()-started>2000)return place();requestAnimationFrame(tick);};
+    showTip.t=setTimeout(()=>requestAnimationFrame(tick),60);
+  }
+  let st;scroller.addEventListener('scroll',()=>{if(Date.now()<ignoreUntil||!tipTarget||!tip.classList.contains('on'))return;clearTimeout(st);st=setTimeout(()=>{if(tipTarget&&scroller.contains($(tipTarget)))clearTip();},60);},{passive:true});
+  function settle(el,cb){const t0=Date.now();let last=-1,still=0;
+    const tick=()=>{const t=el.scrollTop;if(Math.abs(t-last)<0.5){if(++still>=4)return cb();}else{still=0;last=t;}
+      if(Date.now()-t0>2000)return cb();requestAnimationFrame(tick);};setTimeout(()=>requestAnimationFrame(tick),60);}
+  function toast(m){const t=$('toast');t.textContent=m;t.classList.add('on');clearTimeout(toast.t);toast.t=setTimeout(()=>t.classList.remove('on'),1900);}
+
+  /* ---------- render ---------- */
+  function render(){
+    const filled=S.days>1?6:S.pct?1:0;
+    $('cnt').textContent=`· 1 OF ${S.count}`;
+    $('peekL').hidden=$('peekR').hidden=S.count<2;
+    $('tapchip').hidden=S.anchor;
+    $('threadVal').innerHTML=S.pct?`<span class="pct">${S.pct}%</span><span class="tw">↑ ${S.days>1?'6.75':S.pct}% this week</span>`:'<span class="beg">· Begins with practice</span>';
+    $('anchorArt').style.setProperty('--glow',S.pct?Math.min(.9,.18+S.pct/60):0);
+    $('tag').textContent=S.practice?'DONE TODAY':'TODAY';$('tag').classList.toggle('done',S.practice);
+    $('beginBtn').disabled=S.practice;$('beginBtn').firstChild.textContent=S.practice?'Practiced today ':'Begin · 1 min ';
+    $('todayCopy').textContent=S.practice?'Your next practice opens tomorrow.':'Hold your anchor in focus.';
+    // Home sections: Progress until a Vision exists
+    $('homeLead').style.background=S.lead==='b'?'linear-gradient(170deg,#9fb6c9,#5d7c95 50%,#26323d)':'linear-gradient(160deg,#f2a65a 0,#c96a3a 35%,#3d2f2a 70%,#1c1816)';
+    $('progSec').hidden=S.vision;$('visionSec').hidden=!S.vision;$('chartSec').hidden=!S.chart;
+    $('progH').textContent=S.pct?`${S.pct}% and climbing. Your record has started.`:'Your first practice starts the record.';
+    $('progEst').textContent=S.pct?`— ${stageOf(S.pct)}`:'— Not established yet';
+    $('progFoot').textContent=S.pct?`${filled} ${filled===1?'practice':'practices'} this week.`:'Nothing recorded yet.';
+    $('weaveInk').setAttribute('stroke-dashoffset',S.pct?(130-130*Math.min(1,S.pct/40)).toFixed(0):'125');
+    $('recent').innerHTML=filled?Array.from({length:Math.min(3,filled)},(_,i)=>`<div class="rp"><span style="margin:0;color:var(--focus)">⌖</span>Focus · 1 min<span>${['Today','Yesterday','Monday'][i]}</span></div>`).join(''):'<div class="rp" style="color:var(--n-text-3)">No practices yet.</div>';
+    // course
+    const n=steps.filter(s=>S[s.id]).length;
+    $('cCount').textContent=`${n} of ${N}`;
+    $('course').classList.toggle('complete',n===N);$('course').classList.toggle('gone',S.hidden);
+    $('cTitle').textContent=n===N?'You know the way around':'Six steps to find your way around';
+    $('rows').innerHTML=steps.map(s=>{const locked=s.lock&&!S.practice&&!S[s.id];
+      const d=s.id==='thread'?(S.vision?'Tap Thread Strength under your anchor.':'Tap the Progress section on Home.'):s.d;
+      return `<div class="row ${S[s.id]?'done':''} ${locked?'locked':''}"><div class="ic">${S[s.id]?check:ico(s.id)}</div><div><div class="t">${s.t}</div><div class="d">${d}</div></div><div><button class="pill" data-show="${s.id}">Show me</button><span class="lockt">${s.lock||''}</span></div></div>`;}).join('');
+    drawRoute(n);
+    // details
+    $('dPct').textContent=S.pct+'%';$('dBar').style.width=Math.max(4,S.pct)+'%';$('dSt').textContent=stageOf(S.pct).toUpperCase();
+    $('visionEmpty').classList.toggle('filled',S.vision);$('addVision').textContent=S.vision?'Added':'Add Vision';$('vD').textContent=S.vision?'It’s on Home now.':'A picture of where you’re headed.';
+    $('chartEmpty').classList.toggle('filled',S.chart);$('addChart').textContent=S.chart?'Created':'Create Chart';$('cD').textContent=S.chart?'It’s on Home now.':'Waypoints and your next move to get there.';
+    // progress page
+    const prs=S.days>1?18:S.pct?1:0;
+    $('pNum').textContent=S.pct;$('pSt').textContent=stageOf(S.pct).toUpperCase();$('pWk').textContent=`+${S.days>1?'6.75':S.pct} this week`;
+    $('pRet').textContent=`You've returned to this intention ${prs} ${prs===1?'time':'times'}.`;
+    $('pLadder').innerHTML=STAGES.map(s=>`<div class="${s===stageOf(S.pct)?'on':''}">${s}</div>`).join('');
+    $('sDays').textContent=S.days>1?13:prs;$('sMin').textContent=(S.days>1?27:prs)+'m';$('sPr').textContent=prs;
+    $('pWeek').innerHTML=['Mon','Tue','Wed','Thu','Fri','Sat','Sun'].map((d,i)=>`<span>${d}<i class="${i<filled?'f':''}"></i></span>`).join('');
+  }
+  function drawRoute(n){$('cbar').innerHTML=Array.from({length:N},(_,k)=>`<i class="${k<n?'f':''}"></i>`).join('');}
+  /* ---------- flows ---------- */
+  function open(id){clearTip();$(id).scrollTop=0;$(id).classList.add('on');}
+  function close(id){clearTip();$(id).classList.remove('on');}
+  const detailOpen=()=>$('details').classList.contains('on');
+  function done(id,msg){if(S[id])return false;S[id]=true;render();if(msg)toast(msg);return true;}
+
+  $('beginBtn').onclick=()=>{if(S.practice)return;clearTip();const s=$('session');s.classList.add('on');$('sessBar').style.width='0';
+    requestAnimationFrame(()=>requestAnimationFrame(()=>$('sessBar').style.width='100%'));
+    let c=60;const iv=setInterval(()=>{c=Math.max(0,c-3);$('sessClock').textContent=`0:${String(c).padStart(2,'0')}`;},100);
+    setTimeout(()=>{clearInterval(iv);s.classList.remove('on');$('sessClock').textContent='1:00';done('practice','First practice done');glowLesson();},2300);};
+  function glowLesson(){
+    S.days=1;scroller.scrollTo({top:0});
+    setTimeout(()=>{S.pct=6;render();},450);
+    setTimeout(()=>showTip('anchorArt','This glow is your Thread Strength','It’s faint on day one. Every day you practice this anchor it grows brighter. Miss a day and it fades slowly, but never back to zero.',{noScroll:true,ring:false,prefer:'below',action:{label:'Got it',fn:()=>scroller.scrollTo({top:$('course').offsetTop-90})}}),1800);
+  }
+  function openProgress(){
+    if(!S.practice){toast('Thread Strength begins with your first practice');return;}
+    open('progress');
+    if(!S.progTaught){S.progTaught=true;setTimeout(()=>showTip('pHero','This is your Thread Strength.','It grows when you practice and fades slowly when you don’t. The glow behind your anchor shows it. The five stages show how established your thread has become.',{noScroll:true,ring:false,prefer:'below',action:{label:'Got it'}}),600);}
+  }
+  $('thread').onclick=openProgress;$('progSec').onclick=openProgress;
+  [$('thread'),$('progSec')].forEach(el=>el.onkeydown=e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();openProgress();}});
+  $('closeProgress').onclick=()=>{close('progress');setTimeout(()=>done('thread','Now you know where progress lives'),400);};
+
+  function tipInDetail(which,first){
+    const id=which==='vision'?'visionEmpty':'chartEmpty';
+    const c=which==='vision'?[first?'Vision and Chart start here':'Add your Vision here',first?'Start with a Vision: a picture of where you’re headed. Chart is right below it.':'A picture of where you’re headed. Once added, it shows on Home.']:['Now give it a path','Chart breaks the goal into waypoints and the next move you can make.'];
+    const el=$(id),pg=$('details'),sh=screen.clientHeight;
+    // Put the card low enough that the tip fits above it, then wait for the scroll to stop before measuring.
+    const want=Math.max(0,Math.min(pg.scrollHeight-sh,el.getBoundingClientRect().top-pg.getBoundingClientRect().top+pg.scrollTop-sh*0.52));
+    pg.scrollTo({top:want,behavior:'smooth'});tipTarget=id;
+    settle(pg,()=>{if(tipTarget===id)showTip(id,c[0],c[1],{noScroll:true,prefer:'above'});});
+  }
+  $('anchorArt').onclick=()=>{const first=!S.anchor;open('details');if(first)done('anchor','This is your anchor’s page');
+    const want=pending||(!S.vision?'vision':!S.chart?'chart':null);pending=null;if(want)setTimeout(()=>tipInDetail(want,first&&want==='vision'),600);};
+  // Add Vision opens the Vision board (the add ceremony is skipped in this prototype).
+  function whisper(t){$('whisperT').textContent=t;$('whisper').classList.add('on');clearTimeout(whisper.t);whisper.t=setTimeout(hideWhisper,8000);}
+  function hideWhisper(){$('whisper').classList.remove('on');}
+  $('whisperX').onclick=hideWhisper;
+  function layoutBoard(){const lead=S.lead;
+    document.querySelectorAll('#board .ph').forEach(p=>{const k=p.dataset.img;p.className='ph '+(k===lead?'lead':(S.vimgs>1?'s1':'s1 hide'));});}
+  $('addVision').onclick=()=>{
+    if(S.vision){layoutBoard();open('vision');return;}
+    clearTip();S.vimgs=1;S.lead='a';done('vision','Vision added. It’s on Home now');layoutBoard();open('vision');
+    setTimeout(()=>whisper('Images make the future feel real. Add another and choose which one leads.'),700);};
+  $('vAdd').onclick=()=>{if(S.vimgs>1){toast('Prototype: two images max');return;}hideWhisper();S.vimgs=2;layoutBoard();
+    if(!S.leadTaught){S.leadTaught=true;const pg=$('vision');pg.scrollTo({top:230,behavior:'smooth'});
+      settle(pg,()=>setTimeout(()=>showTip('phB','Choose the image that leads','Drag photos into any spot. The one in the top spot leads, and it’s the image Home shows.',{noScroll:true,prefer:'below',action:{label:'Got it'}}),550));}};
+  $('board').onclick=e=>{const p=e.target.closest('.ph');if(!p||p.classList.contains('lead')||S.vimgs<2)return;clearTip();S.lead=p.dataset.img;layoutBoard();render();toast('New lead image. Home shows it now');};
+  $('bviz').onclick=()=>toast('Opens a Visualize practice');
+  $('closeVision').onclick=()=>{hideWhisper();close('vision');render();if(!S.chart)setTimeout(()=>tipInDetail('chart'),500);};
+  $('addChart').onclick=()=>{if(S.chart)return;clearTip();done('chart','Chart created. It’s on Home now');};
+  $('closeDetail').onclick=()=>{close('details');render();
+    const toVision=()=>scroller.scrollTo({top:$('today').offsetTop+$('today').offsetHeight+($('course').classList.contains('gone')?0:$('course').offsetHeight)-40});
+    if(S.vision&&!S.movedTaught&&S.practice){S.movedTaught=true;scroller.scrollTo({top:0});
+      setTimeout(()=>showTip('thread','Progress moved here','Your Vision took the Progress section’s spot on Home. Tap Thread Strength any time to see your full progress.',{noScroll:true,prefer:'below',action:{label:'See my Vision',fn:toVision}}),600);}
+    else if(S.vision||S.chart)setTimeout(toVision,400);};
+
+  $('plusBtn').onclick=()=>open('create');
+  $('closeCreate').onclick=()=>close('create');
+  $('forgeBtn').onclick=()=>{close('create');S.count=2;done('another','Anchor sealed');scroller.scrollTo({top:0});
+    setTimeout(()=>showTip('carousel','Swipe between your anchors','Each anchor has its own Home: its own Today, Vision, Chart and progress. All Anchors shows every one.',{noScroll:true,ring:false,prefer:'below',action:{label:'Got it'}}),700);};
+  $('peekL').onclick=$('peekR').onclick=()=>toast('In the app, swipe to switch anchors');
+
+  $('rows').onclick=e=>{const b=e.target.closest('[data-show]');if(!b)return;const id=b.dataset.show;
+    if(id==='practice')return showTip('beginBtn','Start here each day','Today picks one practice for you. Tap Begin.',{});
+    if(id==='thread')return S.vision?showTip('thread','Tap Thread Strength','It opens your full progress: your stage, your week and your history.',{at:120}):showTip('progSec','Your progress lives here','Tap to open your Thread Strength, your week and your history. Once you add a Vision, you’ll get here by tapping Thread Strength under your anchor.',{prefer:'above'});
+    if(id==='anchor')return showTip('anchorArt','Tap your anchor','Its page is where you add a Vision and a Chart.',{at:190,round:true,prefer:'below'});
+    if(id==='vision'||id==='chart'){if(detailOpen())return tipInDetail(id);pending=id;return showTip('anchorArt','Tap your anchor',(id==='vision'?'Your Vision':'Your Chart')+' is added from your anchor’s page.',{at:190,round:true,prefer:'below'});}
+    if(id==='another')return showTip('plusBtn','Make another anchor','Tap + to start a new one. Each anchor gets its own Home, and you swipe between them here.',{at:60,round:true,prefer:'below'});
+  };
+  $('hideBtn').onclick=()=>{S.hidden=true;clearTip();render();toast('Bring it back in Settings → Replay app tips');};
+  $('closeCourse').onclick=()=>{S.hidden=true;render();};
+
+  document.querySelectorAll('[data-jump]').forEach(b=>b.onclick=()=>{
+    reset();hideWhisper();['details','vision','progress','create'].forEach(close);clearTip();const j=b.dataset.jump;
+    if(j!=='fresh'){S.practice=true;S.pct=6;S.days=1;S.progTaught=true;}
+    if(j==='vision'){S.thread=S.anchor=S.vision=true;S.vimgs=1;}
+    if(j==='done'){S.thread=S.anchor=S.vision=S.chart=S.another=S.movedTaught=true;S.count=2;S.vimgs=2;S.leadTaught=true;}
+    if(j==='weeks'){S.thread=S.anchor=S.vision=S.chart=S.another=S.movedTaught=true;S.vimgs=2;S.leadTaught=true;S.count=2;S.pct=48;S.days=14;S.hidden=true;}
+    render();scroller.scrollTo({top:(j==='fresh'||j==='weeks')?0:$('course').offsetTop-90});
+    if(j==='fresh')firstArrival();});
+  function firstArrival(){setTimeout(()=>{if(!S.practice&&scroller.scrollTop<10)showTip('today','Start here each day','Today picks one practice for you. Your getting-started steps are just below.',{noScroll:true,ring:false,prefer:'above'});},1400);}
+
+  render();firstArrival();
+})();
+</script>

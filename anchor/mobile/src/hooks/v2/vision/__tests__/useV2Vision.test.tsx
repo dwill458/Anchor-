@@ -420,6 +420,34 @@ describe('useV2Vision across screens', () => {
     return { ...base, scenes: [scene('dashboard', order[0]), scene('app-store', order[1])] };
   };
 
+  it('keeps a shared read alive when the screen that started it unmounts', async () => {
+    const pending = deferred<ReturnType<typeof envelope>>();
+    mockGet.mockImplementation((_url: string, config: { signal?: AbortSignal }) => new Promise((resolve, reject) => {
+      config.signal?.addEventListener('abort', () => reject(new Error('Network error. Please check your connection.')));
+      pending.promise.then(resolve);
+    }));
+    const first = renderHook(() => useV2Vision('anchor-a'));
+    const second = renderHook(() => useV2Vision('anchor-a'));
+    first.unmount();
+    await act(async () => { pending.resolve(envelope(vision('vision-anchor-a'))); await pending.promise; });
+    await waitFor(() => expect(second.result.current.vision?.id).toBe('vision-anchor-a'));
+    expect(second.result.current.error).toBeNull();
+  });
+
+  it('starts a fresh read when retry cancels its only in-flight request', async () => {
+    const secondRead = deferred<ReturnType<typeof envelope>>();
+    mockGet.mockImplementationOnce((_url: string, config: { signal: AbortSignal }) => new Promise((_resolve, reject) => {
+      config.signal.addEventListener('abort', () => reject(new Error('Network error. Please check your connection.')));
+    })).mockImplementationOnce(() => secondRead.promise);
+    const screen = renderHook(() => useV2Vision('anchor-a'));
+    let retry!: Promise<void>;
+    act(() => { retry = screen.result.current.refresh(); });
+    expect(mockGet).toHaveBeenCalledTimes(2);
+    await act(async () => { secondRead.resolve(envelope(vision('vision-anchor-a'))); await retry; });
+    expect(screen.result.current.vision?.id).toBe('vision-anchor-a');
+    expect(screen.result.current.error).toBeNull();
+  });
+
   it('shows a reorder made on one screen on every other screen for that Anchor', async () => {
     mockGet.mockResolvedValueOnce(envelope(twoScenes([0, 1])));
     const practice = renderHook(() => useV2Vision('anchor-1'));

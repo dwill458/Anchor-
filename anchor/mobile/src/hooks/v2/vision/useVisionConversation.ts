@@ -17,6 +17,10 @@ interface ConversationDraft {
   pendingSeal?: { selectedCandidateId: string; viewedRoundId?: string | null };
 }
 type DraftChange = Partial<Pick<ConversationDraft, 'description' | 'draftPrompt' | 'references'>>;
+const DRAFT_WRITE_WAIT_MS = 45_000;
+export class VisionDraftWriteTimeout extends Error {
+  constructor() { super('Saving your scene is taking too long. Please try again.'); }
+}
 export const conversationAttachments = (refs: VisionConversationSession['references']): VisionReferenceAttachment[] => refs.map(ref => ({
   id: ref.assetId, assetId: ref.assetId, uri: ref.imageUrl ?? '', mimeType: 'image/jpeg', role: ref.role, ...(ref.label ? { label: ref.label } : {}),
 }));
@@ -33,7 +37,7 @@ export function useVisionConversation(anchorId: string) {
   const scope = useRef<string | null>(null);
   const epoch = useRef(0);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const localWrites = useRef(Promise.resolve());
+  const localWrites = useRef(new Map<string, { pending: string | null; active: string | null; committed: string | null; worker: Promise<void> | null }>());
   const remoteWrites = useRef(Promise.resolve());
   const dirty = useRef(false);
   const creating = useRef<Promise<VisionConversationSession> | null>(null);
@@ -45,10 +49,37 @@ export function useVisionConversation(anchorId: string) {
 
   const saveLocal = useCallback(async () => {
     if (!key || scope.current !== key || !draft.current) return;
+    let queue = localWrites.current.get(key);
+    if (!queue) { queue = { pending: null, active: null, committed: null, worker: null }; localWrites.current.set(key, queue); }
     const serialized = JSON.stringify(draft.current);
-    const write = localWrites.current.catch(() => undefined).then(() => writeSecureValue(key, serialized));
-    localWrites.current = write;
-    await write;
+    if (!queue.worker && queue.committed === serialized) return;
+    if (queue.active === serialized) queue.pending = null;
+    else queue.pending = serialized;
+    const currentQueue = queue;
+    if (!currentQueue.worker) {
+      currentQueue.worker = Promise.resolve().then(async () => {
+        try {
+          while (currentQueue.pending !== null) {
+            const value = currentQueue.pending;
+            currentQueue.pending = null;
+            currentQueue.active = value;
+            await writeSecureValue(key, value);
+            currentQueue.committed = value;
+            currentQueue.active = null;
+          }
+        } finally { currentQueue.active = null; currentQueue.worker = null; }
+      });
+    }
+    const write = currentQueue.worker;
+    let timeout: ReturnType<typeof setTimeout> | undefined;
+    try {
+      await Promise.race([
+        write,
+        new Promise<never>((_, reject) => {
+          timeout = setTimeout(() => reject(new VisionDraftWriteTimeout()), DRAFT_WRITE_WAIT_MS);
+        }),
+      ]);
+    } finally { if (timeout) clearTimeout(timeout); }
   }, [key]);
 
   const refresh = useCallback(async () => {

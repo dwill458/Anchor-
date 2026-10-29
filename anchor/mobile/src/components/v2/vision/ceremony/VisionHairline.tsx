@@ -4,15 +4,15 @@ import Animated, { cancelAnimation, useAnimatedStyle, useSharedValue, withRepeat
 import { useV2ReduceMotion } from '@/hooks/v2';
 
 /** Pending work is indeterminate; only a completed save fills the entire line. */
-export function VisionHairline({ pending, label, testID }: { pending: boolean; label: string; testID?: string }) {
+export function VisionHairline({ pending, label, testID, prominent = false }: { pending: boolean; label: string; testID?: string; prominent?: boolean }) {
   const reduced = useV2ReduceMotion(), progress = useSharedValue(0);
   useEffect(() => {
     cancelAnimation(progress);
     progress.value = pending ? (reduced ? .5 : withRepeat(withTiming(1, { duration: 1400 }), -1, true)) : withTiming(1, { duration: 220 });
   }, [pending, reduced]);
   const style = useAnimatedStyle(() => ({ width: pending ? '25%' : '100%', transform: [{ translateX: pending ? progress.value * 112 : 0 }] }));
-  return <View testID={testID} accessibilityRole="progressbar" accessibilityLabel={label} accessibilityState={{ busy: pending }} style={styles.track}>
-    <Animated.View style={[styles.line, style]} />
+  return <View testID={testID} accessibilityRole="progressbar" accessibilityLabel={label} accessibilityState={{ busy: pending }} style={[styles.track, prominent && styles.prominentTrack]}>
+    <Animated.View style={[styles.line, prominent && styles.prominentLine, style]} />
   </View>;
 }
-const styles = StyleSheet.create({ track: { width: 150, height: 1, overflow: 'hidden', backgroundColor: '#B08A4A35' }, line: { height: 1, backgroundColor: '#B08A4A' } });
+const styles = StyleSheet.create({ track: { width: 150, height: 1, overflow: 'hidden', backgroundColor: '#B08A4A35' }, line: { height: 1, backgroundColor: '#B08A4A' }, prominentTrack: { height: 4, borderRadius: 2, backgroundColor: '#F4EDE033' }, prominentLine: { height: 4, borderRadius: 2, backgroundColor: '#F4EDE0' } });

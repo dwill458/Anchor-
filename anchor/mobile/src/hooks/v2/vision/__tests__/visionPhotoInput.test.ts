@@ -2,7 +2,7 @@ import { Platform } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 import * as FileSystem from 'expo-file-system/legacy';
 import * as ImageManipulator from 'expo-image-manipulator';
-import { pickVisionPhoto, uploadVisionPhoto } from '../visionPhotoInput';
+import { pickVisionPhoto, pickVisionReferences, uploadVisionPhoto } from '../visionPhotoInput';
 
 jest.mock('expo-image-manipulator', () => ({
   SaveFormat: { JPEG: 'jpeg' },
@@ -87,6 +87,17 @@ describe('pickVisionPhoto', () => {
     picker.requestCameraPermissionsAsync.mockResolvedValue(granted);
     picker.launchCameraAsync.mockRejectedValue(new Error('no camera'));
     expect(await pickVisionPhoto('camera')).toEqual({ status: 'error', message: 'The camera is not available right now.' });
+  });
+});
+
+describe('pickVisionReferences', () => {
+  it('opens multi-select with the remaining limit and retains selected photos', async () => {
+    picker.launchImageLibraryAsync.mockResolvedValue({ canceled: false, assets: [
+      { uri: 'file:///a.jpg', mimeType: 'image/jpeg' }, { uri: 'file:///b.png', mimeType: 'image/png' },
+    ] } as never);
+    const result = await pickVisionReferences(2);
+    expect(picker.launchImageLibraryAsync).toHaveBeenCalledWith(expect.objectContaining({ allowsMultipleSelection: true, selectionLimit: 2 }));
+    expect(result).toEqual({ status: 'picked', photos: [expect.objectContaining({ uri: 'file:///a.jpg' }), expect.objectContaining({ uri: 'file:///b.png' })] });
   });
 });
 

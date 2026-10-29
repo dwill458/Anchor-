@@ -4,7 +4,7 @@ import { ActivityIndicator, Image, Keyboard, Pressable, StatusBar, StyleSheet, T
 import Animated, { interpolateColor, useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as ImagePicker from 'expo-image-picker';
-import { ChevronDown, ChevronRight, Plus, RefreshCw, Trash2, User as UserIcon } from 'lucide-react-native';
+import { Camera, ChevronDown, ChevronRight, Images, Plus, RefreshCw, Trash2, User as UserIcon } from 'lucide-react-native';
 import { v2Haptics } from '@/hooks/v2';
 import { useVisionAppearanceReference } from '@/hooks/v2/vision';
 import { ChartKeyboardFrame } from '@/components/v2/chart/ChartKeyboardFrame';
@@ -309,10 +309,12 @@ export function VisionMomentInput({
         <View style={styles.ownPhotoRow}>
           <Pressable testID="vision-add-photos" accessibilityRole="button" accessibilityLabel="Add my own images" disabled={loading}
             onPress={() => onAddPhotos('library')} style={[styles.textAction, loading && styles.disabled]}>
-            <Text style={styles.textActionLabel}>Use my own photos instead</Text>
+            <Images size={16} color={colors.text.primary} strokeWidth={1.7} />
+            <Text style={styles.textActionLabel}>Use my own photos</Text>
           </Pressable>
           <Pressable testID="vision-add-camera" accessibilityRole="button" accessibilityLabel="Take a photo" disabled={loading}
             onPress={() => onAddPhotos('camera')} style={[styles.textAction, loading && styles.disabled]}>
+            <Camera size={16} color={colors.text.primary} strokeWidth={1.7} />
             <Text style={styles.textActionLabel}>Take a photo</Text>
           </Pressable>
         </View>
@@ -326,10 +328,10 @@ export function VisionMomentInput({
   );
 
   return (
-    <View testID={testID} style={styles.stage}>
+    <View testID={testID} style={[styles.stage, { paddingTop: insets.top }]}>
       <StatusBar barStyle="dark-content" />
       <ChartKeyboardFrame
-        contentContainerStyle={[styles.content, compactEmpty && { gap: spacing[1] }, { paddingTop: insets.top + spacing[2] }]}
+        contentContainerStyle={[styles.content, compactEmpty && { gap: spacing[1] }, { paddingTop: spacing[2] }]}
         footer={footer}
         footerStyle={styles.footerFrame}
         restingBottom={spacing[3]}
@@ -520,7 +522,7 @@ const makeStyles = (colors: { canvas: string; surface: string; grouped: string; 
   textInput: { fontFamily: VISION_SERIF_ITALIC, fontSize: 20, lineHeight: 28, color: colors.text.primary, minHeight: 124, maxHeight: 200, padding: spacing[4] },
   region: { gap: spacing[3] },
   referenceGroup: { gap: spacing[3] },
-  ownPhotoRow: { flexDirection: 'row', justifyContent: 'center', gap: spacing[5] },
+  ownPhotoRow: { flexDirection: 'row', gap: spacing[2] },
   meter: { flexDirection: 'row', justifyContent: 'space-between', gap: spacing[3] },
   meterHint: { flex: 1, fontFamily: 'Inter-Regular', fontSize: 13, lineHeight: 18, color: colors.text.secondary },
   counterText: { fontFamily: 'Inter-Regular', fontSize: 13, lineHeight: 18, color: colors.text.secondary },
@@ -556,8 +558,8 @@ const makeStyles = (colors: { canvas: string; surface: string; grouped: string; 
   footer: { gap: spacing[2] },
   footnote: { fontFamily: 'Inter-Regular', fontSize: 13, lineHeight: 18, textAlign: 'center', color: colors.text.secondary },
   referenceFootnote: { textDecorationLine: 'underline' },
-  textAction: { minHeight: 36, alignItems: 'center', justifyContent: 'center' },
-  textActionLabel: { fontFamily: 'Inter-Regular', fontSize: 13, color: colors.text.secondary, textDecorationLine: 'underline' },
+  textAction: { flex: 1, minHeight: 44, flexDirection: 'row', gap: spacing[2], alignItems: 'center', justifyContent: 'center', paddingHorizontal: spacing[2], borderWidth: 1, borderColor: colors.border.default, borderRadius: radii.pill, backgroundColor: colors.surface },
+  textActionLabel: { flexShrink: 1, fontFamily: 'Inter-SemiBold', fontSize: 12, textAlign: 'center', color: colors.text.primary },
   disabled: { opacity: 0.45 },
 });
 

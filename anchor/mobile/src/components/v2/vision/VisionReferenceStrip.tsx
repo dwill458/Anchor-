@@ -1,7 +1,7 @@
 import { memo, useRef, useState } from 'react';
 import { Image, Keyboard, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { Camera, Images, MapPin, Package, Plus, Sparkles, Tag, UserRound, X } from 'lucide-react-native';
-import { pickVisionPhoto, type VisionPhotoSource } from '@/hooks/v2/vision';
+import { pickVisionPhoto, pickVisionReferences, type VisionPhotoSource } from '@/hooks/v2/vision';
 import { colors, radii, spacing, typography } from '@/theme/v2';
 import type { VisionReferenceAttachment } from '@/types/visionConversation';
 import { v2Haptics } from '@/hooks/v2';
@@ -92,19 +92,22 @@ export const VisionReferenceStrip = memo(function VisionReferenceStrip({
     if (disabled || isPicking) return;
     setIsPicking(true);
     try {
-      const result = await pickVisionPhoto(source, 0.6);
+      const result = source === 'library' && targetIndex === null
+        ? await pickVisionReferences(MAX_REFERENCES - shownReferences.length, 0.6)
+        : await pickVisionPhoto(source, 0.6);
       if (result.status === 'picked') {
         const existing = targetIndex === null ? undefined : shownReferences[targetIndex];
-        const attachment: VisionReferenceAttachment = {
+        const photos = 'photos' in result ? result.photos : [result.photo];
+        const attachments: VisionReferenceAttachment[] = photos.map(photo => ({
           id: existing?.id ?? `vision-reference-${Date.now()}-${nextId.current++}`,
-          uri: result.photo.uri,
-          mimeType: result.photo.mimeType,
+          uri: photo.uri,
+          mimeType: photo.mimeType,
           role: existing?.role ?? 'inspiration',
           ...(existing?.label ? { label: existing.label } : {}),
-        };
+        }));
         onChange(targetIndex === null
-          ? [...shownReferences, attachment]
-          : references.map((reference, index) => index === targetIndex ? attachment : reference));
+          ? [...shownReferences, ...attachments].slice(0, MAX_REFERENCES)
+          : references.map((reference, index) => index === targetIndex ? attachments[0] : reference));
         onNotice?.(null);
       } else if (result.status === 'denied' || result.status === 'error') {
         onNotice?.(result.message);
@@ -288,9 +291,9 @@ const styles = StyleSheet.create({
   emptyAddCopy: { flex: 1, gap: spacing[1] },
   emptyAddTitle: { color: colors.text.primary, fontFamily: VISION_SERIF, fontSize: 17, lineHeight: 22 },
   emptyAddHint: { color: colors.text.secondary, fontFamily: typography.body, fontSize: 14, lineHeight: 20 },
-  inlineRoleEditor: { minHeight: 56, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: spacing[1], paddingHorizontal: spacing[2], paddingVertical: spacing[1], borderRadius: radii.lg, borderWidth: 1, borderColor: VISION_GOLD, backgroundColor: colors.surface },
+  inlineRoleEditor: { minHeight: 56, flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: spacing[1], paddingHorizontal: spacing[2], paddingVertical: spacing[1], borderRadius: radii.lg, borderWidth: 1, borderColor: VISION_GOLD, backgroundColor: colors.surface },
   inlineRoleTitle: { flexShrink: 0, color: colors.text.primary, fontFamily: typography.bodySemiBold, fontSize: 12, lineHeight: 16 },
-  inlineRoleOption: { minWidth: 44, minHeight: 44, flexGrow: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: spacing[1], borderRadius: radii.round },
+  inlineRoleOption: { minWidth: 44, minHeight: 44, alignItems: 'center', justifyContent: 'center', paddingHorizontal: spacing[1], borderRadius: radii.round },
   inlineRoleOptionSelected: { backgroundColor: colors.ink.deep },
   inlineRoleLabel: { color: colors.text.secondary, fontFamily: typography.body, fontSize: 12, lineHeight: 16 },
   inlineRoleLabelSelected: { color: colors.paper, fontFamily: typography.bodySemiBold },

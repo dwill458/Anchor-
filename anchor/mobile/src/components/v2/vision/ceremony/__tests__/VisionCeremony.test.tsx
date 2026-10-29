@@ -27,14 +27,19 @@ jest.mock('@/hooks/v2/vision/visionPhotoFitProcessing', () => ({
 jest.mock('@/hooks/useAppPerformanceTier', () => ({ useAppPerformanceTier: () => 'high' }));
 
 let mockJob: any = null;
+let mockConversation: any = undefined;
 let mockReduced = false;
 let mockError: string | null = null, mockErrorCode: string | null = null;
 const mockStart = jest.fn(async () => true), mockRetry = jest.fn(async () => true), mockRefresh = jest.fn(async () => undefined);
 let mockCeremonyRenders = 0;
 const mockPicker = jest.fn(), mockSinglePick = jest.fn(), mockSourceUpload = jest.fn();
 jest.mock('@/hooks/v2/vision', () => ({
-  useV2VisionSceneGeneration: () => { mockCeremonyRenders += 1; return { job: mockJob, error: mockError, errorCode: mockErrorCode, lastErrorCode: () => mockErrorCode, start: mockStart, retry: mockRetry, refresh: mockRefresh }; },
+  useV2VisionSceneGeneration: () => { mockCeremonyRenders += 1; return { job: mockJob, error: mockError, errorCode: mockErrorCode, lastErrorCode: () => mockErrorCode, start: mockStart, retry: mockRetry, refresh: mockRefresh, conversation: mockConversation }; },
   pickVisionPhoto: (...args: unknown[]) => mockSinglePick(...args),
+  pickVisionReferences: async (_limit: number, quality: number) => {
+    const result = await mockSinglePick('library', quality);
+    return result?.status === 'picked' ? { status: 'picked', photos: [result.photo] } : result;
+  },
   uploadVisionPhoto: (...args: unknown[]) => mockSourceUpload(...args),
   useVisionAppearanceReference: () => ({ profilePhoto: null, enabledByPreference: false, reference: null, loading: false, saving: false, upload: jest.fn(), remove: jest.fn(), setProfilePreference: jest.fn() }),
 }));
@@ -113,6 +118,13 @@ describe('Vision ceremony', () => {
     expect(view.getByTestId('vision-prompt-input').props.value).toBe(longDraft);
     await act(async () => { fireEvent.press(view.getByTestId('vision-generate')); });
     expect(mockStart).toHaveBeenCalledWith(longDraft.trim(), null);
+  });
+  it('lets taps reach the description field through invisible ceremony slots', () => {
+    const view = setup({ startAt: 'describe' });
+    expect(view.getByTestId('vision-ceremony-slot-0').props.pointerEvents).toBe('none');
+    expect(view.getByTestId('vision-ceremony-slot-1').props.pointerEvents).toBe('none');
+    expect(view.getByTestId('vision-ceremony-anchor').props.pointerEvents).toBe('none');
+    expect(view.getByTestId('vision-prompt-input')).toBeTruthy();
   });
   it('opens and applies the developer model selector from the active describe screen', () => {
     const view = setup(); fireEvent.press(view.getByLabelText(copy.createVision));
@@ -656,6 +668,31 @@ describe('Unified composer and prepared requests', () => {
     await advance(0);
     expect(mockSourceUpload).toHaveBeenCalledTimes(1);
     expect(mockStart).toHaveBeenCalledWith(expect.stringContaining('Inside the home.'), null, 'sheet-photo');
+  });
+
+  it('shows actual reference upload steps and preparation until the job is accepted', async () => {
+    mockConversation = { loaded: true, session: null, draft: { current: null }, saveDraft: jest.fn() };
+    let finishFirst!: (value: { ok: true; assetId: string }) => void;
+    let finishSecond!: (value: { ok: true; assetId: string }) => void;
+    let acceptJob!: (value: boolean) => void;
+    mockSourceUpload.mockImplementationOnce(() => new Promise(resolve => { finishFirst = resolve; }))
+      .mockImplementationOnce(() => new Promise(resolve => { finishSecond = resolve; }));
+    mockStart.mockImplementationOnce(() => new Promise(resolve => { acceptJob = resolve; }));
+    const view = setup({ mode: 'add', startAt: 'develop', autoStart: true, initialDescription: 'Inside the home.', initialReferences: [
+      { id: 'one', uri: 'file:///one.jpg', mimeType: 'image/jpeg', role: 'inspiration' },
+      { id: 'two', uri: 'file:///two.jpg', mimeType: 'image/jpeg', role: 'inspiration' },
+    ] });
+    await advance(0);
+    expect(view.getByText('Uploading photo 1 of 2')).toBeTruthy();
+    expect(view.getByLabelText('Uploading photo 1 of 2').props.accessibilityRole).toBe('progressbar');
+    expect(view.queryByText(copy.waitNote)).toBeNull();
+    await act(async () => { finishFirst({ ok: true, assetId: 'one' }); });
+    expect(view.getByText('Uploading photo 2 of 2')).toBeTruthy();
+    await act(async () => { finishSecond({ ok: true, assetId: 'two' }); });
+    expect(view.getByText('Preparing your scene')).toBeTruthy();
+    await act(async () => { acceptJob(true); });
+    expect(view.queryByTestId('vision-preparation-progress')).toBeNull();
+    mockConversation = undefined;
   });
 
   it('a failed prepared request returns to the composer with the description and photo kept', async () => {

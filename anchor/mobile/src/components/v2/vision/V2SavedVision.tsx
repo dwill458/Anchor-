@@ -135,6 +135,7 @@ export function V2SavedVision({
   const [manageImages, setManageImages] = useState(false);
   const [captionSceneId, setCaptionSceneId] = useState<string | null>(null);
   const [captionDrafts,setCaptionDrafts]=useState<Record<string,string|null>>({});
+  const captionSaveVersions = useRef(new Map<string, number>());
   const [mode, setMode] = useState<'view' | 'edit'>(initialEdit ? 'edit' : 'view');
   const [draft, setDraft] = useState(description);
   const [menuOpen, setMenuOpen] = useState(false);
@@ -529,12 +530,22 @@ export function V2SavedVision({
       {onUpdateSceneCaption ? <VisionPhotoCaptionEditor
         visible={captionSceneId !== null}
         caption={tiles.find(tile => tile.sceneId === captionSceneId)?.caption}
-        onSave={async caption => {
-          if(!captionSceneId)return false;
+        onSave={caption => {
+          if(!captionSceneId)return Promise.resolve(false);
           const id=captionSceneId;
+          const version=(captionSaveVersions.current.get(id)??0)+1;
+          captionSaveVersions.current.set(id,version);
           setCaptionDrafts(previous=>({...previous,[id]:caption}));
-          try{return await onUpdateSceneCaption(id,caption);}
-          finally{setCaptionDrafts(previous=>{const next={...previous};delete next[id];return next;});}
+          void onUpdateSceneCaption(id,caption).then(saved=>{
+            if(!saved)setNotice("Couldn't save that caption. It's back as it was.");
+          }).catch(()=>setNotice("Couldn't save that caption. It's back as it was.")).finally(()=>{
+            if(captionSaveVersions.current.get(id)!==version)return;
+            captionSaveVersions.current.delete(id);
+            setCaptionDrafts(previous=>{const next={...previous};delete next[id];return next;});
+          });
+          // The board already shows this draft. Close the editor while the queued,
+          // durable server save finishes in the background.
+          return Promise.resolve(true);
         }}
         onClose={() => setCaptionSceneId(null)}
       /> : null}

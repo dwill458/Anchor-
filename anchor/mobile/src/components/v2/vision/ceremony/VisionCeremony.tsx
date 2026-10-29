@@ -656,8 +656,11 @@ function ScopedVisionCeremony(props: VisionCeremonyProps) {
     // Describe scrolls under a fixed mark, so the mark steps aside there and returns on Develop.
     width: anchorSize, height: anchorSize, opacity: beat === 'describe' || openPlaying || committed ? 0 : 1 };
   const fade = ceremonyDuration(CEREMONY.stageFadeMs, reduced);
-  const status = reading ? copy.reading
-    : waitBeat >= 3 ? copy.wait40 : waitBeat >= 2 ? copy.wait20 : state.ready.length === 1 ? copy.second : waitBeat >= 1 ? copy.developingImages : copy.composing;
+  const preparationLabel = actions.preparation?.stage === 'uploading'
+    ? `Uploading photo ${actions.preparation.current} of ${actions.preparation.total}`
+    : actions.preparation?.stage === 'saving' ? 'Preparing your scene' : null;
+  const status = preparationLabel ?? (reading ? copy.reading
+    : waitBeat >= 3 ? copy.wait40 : waitBeat >= 2 ? copy.wait20 : state.ready.length === 1 ? copy.second : waitBeat >= 1 ? copy.developingImages : copy.composing);
   const showCaption = ownPhoto || ['keep', 'seal', 'pinned'].includes(beat);
   const limitReached = actions.generation.errorCode === 'VISION_GENERATION_LIMIT';
   const liftY = useSharedValue(0);
@@ -702,7 +705,7 @@ function ScopedVisionCeremony(props: VisionCeremonyProps) {
         height: Math.max(0, activePrintPlacement.height - CEREMONY.captionStripPts - 16) }}
       indicatorStyle={{ top: activePrintPlacement.y + activePrintPlacement.height + 4, bottom: undefined }}
       renderItem={({ item, index, stackPosition, active, visible }) => <VisionPrintSlot key={item.key} placement={printPlacement(index, beat === 'keep' || beat === 'develop' ? 0 : stackPosition)}
-        zIndex={30} testID={`vision-ceremony-slot-${index}`}>
+        zIndex={30} pointerEvents={beat === 'ask' || beat === 'describe' ? 'none' : 'auto'} testID={`vision-ceremony-slot-${index}`}>
         <Animated.View style={[styles.fill, liftStyle, !visible && { opacity: 0 }]} pointerEvents={active && beat === 'keep' ? 'auto' : 'none'}>
           <VisionPrint uri={item.uri} developing={false} instant captionHint={beat === 'keep'} revealed={beat !== 'ask' && beat !== 'describe'}
             empty={beat === 'ask' || beat === 'describe'} active={foreground} showCaption={showCaption}
@@ -720,7 +723,7 @@ function ScopedVisionCeremony(props: VisionCeremonyProps) {
       : Array.from({ length: 2 }, (_, index) => {
         const item = state.slots[index];
         const uri = item?.imageUrl ?? undefined;
-        return <VisionPrintSlot key={item?.assetId ?? `generated-print-${index}`} placement={printPlacement(index)} testID={`vision-ceremony-slot-${index}`}>
+        return <VisionPrintSlot key={item?.assetId ?? `generated-print-${index}`} placement={printPlacement(index)} pointerEvents={beat === 'ask' || beat === 'describe' ? 'none' : 'auto'} testID={`vision-ceremony-slot-${index}`}>
           <Animated.View style={[styles.fill, { zIndex: 1 }, liftStyle, beat === 'choose' && displayedRound && !refineCandidate ? { opacity: 0 } : undefined]} pointerEvents={index === chosen || beat === 'choose' ? 'auto' : 'none'}>
             <VisionPrint uri={uri} developing={beat === 'develop'} revealMs={2400} inkRevealMs={2400} revealed={beat !== 'ask' && beat !== 'describe' && !reading}
               empty={beat === 'ask' || beat === 'describe'} active={foreground} showCaption={showCaption && index === chosen} caption={caption} pinned={false}
@@ -740,7 +743,7 @@ function ScopedVisionCeremony(props: VisionCeremonyProps) {
       notice={actions.notice} anchorTarget={anchorPosition} onAnchorHandoff={() => setHandedOff(true)} onBack={back}
       onWords={startDescribe} canAddImage={props.canAddImage} /> : null}
     {committed ? <Animated.View pointerEvents="none" testID="vision-seal-stamp-line" style={[{ position: 'absolute', zIndex: 42, left: (width - sealW) / 2 + 10, top: sealY + sealW * 1.25 + 12, width: sealW - 20, height: 1, backgroundColor: '#B08A4A' }, sealLineStyle]} /> : null}
-    <VisionPrintSlot placement={anchorPosition} nodeRef={anchorRef} testID="vision-ceremony-anchor">
+    <VisionPrintSlot placement={anchorPosition} nodeRef={anchorRef} pointerEvents={beat === 'describe' ? 'none' : 'auto'} testID="vision-ceremony-anchor">
       <Animated.View style={[styles.mark, stampStyle]}>
         {committed ? <Animated.View pointerEvents="none" style={[styles.ripple, rippleStyle]} /> : null}
         <VisionSealHold active={beat === 'seal'} committed={committed} reduced={reduced} holdMs={CEREMONY.sealHoldMs} onCommit={commit}
@@ -772,8 +775,9 @@ function ScopedVisionCeremony(props: VisionCeremonyProps) {
         {!ownPhoto && beat === 'develop' ? <Animated.View style={[styles.words, { top: insets.top + usable * .31 }, wordsStyle]}><Text style={styles.wordText}>{words.map((word, i) => <Text key={i} style={{ opacity: i < litWords ? 1 : .18 }}>{word} </Text>)}</Text></Animated.View> : null}
         <View style={[styles.copy, { top: insets.top + usable * .7 }]}>
           {beat === 'develop' && !ownPhoto ? <><Text accessibilityLiveRegion="polite" style={styles.status}>{status}</Text>
-            <Svg width={150} height={10} accessible={false}><Path d="M1 5 Q75 2 149 5" stroke="#F4EDE0" strokeWidth={1.3} strokeDasharray={150} strokeDashoffset={150 * (1 - (reading ? .25 : state.ready.length ? .8 : .55))} fill="none" /></Svg>
-            {!ownPhoto ? <Text style={styles.note}>{copy.waitNote}</Text> : null}</> : null}
+            {preparationLabel ? <VisionHairline pending prominent label={preparationLabel} testID="vision-preparation-progress" />
+              : <Svg width={150} height={10} accessible={false}><Path d="M1 5 Q75 2 149 5" stroke="#F4EDE0" strokeWidth={1.3} strokeDasharray={150} strokeDashoffset={150 * (1 - (reading ? .25 : state.ready.length ? .8 : .55))} fill="none" /></Svg>}
+            <Text style={styles.note}>{preparationLabel ? 'Keep the app open while we prepare your scene.' : copy.waitNote}</Text></> : null}
           {!ownPhoto && (state.phase === 'failed' || failedImages.size > 0) ? <><Text style={styles.status}>{copy.failed}</Text><Text style={styles.note}>{failedImages.size > 0 ? copy.unavailable : state.ready.length ? copy.failedPartial : copy.failedBody}</Text>
             {link(copy.retry, () => { void (failedImages.size > 0 ? retryFailedGeneratedImages() : retryGeneration()); })}{link(copy.edit, () => setBeat('describe'))}</> : null}
           {(actions.notice || actions.generation.error) && !(beat === 'choose' && limitReached) ? <Text accessibilityLiveRegion="polite" style={styles.error}>{actions.notice ?? actions.generation.error}</Text> : null}

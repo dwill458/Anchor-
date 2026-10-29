@@ -1,5 +1,5 @@
 import { encryptedPersistStorage } from '@/stores/encryptedPersistStorage';
-import { clearPendingVisionWrite, releasePendingVisionWrites, retainPendingVisionWrite, takePendingVisionWrites } from '../visionPendingWrites';
+import { clearPendingVisionWrite, holdPendingVisionWrites, releasePendingVisionWrites, retainPendingVisionWrite, takePendingVisionWrites } from '../visionPendingWrites';
 
 jest.mock('@/stores/encryptedPersistStorage', () => ({
   encryptedPersistStorage: { getItem: jest.fn(), setItem: jest.fn() },
@@ -29,6 +29,15 @@ describe('encrypted account-scoped pending Vision writes', () => {
       version: 1, accountId: account, anchorId: anchor,
       writes: [{ method: 'patch', path, body }],
     });
+  });
+
+  it('defers replay while an online write is settling, then allows recovery', async () => {
+    await retainPendingVisionWrite(account, anchor, 'patch', path, { caption: 'Pending' });
+    const release = holdPendingVisionWrites(account, anchor);
+    expect(await takePendingVisionWrites(account, anchor)).toEqual([]);
+    release();
+    expect(await takePendingVisionWrites(account, anchor)).toHaveLength(1);
+    releasePendingVisionWrites(account, anchor);
   });
 
   it('keeps accounts and Anchors independent even when the API path is identical', async () => {

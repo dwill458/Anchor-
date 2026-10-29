@@ -72,6 +72,26 @@ export async function pickVisionPhoto(source: VisionPhotoSource, quality = 0.85)
   }
 }
 
+/** Select several scene references in one library visit, bounded by the remaining slots. */
+export async function pickVisionReferences(limit: number, quality = 0.6): Promise<{ status: 'picked'; photos: PickedVisionPhoto[] } | Exclude<VisionPhotoPick, { status: 'picked' }>> {
+  try {
+    const count = Math.max(1, Math.min(5, limit));
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images, quality, allowsEditing: false,
+      allowsMultipleSelection: count > 1, selectionLimit: count,
+    });
+    if (result.canceled || !result.assets?.length) return { status: 'cancelled' };
+    const photos = await Promise.all(result.assets.slice(0, count).map(async asset => {
+      const photo = await toJpegIfHeic({ uri: asset.uri, mimeType: mimeTypeOf(asset) });
+      return { ...photo, sourceType: 'USER_UPLOAD' as const, fileName: asset.fileName ?? null };
+    }));
+    if (photos.some(photo => !SUPPORTED.includes(photo.mimeType))) return { status: 'error', message: 'Choose JPEG, PNG, WebP, or GIF images.' };
+    return { status: 'picked', photos };
+  } catch (cause) {
+    return { status: 'error', message: cause instanceof Error ? cause.message : 'Unable to open your photos.' };
+  }
+}
+
 /** Uploads a confirmed photo as a Vision asset. The bytes are read once and never held in React state. */
 export async function uploadVisionPhoto(
   photo: Pick<PickedVisionPhoto, 'uri' | 'mimeType'>,

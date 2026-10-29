@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useRef } from 'react';
-import { StyleSheet, View } from 'react-native';
+import { StyleSheet, View, useWindowDimensions } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import * as Haptics from 'expo-haptics';
 import Animated, {
@@ -54,6 +54,7 @@ export const AnimatedSplashScreen: React.FC<AnimatedSplashScreenProps> = ({
   onLogoReady,
   reduceMotionEnabled,
 }) => {
+  const { width: windowWidth } = useWindowDimensions();
   // Frame 0 is the native launch screen: cream paper and the gold star, nothing else.
   const draw = useSharedValue(0);
   const texture = useSharedValue(0);
@@ -186,11 +187,11 @@ export const AnimatedSplashScreen: React.FC<AnimatedSplashScreenProps> = ({
           <AnchorSplashMark draw={draw} texture={texture} glow={glow} starScale={starScale} onStarReady={onLogoReady} />
         </Animated.View>
         {variant === 'first' ? (
-          <View style={styles.lockupText} pointerEvents="none">
-            <Animated.Text testID="splash-wordmark" style={[styles.wordmark, wordmarkStyle]}>
+          <View style={[styles.lockupText, { width: Math.min(320, Math.max(0, windowWidth - 32)) }]} pointerEvents="none">
+            <Animated.Text testID="splash-wordmark" numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.75} allowFontScaling={false} style={[styles.wordmark, wordmarkStyle]}>
               ANCHOR
             </Animated.Text>
-            <Animated.Text style={[styles.tagline, taglineStyle]}>VISUAL GOAL SETTING</Animated.Text>
+            <Animated.Text numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.75} allowFontScaling={false} style={[styles.tagline, taglineStyle]}>VISUAL GOAL SETTING</Animated.Text>
           </View>
         ) : null}
       </View>
@@ -212,22 +213,25 @@ const styles = StyleSheet.create({
   lockupText: {
     position: 'absolute',
     top: SPLASH_MARK_HEIGHT - SPLASH_LIFT_DP + 18,
-    width: 320,
     alignItems: 'center',
   },
   wordmark: {
+    width: '100%',
     color: SPLASH_INK_COLOR,
     fontFamily: 'Inter-SemiBold',
     fontSize: 24,
     letterSpacing: 9,
+    textAlign: 'center',
     // Letter-spacing trails the last glyph; pad the start so the word stays optically centred.
     paddingLeft: 9,
   },
   tagline: {
+    width: '100%',
     color: 'rgba(11, 14, 21, 0.62)',
     fontFamily: 'Inter-SemiBold',
     fontSize: 10.5,
     letterSpacing: 3.5,
+    textAlign: 'center',
     paddingLeft: 3.5,
     marginTop: 8,
   },

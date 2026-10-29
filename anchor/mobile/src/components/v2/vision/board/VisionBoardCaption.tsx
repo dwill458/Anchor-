@@ -121,6 +121,7 @@ export const VisionBoardCaption = memo(function VisionBoardCaption({
           allowFontScaling={false}
           onTextLayout={onReady ? event => { if(event.nativeEvent.lines.length)onReady(sceneId); } : undefined}
           style={{
+            width: '100%',
             fontFamily: caption.fontFamily,
             fontSize: caption.fontSize * sceneWidth,
             lineHeight: caption.lineHeight * sceneWidth,

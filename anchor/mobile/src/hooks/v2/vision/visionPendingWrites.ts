@@ -16,6 +16,19 @@ const storageKey = (accountId: string, anchorId: string) =>
   `anchor:v2:vision-pending:${encodeURIComponent(accountId)}:${encodeURIComponent(anchorId)}`;
 const lanes = new Map<string, Promise<unknown>>();
 const claimed = new Set<string>();
+const activeOnlineWrites = new Map<string, number>();
+/** Defer replay while an online edit is being settled and its receipt is cleared. */
+export function holdPendingVisionWrites(accountId: string, anchorId: string): () => void {
+  const key = storageKey(accountId, anchorId);
+  activeOnlineWrites.set(key, (activeOnlineWrites.get(key) ?? 0) + 1);
+  let released = false;
+  return () => {
+    if (released) return;
+    released = true;
+    const next = (activeOnlineWrites.get(key) ?? 1) - 1;
+    if (next) activeOnlineWrites.set(key, next); else activeOnlineWrites.delete(key);
+  };
+}
 const editedFields = (body: Record<string, unknown>) =>
   Object.keys(body)
     .filter((key) => key !== 'expectedUpdatedAt')
@@ -117,11 +130,13 @@ export async function takePendingVisionWrites(
   anchorId: string,
 ) {
   const key = storageKey(accountId, anchorId);
-  if (claimed.has(key)) return [];
+  if (claimed.has(key) || activeOnlineWrites.has(key)) return [];
   claimed.add(key);
   try {
     await (lanes.get(key) ?? Promise.resolve()).catch(() => undefined);
-    return (await read(accountId, anchorId)).writes;
+    const writes = (await read(accountId, anchorId)).writes;
+    if (activeOnlineWrites.has(key)) { claimed.delete(key); return []; }
+    return writes;
   } catch (error) {
     claimed.delete(key);
     throw error;

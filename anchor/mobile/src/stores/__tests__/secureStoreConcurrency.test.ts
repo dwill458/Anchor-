@@ -40,6 +40,17 @@ describe('SecureStore call concurrency', () => {
 });
 
 describe('SecureStore read priority', () => {
+  it('commits a Vision draft before a queued bulk vault write finishes', async () => {
+    installNativeStore();
+    const order: string[] = [];
+    const bulk = writeLegacySecureValue('anchor-vault-storage', 'z'.repeat(1800 * 200)).then(() => order.push('bulk'));
+    await new Promise(resolve => setTimeout(resolve, 5));
+    const draft = writeLegacySecureValue('vision-conversation.owner.anchor', 'private draft').then(() => order.push('draft'));
+    await draft;
+    expect(order[0]).toBe('draft');
+    expect(await readLegacySecureValue('vision-conversation.owner.anchor')).toBe('private draft');
+    await bulk;
+  });
   it('serves a small read before the rest of a queued vault write', async () => {
     installNativeStore();
     const order: string[] = [];

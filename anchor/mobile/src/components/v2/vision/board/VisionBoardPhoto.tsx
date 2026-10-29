@@ -632,7 +632,7 @@ export const VisionBoardPhoto = memo(function VisionBoardPhoto({
         <Pressable disabled={!editableCaption || repositioning} accessibilityRole={editableCaption ? 'button' : undefined}
           accessibilityLabel={editableCaption ? 'Edit photo caption' : undefined} onPress={() => onCaptionEdit?.(sceneId)} style={{ width:'100%' }}>
           <Text allowFontScaling={false} testID={`${testID}-caption`} onTextLayout={onCaptionReady ? event => { if(event.nativeEvent.lines.length)onCaptionReady(sceneId); } : undefined} style={{ fontFamily: captionLayout.fontFamily,
-            fontSize: captionLayout.fontSize*compositionWidth,lineHeight:captionLayout.lineHeight*compositionWidth,letterSpacing:captionLayout.kind==='editorial'?captionLayout.fontSize*compositionWidth*.1:0,color:VISION_CAPTION_COLOR,textAlign:captionLayout.kind==='editorial'?'left':'center',includeFontPadding:false }}>{captionLayout.text}</Text>
+            width: '100%', fontSize: captionLayout.fontSize*compositionWidth,lineHeight:captionLayout.lineHeight*compositionWidth,letterSpacing:captionLayout.kind==='editorial'?captionLayout.fontSize*compositionWidth*.1:0,color:VISION_CAPTION_COLOR,textAlign:captionLayout.kind==='editorial'?'left':'center',includeFontPadding:false }}>{captionLayout.text}</Text>
         </Pressable>
       </Animated.View> : compositionWidth ? null : boardMode ? (labelled ? labelCaption : boardCaption) : interactive && onCaptionEdit ? (
         <Animated.View style={[styles.captionHitArea, captionPositionStyle, captionStyle]}>

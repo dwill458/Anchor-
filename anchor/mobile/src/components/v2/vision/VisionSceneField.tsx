@@ -91,7 +91,7 @@ export function VisionSceneField({ value, onChangeText, maxChars, placeholder, a
 const styles = StyleSheet.create({
   frame: { borderRadius: radii.lg, borderWidth: 1, borderColor: colors.text.primary, backgroundColor: colors.surface },
   frameListening: { borderColor: VISION_GOLD, borderWidth: 1.5 },
-  input: { fontFamily: VISION_SERIF_ITALIC, fontSize: 20, lineHeight: 28, color: colors.text.primary, maxHeight: 200, padding: spacing[4] },
+  input: { width: '100%', fontFamily: VISION_SERIF_ITALIC, fontSize: 20, lineHeight: 28, color: colors.text.primary, maxHeight: 200, padding: spacing[4] },
   inputWithMic: { paddingBottom: 56 },
   compactInput: { fontSize: 17, lineHeight: 24, padding: 12, paddingRight: 56, paddingBottom: 12, maxHeight: 100 },
   mic: {

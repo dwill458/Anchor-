@@ -111,9 +111,6 @@ export const SplashController: React.FC<SplashControllerProps> = ({
     }
 
     hasStartedAnalytics.current = true;
-    if (variant === 'first') {
-      markFirstOpenPlayed();
-    }
     const startupWaitMs = Math.max(0, Date.now() - startupStartedAt);
 
     if (reduceMotionEnabled) {
@@ -152,6 +149,12 @@ export const SplashController: React.FC<SplashControllerProps> = ({
   useEffect(() => {
     if (!visible && !hasCompletedAnalytics.current) {
       hasCompletedAnalytics.current = true;
+      // Only consume the first-open ceremony after it has actually finished. If the
+      // app is interrupted during startup, the next launch should not silently turn
+      // the unfinished first-open splash into the short return version.
+      if (variant === 'first') {
+        markFirstOpenPlayed();
+      }
       AnalyticsService.trackAnonymous(AnalyticsEvents.SPLASH_COMPLETED, {
         durationMs: Math.max(0, Date.now() - startupStartedAt),
         startupWaitMs: Math.max(0, Date.now() - startupStartedAt),
