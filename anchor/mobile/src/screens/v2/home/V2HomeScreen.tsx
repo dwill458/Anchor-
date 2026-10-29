@@ -11,7 +11,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { V2Button, V2EmptyState, V2InlineError } from '@/components/v2';
-import { V2HomeChartSection, V2HomeBrandMark, V2HomeCreamSplice, V2HomeHeader, V2HomeHero, V2HomeProgressSection, V2HomeRecentActivitySection, V2HomeTodaySection, V2HomeVisionSection } from '@/components/v2/home';
+import { V2HomeChartSection, V2HomeBrandMark, V2HomeCreamSplice, V2HomeGettingStarted, V2HomeHeader, V2HomeHero, V2HomeProgressSection, V2HomeRecentActivitySection, V2HomeTodaySection, V2HomeVisionSection } from '@/components/v2/home';
 import { buildTodayForDisplay, planTodaySwap, resolveVisionAlternateImage, resolveVisionHeroImage, useV2HomeModel, type TodaySwapPlan } from '@/adapters/v2/home';
 import { useV2ReduceMotion, useV2Responsive } from '@/hooks/v2';
 import { useCelebrationReduceMotion } from '@/hooks/useCelebrationReduceMotion';
@@ -40,6 +40,8 @@ import { playCreationSound } from '@/services/CreationSounds';
 import { useAuthStore } from '@/stores/authStore';
 import { discoverGuidance } from '@/hooks/v2/guidance/guidanceRuntime';
 import { beginGuidanceAction } from '@/hooks/v2/guidance/guidanceActions';
+import { useGettingStarted } from '@/hooks/v2/guidance/useGettingStarted';
+import { GETTING_STARTED_COPY } from '@/constants/v2/gettingStartedCopy';
 import { useTeachingQueue } from '@/hooks/v2/teaching/useTeachingQueue';
 import { useTeachingFocus } from '@/hooks/v2/teaching/useTeachingFocus';
 import { homeTeachingBeats } from '@/hooks/v2/teaching/homeTeaching';
@@ -502,6 +504,32 @@ export function V2HomeScreen() {
     eligible: homeTeachingBeats({ hasAnchor: Boolean(selectedId), todayReady: todayForDisplay.state === 'ready',
       doneToday: todayForDisplay.state === 'ready' && Boolean(todayForDisplay.doneToday),
       mode: todayForDisplay.state === 'ready' ? todayForDisplay.mode : undefined, hasCompletedPractice }), cap: 1, blocked: !homeIsIdle, isFocused: teachingFocus.isFocused });
+  const activeAnchorIds = useMemo(() => model.anchorList.map(item => item.anchor.id), [model.anchorList]);
+  const recommendedDurationSeconds = todayForDisplay.state === 'ready'
+    ? (todayForDisplay.doneToday?.durationSeconds ?? todayForDisplay.durationSeconds)
+    : undefined;
+  const [gettingStartedToast, setGettingStartedToast] = useState(false);
+  const gettingStartedToastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => () => { if (gettingStartedToastTimer.current) clearTimeout(gettingStartedToastTimer.current); }, []);
+  const handleScrollToToday = useCallback(() => {
+    void scrollToTarget(todayTeachingRef, elastic.scrollRef, () => ({ y: elastic.scrollY.value, max: elastic.maxScroll.value, viewportTop: 0 }), reduceMotion);
+  }, [elastic.maxScroll, elastic.scrollRef, elastic.scrollY, reduceMotion]);
+  const gettingStarted = useGettingStarted({
+    accountId: teachingAccountId,
+    activeAnchorIds,
+    hasVisionOnSelected: hasVision,
+    hasChartOnSelected: hasChart,
+    recommendedDurationSeconds,
+    isFocused: teachingFocus.isFocused,
+    onScrollToToday: handleScrollToToday,
+  });
+  const handleDismissGettingStarted = useCallback(() => {
+    gettingStarted.dismiss();
+    setGettingStartedToast(true);
+    if (gettingStartedToastTimer.current) clearTimeout(gettingStartedToastTimer.current);
+    gettingStartedToastTimer.current = setTimeout(() => setGettingStartedToast(false), 3200);
+  }, [gettingStarted]);
+  const anchorBubbleActive = teachingQueue.ready && (teachingQueue.steps.includes('home.anchor') || teachingQueue.steps.includes('home.glow'));
   const getTeachingRect = useCallback(async (target: React.RefObject<ViewInstance | null>) => {
     teachingScrollActive.value = true;
     try {
@@ -696,6 +724,7 @@ export function V2HomeScreen() {
               testID="v2-home-hero"
               teachingThreadRef={threadTeachingRef}
               teachingAnchorRef={anchorTeachingRef}
+              showTapAnchorChip={gettingStarted.anchorStepIncomplete && !anchorBubbleActive}
               anchors={model.anchorList}
               selectedIndex={model.selectedIndex}
               thread={model.thread}
@@ -747,6 +776,16 @@ export function V2HomeScreen() {
               </Animated.View>
             ) : null}
           </View>
+          <V2HomeGettingStarted
+            visible={gettingStarted.visible}
+            steps={gettingStarted.steps}
+            completedCount={gettingStarted.completedCount}
+            totalCount={gettingStarted.totalCount}
+            allComplete={gettingStarted.allComplete}
+            reduceMotion={reduceMotion}
+            onShowMe={gettingStarted.showMe}
+            onDismiss={handleDismissGettingStarted}
+          />
           <Animated.View style={contentVeilStyle}>
           <View ref={visionTeachingRef} collapsable={false}>
           <V2HomeVisionSection vision={model.vision} categoryColor={categoryColor}
@@ -815,6 +854,13 @@ export function V2HomeScreen() {
           style={StyleSheet.absoluteFill}
           onPress={() => { useCelebrationStore.getState().skip(); }}
         />
+      ) : null}
+      {gettingStartedToast ? (
+        <View testID="v2-getting-started-toast" pointerEvents="none" style={[styles.gettingStartedToastWrap, { bottom: Math.max(24, insets.bottom + 16) }]}>
+          <View style={styles.gettingStartedToast}>
+            <Text style={styles.gettingStartedToastText}>{GETTING_STARTED_COPY.toast}</Text>
+          </View>
+        </View>
       ) : null}
       <VisionHomeReturnSkip sceneId={visionReturn.sceneId} />
     </SafeAreaView>
@@ -901,5 +947,25 @@ const styles = StyleSheet.create({
   skeletonLineNarrow: {
     width: '60%',
     alignSelf: 'flex-start',
+  },
+  gettingStartedToastWrap: {
+    position: 'absolute',
+    left: PAGE_INSET,
+    right: PAGE_INSET,
+    alignItems: 'center',
+    zIndex: 25,
+  },
+  gettingStartedToast: {
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    borderRadius: 999,
+    backgroundColor: 'rgba(24, 22, 18, 0.94)',
+    borderWidth: 1,
+    borderColor: 'rgba(244, 239, 230, 0.14)',
+  },
+  gettingStartedToastText: {
+    color: '#F4EFE6',
+    fontFamily: 'Figtree-Medium',
+    fontSize: 12.5,
   },
 });

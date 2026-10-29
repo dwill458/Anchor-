@@ -3,6 +3,7 @@ export { V2HomeHero } from './V2HomeHero';
 export { V2HomeCategoryEnvironment } from './V2HomeCategoryEnvironment';
 export { V2HomeAnchorCarousel, HERO_ANCHOR_SIZE, NEIGHBOUR_ANCHOR_SIZE } from './V2HomeAnchorCarousel';
 export { V2HomeTodaySection, todayReasonCopy } from './V2HomeTodaySection';
+export { V2HomeGettingStarted, type V2HomeGettingStartedProps } from './V2HomeGettingStarted';
 export { V2HomeVisionSection } from './V2HomeVisionSection';
 export { V2HomeChartSection } from './V2HomeChartSection';
 export { V2HomeProgressSection } from './V2HomeProgressSection';

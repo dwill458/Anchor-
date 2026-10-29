@@ -3,8 +3,9 @@ import { useDevThreadStrengthStore } from '@/stores/devThreadStrengthStore';
 import React, { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Image, Platform, Pressable, StyleSheet, Text, View, useWindowDimensions, type GestureResponderEvent } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import Animated, { Easing, interpolate, useAnimatedStyle, useSharedValue, withDelay, withTiming, type SharedValue } from 'react-native-reanimated';
+import Animated, { Easing, cancelAnimation, interpolate, useAnimatedStyle, useSharedValue, withDelay, withRepeat, withSequence, withTiming, type SharedValue } from 'react-native-reanimated';
 import Svg, { Path } from 'react-native-svg';
+import { GETTING_STARTED_COPY } from '@/constants/v2/gettingStartedCopy';
 import { AnchorMotion, colors, getCategoryColor, typography } from '@/theme/v2';
 import { anchorRenderProps, categoryLabel } from '@/components/v2/anchors/anchorPresentation';
 import { CircularAnchorRenderer } from '@/components/v2';
@@ -41,6 +42,7 @@ type Props = {
   onMotionChange?: (moving: boolean) => void;
   teachingThreadRef?: React.RefObject<ViewInstance | null>;
   teachingAnchorRef?: React.RefObject<ViewInstance | null>;
+  showTapAnchorChip?: boolean;
   testID?: string;
 };
 
@@ -189,7 +191,38 @@ function useHeroEntrance(
   return { entrance, onImageLoad };
 }
 
-function AnchorHeroItem({ summary, index, total, slot, isSelectedCenterSlot, heroActive, glowEnabled, offset, spacing, gutter, anchorSize, artworkBoxHeight, constructionSize, thread: realThread, eagerThreadValues, reduceMotion, auraActive, onOpenActive, onOpenProgress, onOpenAllAnchors, teachingThreadRef, teachingAnchorRef }: {
+function TapAnchorChip({ reduceMotion }: { reduceMotion: boolean }) {
+  const bobY = useSharedValue(0);
+  useEffect(() => {
+    if (reduceMotion) {
+      cancelAnimation(bobY);
+      bobY.value = 0;
+      return undefined;
+    }
+    bobY.value = withRepeat(
+      withSequence(
+        withTiming(-2, { duration: 1200, easing: Easing.inOut(Easing.ease) }),
+        withTiming(0, { duration: 1200, easing: Easing.inOut(Easing.ease) }),
+      ),
+      -1,
+      false,
+    );
+    return () => { cancelAnimation(bobY); };
+  }, [bobY, reduceMotion]);
+  const chipMotion = useAnimatedStyle(() => ({
+    transform: [{ translateY: bobY.value }],
+  }));
+  return (
+    <Animated.View testID="v2-home-tap-anchor-chip" pointerEvents="none" style={[styles.tapAnchorChipWrap, chipMotion]}>
+      <View style={styles.tapAnchorChip}>
+        <View style={styles.tapAnchorChipDot} />
+        <Text style={styles.tapAnchorChipText}>{GETTING_STARTED_COPY.chip.tapAnchor}</Text>
+      </View>
+    </Animated.View>
+  );
+}
+
+function AnchorHeroItem({ summary, index, total, slot, isSelectedCenterSlot, heroActive, glowEnabled, offset, spacing, gutter, anchorSize, artworkBoxHeight, constructionSize, thread: realThread, eagerThreadValues, reduceMotion, auraActive, onOpenActive, onOpenProgress, onOpenAllAnchors, teachingThreadRef, teachingAnchorRef, showTapAnchorChip }: {
   summary: V2HomeAnchorSummary;
   index: number;
   total: number;
@@ -213,6 +246,7 @@ function AnchorHeroItem({ summary, index, total, slot, isSelectedCenterSlot, her
   onOpenAllAnchors?: () => void;
   teachingThreadRef?: React.RefObject<ViewInstance | null>;
   teachingAnchorRef?: React.RefObject<ViewInstance | null>;
+  showTapAnchorChip?: boolean;
 }) {
   const anchor = summary.anchor;
   // Dev-only Thread Strength simulator; inert (value null, nonce 0) outside development.
@@ -384,6 +418,7 @@ function AnchorHeroItem({ summary, index, total, slot, isSelectedCenterSlot, her
             </Animated.View>
           </Pressable>
         </View>
+        {slot === 0 && showTapAnchorChip ? <TapAnchorChip reduceMotion={reduceMotion} /> : null}
         </View>
       </Animated.View>
 
@@ -438,7 +473,7 @@ function AnchorHeroItem({ summary, index, total, slot, isSelectedCenterSlot, her
 }
 
 /** The entire visible hero is one of five mounted items on a shared track. */
-function V2HomeHeroComponent({ anchors, selectedIndex, onSelect, onOpenActive, onOpenProgress, onOpenAllAnchors, thread, reduceMotion, frozen, auraActive = true, onMotionChange, testID, teachingThreadRef, teachingAnchorRef }: Props) {
+function V2HomeHeroComponent({ anchors, selectedIndex, onSelect, onOpenActive, onOpenProgress, onOpenAllAnchors, thread, reduceMotion, frozen, auraActive = true, onMotionChange, testID, teachingThreadRef, teachingAnchorRef, showTapAnchorChip }: Props) {
   const eagerThreadValues = useAppPerformanceTier() !== 'low';
   const { width, height, fontScale } = useWindowDimensions();
   const arrival = useHomeArrivalContext();
@@ -465,9 +500,9 @@ function V2HomeHeroComponent({ anchors, selectedIndex, onSelect, onOpenActive, o
       <AnchorHeroItem summary={summary} index={index} total={anchors.length} slot={slot} isSelectedCenterSlot={slot === 0} heroActive={heroActive} glowEnabled={!arrivalActive} offset={offset} spacing={spacing} gutter={layout.gutter}
         anchorSize={layout.anchorSize} artworkBoxHeight={layout.artworkBoxHeight} constructionSize={layout.constructionSize}
         thread={index === selectedIndex && thread ? thread : summary.thread} eagerThreadValues={eagerThreadValues} reduceMotion={Boolean(reduceMotion)} auraActive={auraActive}
-        onOpenActive={onOpenActive} onOpenProgress={onOpenProgress} onOpenAllAnchors={onOpenAllAnchors} teachingThreadRef={teachingThreadRef} teachingAnchorRef={teachingAnchorRef} />
+        onOpenActive={onOpenActive} onOpenProgress={onOpenProgress} onOpenAllAnchors={onOpenAllAnchors} teachingThreadRef={teachingThreadRef} teachingAnchorRef={teachingAnchorRef} showTapAnchorChip={showTapAnchorChip} />
     );
-  }, [anchors.length, arrivalActive, auraActive, carouselCentered, eagerThreadValues, layout.anchorSize, layout.artworkBoxHeight, layout.constructionSize, layout.gutter, onOpenActive, onOpenAllAnchors, onOpenProgress, reduceMotion, selectedIndex, teachingAnchorRef, teachingThreadRef, thread]);
+  }, [anchors.length, arrivalActive, auraActive, carouselCentered, eagerThreadValues, layout.anchorSize, layout.artworkBoxHeight, layout.constructionSize, layout.gutter, onOpenActive, onOpenAllAnchors, onOpenProgress, reduceMotion, selectedIndex, showTapAnchorChip, teachingAnchorRef, teachingThreadRef, thread]);
   return <View testID={testID}>
     <V2HomeAnchorCarousel testID="v2-home-carousel" anchors={anchors} selectedIndex={selectedIndex} heroHeight={layout.trackHeight} anchorSize={layout.anchorSize}
       onSelect={onSelect} onOpenActive={onOpenActive} reduceMotion={reduceMotion} frozen={frozen} onMotionChange={handleMotionChange} onCentered={setCarouselCentered} renderHero={renderHero} />
@@ -591,6 +626,38 @@ const styles = StyleSheet.create({
     fontSize: 12,
     lineHeight: 18,
     color: colors.text.secondary,
+  },
+  tapAnchorChipWrap: {
+    position: 'absolute',
+    bottom: 6,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  tapAnchorChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    paddingVertical: 4,
+    paddingHorizontal: 10,
+    borderRadius: 999,
+    backgroundColor: 'rgba(24, 22, 18, 0.86)',
+    shadowColor: '#000',
+    shadowOpacity: 0.14,
+    shadowRadius: 10,
+    shadowOffset: { width: 0, height: 4 },
+    elevation: 2,
+  },
+  tapAnchorChipDot: {
+    width: 5,
+    height: 5,
+    borderRadius: 2.5,
+    backgroundColor: '#C49A45',
+  },
+  tapAnchorChipText: {
+    fontFamily: typography.bodySemiBold,
+    fontSize: 10,
+    letterSpacing: 0.5,
+    color: '#F4EFE6',
   },
   pressed: {
     opacity: 0.7,
