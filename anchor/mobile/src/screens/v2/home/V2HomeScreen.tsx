@@ -38,7 +38,8 @@ import { isUsableRect, useProgressiveFocusTransition, type AnchorWindowRect } fr
 import { predictProgressAnchorRect, resolveAnchorDetailsHeroGeometry } from '@/navigation/v2/anchorHeroGeometry';
 import { playCreationSound } from '@/services/CreationSounds';
 import { useAuthStore } from '@/stores/authStore';
-import { discoverGuidance } from '@/hooks/v2/guidance/guidanceRuntime';
+import { GUIDANCE_REGISTRY } from '@/constants/v2/guidanceRegistry';
+import { discoverGuidance, guidanceCoordinator } from '@/hooks/v2/guidance/guidanceRuntime';
 import { beginGuidanceAction } from '@/hooks/v2/guidance/guidanceActions';
 import { useGettingStarted } from '@/hooks/v2/guidance/useGettingStarted';
 import { GETTING_STARTED_COPY } from '@/constants/v2/gettingStartedCopy';
@@ -135,6 +136,8 @@ export function V2HomeScreen() {
   const visionTeachingRef = useRef<ViewInstance>(null);
   const chartTeachingRef = useRef<ViewInstance>(null);
   const threadTeachingRef = useRef<ViewInstance>(null);
+  const createAnchorTeachingRef = useRef<ViewInstance>(null);
+  const carouselTeachingRef = useRef<ViewInstance>(null);
   const scrollViewportRef = useRef<ViewInstance>(null);
   const teachingScrollSize = useRef({ content: 0, viewport: 0 });
   const teachingScrollActive = useSharedValue(false);
@@ -421,8 +424,11 @@ export function V2HomeScreen() {
 
   const handleCreateAnchor = useCallback(() => {
     track('v2_home_create_anchor_tapped');
+    const confirmGuidance = beginGuidanceAction(teachingAccountId ?? 'guest', 'home.create_anchor', 'target:create');
+    discoverGuidance(teachingAccountId ?? 'guest', 'creation.opened');
     intents.onCreateAnchor();
-  }, [intents]);
+    confirmGuidance(true);
+  }, [intents, teachingAccountId]);
 
   /**
    * Home's anchor-scoped content is veiled while the carousel moves, swapped
@@ -440,13 +446,16 @@ export function V2HomeScreen() {
 
   const handleSelectAnchor = useCallback(
     (anchorId: string) => {
+      const confirmSwipe = beginGuidanceAction(teachingAccountId ?? 'guest', 'home.swipe_anchors', 'target:carousel');
       // The reveal waits for React to commit this Anchor's content, so the swap happens under the veil.
       veilSwapPending.current = true;
       selectAnchor(anchorId);
+      confirmSwipe(true);
+      discoverGuidance(teachingAccountId ?? 'guest', 'home.swipe_anchors');
       // Since 2026-10-07 this fires once per resting selection, not once per Anchor swiped past.
       track('v2_home_anchor_switched');
     },
-    [selectAnchor],
+    [selectAnchor, teachingAccountId],
   );
 
   const handleCarouselMotion = useCallback((moving: boolean) => {
@@ -500,10 +509,17 @@ export function V2HomeScreen() {
     model.anchorState === 'ready' && Boolean(selectedId) && model.today.state !== 'loading' && !model.progressLoading &&
     model.vision.state !== 'loading' && model.chart.state !== 'loading' && model.chart.state !== 'resolving';
   useEffect(() => { if (homeIsIdle && hasCompletedPractice) discoverGuidance(teachingAccountId ?? 'guest', 'today.recommended'); }, [homeIsIdle, hasCompletedPractice, teachingAccountId]);
+  const requestedId = guidanceCoordinator.requested() ?? guidanceCoordinator.snapshot()?.id ?? null;
+  const requestedBeat = useMemo(() => {
+    if (!requestedId) return null;
+    const def = GUIDANCE_REGISTRY.find(item => item.id === requestedId);
+    return def?.beat ?? null;
+  }, [requestedId]);
   const teachingQueue = useTeachingQueue({ screenId: 'home', accountId: teachingAccountId, contextKey: selectedId ?? undefined, targetRevision: teachingTargetRevision,
     eligible: homeTeachingBeats({ hasAnchor: Boolean(selectedId), todayReady: todayForDisplay.state === 'ready',
       doneToday: todayForDisplay.state === 'ready' && Boolean(todayForDisplay.doneToday),
-      mode: todayForDisplay.state === 'ready' ? todayForDisplay.mode : undefined, hasCompletedPractice }), cap: 1, blocked: !homeIsIdle, isFocused: teachingFocus.isFocused });
+      mode: todayForDisplay.state === 'ready' ? todayForDisplay.mode : undefined, hasCompletedPractice,
+      hasVision, anchorCount: model.anchorList.length, requestedBeat }), cap: 1, blocked: !homeIsIdle, isFocused: teachingFocus.isFocused });
   const activeAnchorIds = useMemo(() => model.anchorList.map(item => item.anchor.id), [model.anchorList]);
   const recommendedDurationSeconds = todayForDisplay.state === 'ready'
     ? (todayForDisplay.doneToday?.durationSeconds ?? todayForDisplay.durationSeconds)
@@ -561,6 +577,11 @@ export function V2HomeScreen() {
   const handleOpenProgress = useCallback(
     (targetAnchorId?: string, source?: AnchorWindowRect) => {
       track('v2_home_progress_tapped');
+      const confirmProgressSection = beginGuidanceAction(teachingAccountId ?? 'guest', 'home.progress_section', 'target:progress');
+      const confirmProgressMoved = beginGuidanceAction(teachingAccountId ?? 'guest', 'home.progress_moved', 'target:thread');
+      confirmProgressSection(true);
+      confirmProgressMoved(true);
+      discoverGuidance(teachingAccountId ?? 'guest', 'progress.opened');
       const id = (typeof targetAnchorId === 'string' && targetAnchorId) ? targetAnchorId : (selectedId ?? undefined);
       if (!id) {
         intents.onOpenProgress();
@@ -585,7 +606,7 @@ export function V2HomeScreen() {
         intents.onOpenProgress(id);
       }
     },
-    [focusTransition, insets.top, intents, model.anchorList, selectedId],
+    [focusTransition, insets.top, intents, model.anchorList, selectedId, teachingAccountId],
   );
 
   const handleOpenAllAnchors = useCallback(() => {
@@ -634,6 +655,7 @@ export function V2HomeScreen() {
         profileInitial={model.profileInitial}
         profilePictureUrl={model.profilePictureUrl}
         showChartUtility={false}
+        createAnchorRef={createAnchorTeachingRef}
         onCreateAnchor={handleCreateAnchor}
         onOpenProfile={intents.onOpenProfile}
       />
@@ -724,6 +746,7 @@ export function V2HomeScreen() {
               testID="v2-home-hero"
               teachingThreadRef={threadTeachingRef}
               teachingAnchorRef={anchorTeachingRef}
+              teachingCarouselRef={carouselTeachingRef}
               showTapAnchorChip={gettingStarted.anchorStepIncomplete && !anchorBubbleActive}
               anchors={model.anchorList}
               selectedIndex={model.selectedIndex}
@@ -818,9 +841,15 @@ export function V2HomeScreen() {
       </GestureDetector>
 
       <ScreenTeaching screen="home" queue={teachingQueue} reducedMotion={reduceMotion} targets={{
-        'home.today': { getRect: () => getTeachingRect(todayTeachingRef) }, 'home.anchor': { getRect: () => getTeachingRect(anchorTeachingRef) }, 'home.progress': { getRect: () => getTeachingRect(progressTeachingRef) },
-        'home.vision': { getRect: () => getTeachingRect(visionTeachingRef) }, 'home.chart': { getRect: () => getTeachingRect(chartTeachingRef) },
-        'home.thread': { getRect: () => getTeachingRect(threadTeachingRef) },
+        'home.today': { getRect: () => getTeachingRect(todayTeachingRef) },
+        'home.glow': { getRect: () => getTeachingRect(anchorTeachingRef), ring: false },
+        'home.anchor': { getRect: () => getTeachingRect(anchorTeachingRef), ring: false },
+        'home.progress': { getRect: () => getTeachingRect(progressTeachingRef), ring: false },
+        'home.vision': { getRect: () => getTeachingRect(visionTeachingRef) },
+        'home.chart': { getRect: () => getTeachingRect(chartTeachingRef) },
+        'home.thread': { getRect: () => getTeachingRect(threadTeachingRef), ring: false },
+        'home.create': { getRect: () => measureTeachingTarget(createAnchorTeachingRef.current), ring: false },
+        'home.swipe': { getRect: () => getTeachingRect(carouselTeachingRef), ring: false },
       }} />
       <V2ThreadEventModal
         bundle={threadEvents.presentable}

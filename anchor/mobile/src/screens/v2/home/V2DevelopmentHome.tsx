@@ -4,6 +4,8 @@ import { useNavigation, useRoute, type RouteProp } from '@react-navigation/nativ
 import type { VisionReturnParams } from '@/constants/v2/visionHomeReturn';
 import { useV2AnchorCreationGate } from '@/hooks/v2/paywall';
 import { isProFeatureLocked } from '@/utils/premiumAccess';
+import { discoverGuidance } from '@/hooks/v2/guidance/guidanceRuntime';
+import { useAuthStore } from '@/stores/authStore';
 import { V2DailyShellNavigator, type V2DailyShellIntents } from './dailyShell';
 import { V2DevFloatingToolbar } from './V2DevFloatingToolbar';
 import { VisionHomeReturnProvider } from './visionHomeReturn';
@@ -100,6 +102,7 @@ export function V2DevelopmentHome() {
       // The first Anchor is always allowed; a second one on the free plan opens the paywall,
       // which resumes creation once entitled. The server enforces the same rule on save.
       onCreateAnchor: () => {
+        discoverGuidance(useAuthStore.getState().user?.id ?? 'guest', 'creation.opened');
         const decision = creationGate.current.evaluate();
         if (decision.allowed) navigation.navigate('FirstAnchorCreation');
         else navigation.navigate('V2Paywall', { context: decision.paywallContext, resumeIntent: { type: 'create_anchor' } });

@@ -1,3 +1,4 @@
+import type { ViewInstance } from 'react-native';
 import React, { memo } from 'react';
 import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
 import Svg, { Circle, Path } from 'react-native-svg';
@@ -13,6 +14,7 @@ type Props = {
   onCreateAnchor?: () => void;
   onOpenProfile?: () => void;
   showChartUtility?: boolean;
+  createAnchorRef?: React.RefObject<ViewInstance | null>;
 };
 
 function IconChart({ color = colors.text.primary }: { color?: string }) {
@@ -64,6 +66,7 @@ function V2HomeHeaderComponent({
   onCreateAnchor,
   onOpenProfile,
   showChartUtility = true,
+  createAnchorRef,
 }: Props) {
   const comma = greeting.indexOf(',');
   const salutation = comma < 0 ? greeting : greeting.slice(0, comma + 1);
@@ -99,11 +102,13 @@ function V2HomeHeaderComponent({
             onPress={onOpenChart}
           />
         ) : null}
-        <V2IconButton
-          icon={<IconPlus color={colors.text.primary} />}
-          accessibilityLabel="Create Anchor"
-          onPress={onCreateAnchor}
-        />
+        <View ref={createAnchorRef} collapsable={false}>
+          <V2IconButton
+            icon={<IconPlus color={colors.text.primary} />}
+            accessibilityLabel="Create Anchor"
+            onPress={onCreateAnchor}
+          />
+        </View>
         {/* // DEFERRED: The standalone D button is folded into the photo avatar Profile entry.
         <V2IconButton
             icon={<IconProfileLetter letter={profileInitial} color={colors.text.primary} />}

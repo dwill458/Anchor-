@@ -4,7 +4,7 @@ import { trackTeaching } from '@/utils/v2/teachingAnalytics';
 import { SpotlightCoach, type TeachingStep } from './SpotlightCoach';
 import { TeachingWhisper } from './TeachingWhisper';
 
-export type TeachingTarget = Pick<TeachingStep, 'targetRef' | 'getRect'> & { title?: string; body?: string; accessibilityLabel?: string };
+export type TeachingTarget = Pick<TeachingStep, 'targetRef' | 'getRect' | 'ring'> & { title?: string; body?: string; accessibilityLabel?: string };
 export function ScreenTeaching({ screen, queue, targets, reducedMotion }: {
   screen: string;
   queue: { steps: BeatId[]; ready: boolean; markShown: (beat?: BeatId) => void; markHidden?: () => void; dismiss: (beatsToCommit?: BeatId[], reason?: string) => void };

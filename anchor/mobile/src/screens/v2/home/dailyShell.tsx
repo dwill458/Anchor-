@@ -12,6 +12,8 @@ import { V2AnchorLibraryScreen } from '@/screens/v2/anchors/V2AnchorLibraryScree
 import { V2AnchorDetailsScreen } from '@/screens/v2/anchors/V2AnchorDetailsScreen';
 import type { V2PracticeMode } from '@/constants/v2/practice';
 import { isProFeatureLocked } from '@/utils/premiumAccess';
+import { discoverGuidance } from '@/hooks/v2/guidance/guidanceRuntime';
+import { useAuthStore } from '@/stores/authStore';
 
 /**
  * External navigation intents UI-D exposes but does not own. Production
@@ -154,6 +156,7 @@ export function useV2DailyShellIntents(): Required<
     }),
     onOpenProgress: value.onOpenProgress ?? ((anchorId, options) => navigation.navigate('V2Progress', { anchorId, ...(options?.anchorTransition ? { anchorTransition: true } : {}) })),
     onCreateAnchor: value.onCreateAnchor ?? (() => {
+      discoverGuidance(useAuthStore.getState().user?.id ?? 'guest', 'creation.opened');
       if (isProFeatureLocked()) {
         navigation.navigate('V2Paywall', {
           context: 'SECOND_ANCHOR',

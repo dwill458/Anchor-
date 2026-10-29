@@ -58,7 +58,8 @@ import { predictPracticeSetupAnchorRect } from '@/navigation/v2/anchorHeroGeomet
 import { useV2Responsive, useV2ReduceMotion } from '@/hooks/v2';
 import { VisualProfiler } from '@/utils/visualProfiler';
 import { useAuthStore } from '@/stores/authStore';
-import { discoverGuidance } from '@/hooks/v2/guidance/guidanceRuntime';
+import { beginGuidanceAction } from '@/hooks/v2/guidance/guidanceActions';
+import { discoverGuidance, guidanceCoordinator, requestGuidance } from '@/hooks/v2/guidance/guidanceRuntime';
 import { useTeachingQueue } from '@/hooks/v2/teaching/useTeachingQueue';
 import { useTeachingFocus } from '@/hooks/v2/teaching/useTeachingFocus';
 import { DETAILS_BEATS_PER_VISIT, detailsTeachingBeats } from '@/hooks/v2/teaching/detailsTeaching';
@@ -923,8 +924,39 @@ export function V2AnchorDetailsScreen() {
 
   useAnimatedReaction(() => sheetTeachingMoving.value && !teachingPreparing.value,
     (moving, previous) => { if (moving !== previous) runOnJS(setDetailsMoving)(moving); });
-  const teachingQueue = useTeachingQueue({ screenId: 'details', accountId: teachingAccountId, contextKey: anchor?.id,
-    eligible: detailsTeachingBeats(!hasVisionContent && vision.state.state !== 'loading' && vision.state.state !== 'error', chart.state === 'none'), cap: DETAILS_BEATS_PER_VISIT,
+  const prevHasVisionRef = useRef(hasVisionContent);
+  useEffect(() => {
+    const account = teachingAccountId ?? 'guest';
+    if (teachingFocus.isFocused) {
+      const pending = guidanceCoordinator.consumePending();
+      if (pending === 'vision') requestGuidance(account, 'details.vision_chart');
+      else if (pending === 'chart') requestGuidance(account, 'details.chart_next');
+    }
+  }, [teachingAccountId, teachingFocus.isFocused]);
+  useEffect(() => {
+    const account = teachingAccountId ?? 'guest';
+    if (!prevHasVisionRef.current && hasVisionContent) {
+      discoverGuidance(account, 'details.vision_chart');
+      if (chart.state === 'none') {
+        requestGuidance(account, 'details.chart_next');
+      }
+    }
+    prevHasVisionRef.current = hasVisionContent;
+  }, [chart.state, hasVisionContent, teachingAccountId]);
+  useEffect(() => {
+    if (chart.state === 'ready') {
+      discoverGuidance(teachingAccountId ?? 'guest', 'details.chart_next');
+    }
+  }, [chart.state, teachingAccountId]);
+  const requestedDetailsId = guidanceCoordinator.requested() ?? guidanceCoordinator.snapshot()?.id ?? null;
+  const detailsEligible = useMemo(() => {
+    const base = detailsTeachingBeats(!hasVisionContent && vision.state.state !== 'loading' && vision.state.state !== 'error', chart.state === 'none');
+    if (requestedDetailsId === 'details.chart_next' && chart.state === 'none') return ['details.chart' as const, ...base.filter(b => b !== 'details.chart')];
+    if (requestedDetailsId === 'details.vision_chart' && !hasVisionContent) return ['details.vision' as const, ...base.filter(b => b !== 'details.vision')];
+    return base;
+  }, [chart.state, hasVisionContent, requestedDetailsId, vision.state.state]);
+  const teachingQueue = useTeachingQueue({ screenId: 'details', accountId: teachingAccountId, contextKey: anchor?.id ? `${anchor.id}:${hasVisionContent ? 'v1' : 'v0'}` : undefined,
+    eligible: detailsEligible, cap: DETAILS_BEATS_PER_VISIT,
     blocked: !anchor || teachingFocus.transitioning || focusTransition.active || detailsMoving || menuOpen || shareOpen || exportActions.isDownloading || exportActions.isSavingWallpaper || vision.loading || chart.state === 'loading' || chart.state === 'resolving',
     isFocused: teachingFocus.isFocused });
   const getTeachingRect = useCallback(async (target: React.RefObject<ViewInstance | null>) => {
@@ -982,12 +1014,16 @@ export function V2AnchorDetailsScreen() {
   };
 
   const openVision = (options?: { edit?: boolean }) => {
+    const confirmVision = beginGuidanceAction(teachingAccountId ?? 'guest', 'details.vision_chart', 'target:vision');
     if (options) intents.onOpenVision(serverId, options);
     else intents.onOpenVision(serverId);
+    confirmVision(true);
   };
 
   const openChart = (courseId?: string) => {
+    const confirmChart = beginGuidanceAction(teachingAccountId ?? 'guest', 'details.chart_next', 'target:chart');
     intents.onOpenChart(serverId, courseId);
+    confirmChart(true);
   };
 
   const openRelease = () => {
@@ -1265,8 +1301,8 @@ export function V2AnchorDetailsScreen() {
 
         <ThreadStrengthExplainerSheet visible={explainerOpen} onClose={() => setExplainerOpen(false)} strength={threadValue} accentColor={accent} />
         <ScreenTeaching screen="details" queue={teachingQueue} reducedMotion={reduceMotion} targets={{
-          'details.vision': { getRect: () => getTeachingRect(visionTeachingRef) },
-          'details.chart': { getRect: () => getTeachingRect(chartTeachingRef) },
+          'details.vision': { getRect: () => getTeachingRect(visionTeachingRef), ring: false },
+          'details.chart': { getRect: () => getTeachingRect(chartTeachingRef), ring: false },
         }} />
         <AnchorOptionsMenu
           visible={menuOpen}

@@ -14,6 +14,7 @@ export type TeachingStep = {
   body: string;
   accessibilityLabel?: string;
   whisper?: boolean;
+  ring?: boolean;
 };
 type Props = {
   visible: boolean; steps: TeachingStep[]; reducedMotion: boolean;
@@ -118,9 +119,10 @@ export function SpotlightCoach(props: Props) {
     if (index === steps.length - 1) latest.current.onDismiss('complete');
     else { setGeometry(null); setIndex(value => value + 1); }
   };
-  return <View accessibilityViewIsModal ref={root} collapsable={false} pointerEvents="box-none" style={[StyleSheet.absoluteFill, styles.root]} testID="spotlight-coach">
-    {[topStyle, bottomStyle, leftStyle, rightStyle].map((style, i) => <AnimatedPressable key={i} accessibilityRole="button" accessibilityLabel={TEACHING_COPY.common.dismiss} onPress={() => latest.current.onDismiss('scrim')} style={[styles.scrim, style]} />)}
-    <Animated.View testID="spotlight-target-hole" pointerEvents="none" style={[styles.spot, spotStyle]} />
+  const showRing = current.ring !== false;
+  return <View accessibilityViewIsModal={showRing} ref={root} collapsable={false} pointerEvents="box-none" style={[StyleSheet.absoluteFill, styles.root]} testID="spotlight-coach">
+    {showRing ? [topStyle, bottomStyle, leftStyle, rightStyle].map((style, i) => <AnimatedPressable key={i} accessibilityRole="button" accessibilityLabel={TEACHING_COPY.common.dismiss} onPress={() => latest.current.onDismiss('scrim')} style={[styles.scrim, style]} />) : null}
+    {showRing ? <Animated.View testID="spotlight-target-hole" pointerEvents="none" style={[styles.spot, spotStyle]} /> : null}
     <View pointerEvents="none" style={[styles.arrow, placeBelow ? styles.arrowUp : styles.arrowDown, { left: arrowX, top: placeBelow ? tipTop - 10 : tipTop + tipHeight }]} />
     <View onLayout={event => setTipHeight(event.nativeEvent.layout.height)} style={[styles.tip, { left: tipLeft, top: tipTop, width: tipWidth, maxHeight: tipMaxHeight }]}>
       <ScrollView bounces={false} contentContainerStyle={styles.tipContent}>

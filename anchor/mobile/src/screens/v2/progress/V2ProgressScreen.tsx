@@ -37,6 +37,7 @@ import { progressTokens } from '@/components/v2/progress/progressTokens';
 import { useAnchorTransitionDeparture, useAnchorTransitionReveal } from '@/navigation/v2/ProgressiveFocusTransition';
 import { useV2ReduceMotion } from '@/hooks/v2';
 import { useTeachingFocus } from '@/hooks/v2/teaching/useTeachingFocus';
+import { discoverGuidance } from '@/hooks/v2/guidance/guidanceRuntime';
 import { useAuthStore } from '@/stores/authStore';
 import { useTeachingQueue } from '@/hooks/v2/teaching/useTeachingQueue';
 import { progressTeachingBeats } from '@/hooks/v2/teaching/progressTeaching';
@@ -103,6 +104,11 @@ export const V2ProgressScreen: React.FC<V2ProgressScreenProps> = ({
   const teachingFocus = useTeachingFocus();
   const celebrationActive = useCelebrationActive();
   const teachingAccountId = useAuthStore(state => state.user?.id ?? null);
+  React.useEffect(() => {
+    if (teachingFocus.isFocused) {
+      discoverGuidance(teachingAccountId ?? 'guest', 'progress.opened');
+    }
+  }, [teachingAccountId, teachingFocus.isFocused]);
   const reducedMotion = useV2ReduceMotion();
   const scrollRef = React.useRef<ScrollViewInstance>(null);
   const threadTeachingRef = React.useRef<ViewInstance>(null);

@@ -42,6 +42,7 @@ type Props = {
   onMotionChange?: (moving: boolean) => void;
   teachingThreadRef?: React.RefObject<ViewInstance | null>;
   teachingAnchorRef?: React.RefObject<ViewInstance | null>;
+  teachingCarouselRef?: React.RefObject<ViewInstance | null>;
   showTapAnchorChip?: boolean;
   testID?: string;
 };
@@ -473,7 +474,7 @@ function AnchorHeroItem({ summary, index, total, slot, isSelectedCenterSlot, her
 }
 
 /** The entire visible hero is one of five mounted items on a shared track. */
-function V2HomeHeroComponent({ anchors, selectedIndex, onSelect, onOpenActive, onOpenProgress, onOpenAllAnchors, thread, reduceMotion, frozen, auraActive = true, onMotionChange, testID, teachingThreadRef, teachingAnchorRef, showTapAnchorChip }: Props) {
+function V2HomeHeroComponent({ anchors, selectedIndex, onSelect, onOpenActive, onOpenProgress, onOpenAllAnchors, thread, reduceMotion, frozen, auraActive = true, onMotionChange, testID, teachingThreadRef, teachingAnchorRef, teachingCarouselRef, showTapAnchorChip }: Props) {
   const eagerThreadValues = useAppPerformanceTier() !== 'low';
   const { width, height, fontScale } = useWindowDimensions();
   const arrival = useHomeArrivalContext();
@@ -503,7 +504,7 @@ function V2HomeHeroComponent({ anchors, selectedIndex, onSelect, onOpenActive, o
         onOpenActive={onOpenActive} onOpenProgress={onOpenProgress} onOpenAllAnchors={onOpenAllAnchors} teachingThreadRef={teachingThreadRef} teachingAnchorRef={teachingAnchorRef} showTapAnchorChip={showTapAnchorChip} />
     );
   }, [anchors.length, arrivalActive, auraActive, carouselCentered, eagerThreadValues, layout.anchorSize, layout.artworkBoxHeight, layout.constructionSize, layout.gutter, onOpenActive, onOpenAllAnchors, onOpenProgress, reduceMotion, selectedIndex, showTapAnchorChip, teachingAnchorRef, teachingThreadRef, thread]);
-  return <View testID={testID}>
+  return <View ref={teachingCarouselRef} collapsable={false} testID={testID}>
     <V2HomeAnchorCarousel testID="v2-home-carousel" anchors={anchors} selectedIndex={selectedIndex} heroHeight={layout.trackHeight} anchorSize={layout.anchorSize}
       onSelect={onSelect} onOpenActive={onOpenActive} reduceMotion={reduceMotion} frozen={frozen} onMotionChange={handleMotionChange} onCentered={setCarouselCentered} renderHero={renderHero} />
   </View>;
