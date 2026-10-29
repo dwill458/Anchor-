@@ -1,10 +1,33 @@
 import { encryptedPersistStorage } from '@/stores/encryptedPersistStorage';
-import { GUIDANCE_REGISTRY } from '@/constants/v2/guidanceRegistry';
+import { GUIDANCE_REGISTRY, type GuidanceId } from '@/constants/v2/guidanceRegistry';
 import { emptyGuidanceRecord, type GuidanceData } from './guidanceCoordinator';
 
 type Blob = GuidanceData & { schema: 1; bootedAt: string };
 type Storage = { getItem: (key: string) => unknown; setItem: (key: string, value: string) => unknown; removeItem: (key: string) => unknown };
 export const guidanceStorageKey = (account: string) => account === 'guest' ? 'guest:guidance' : `anchor:v2:guidance:${encodeURIComponent(account)}`;
+
+// DEFERRED: Only legacy pre-cutover IDs migrate old anchor:v2:teach:* keys; newly introduced follow-through IDs start clean.
+const LEGACY_MIGRATED_IDS: readonly GuidanceId[] = [
+  'today.recommended',
+  'home.open_anchor',
+  'practice.switch_anchor',
+  'vision.first_photo',
+  'vision.lead_image',
+  'chart.next_move',
+  'progress.levels',
+];
+
+let practiceSnapshotProvider: (() => boolean) | null = null;
+export function setGuidancePracticeSnapshotProvider(provider: (() => boolean) | null) {
+  practiceSnapshotProvider = provider;
+}
+function snapshotPracticeBeforeGuidance(): boolean {
+  try {
+    return Boolean(practiceSnapshotProvider?.());
+  } catch {
+    return false;
+  }
+}
 
 export function mergeGuidanceRecords(account: GuidanceData, guest: GuidanceData): GuidanceData {
   const records = { ...account.records };
@@ -15,7 +38,16 @@ export function mergeGuidanceRecords(account: GuidanceData, guest: GuidanceData)
     const dates = [current.firstDisplayedAt, incoming.firstDisplayedAt].filter((date): date is string => Boolean(date)).sort();
     records[id] = { ...winner, firstDisplayedAt: dates[0], displayCount: Math.max(current.displayCount, incoming.displayCount), presentAttempts: Math.max(current.presentAttempts, incoming.presentAttempts) };
   });
-  return { records, discovery: { ...guest.discovery, ...account.discovery }, replayedIds: [...new Set([...(guest.replayedIds ?? []), ...(account.replayedIds ?? [])])] };
+  const dismissedAt = account.gettingStarted?.dismissedAt ?? guest.gettingStarted?.dismissedAt;
+  return {
+    records,
+    discovery: { ...guest.discovery, ...account.discovery },
+    replayedIds: [...new Set([...(guest.replayedIds ?? []), ...(account.replayedIds ?? [])])],
+    ...(account.hadPracticeBeforeGuidance !== undefined || guest.hadPracticeBeforeGuidance !== undefined
+      ? { hadPracticeBeforeGuidance: Boolean(account.hadPracticeBeforeGuidance || guest.hadPracticeBeforeGuidance) }
+      : {}),
+    ...(dismissedAt ? { gettingStarted: { dismissedAt } } : account.gettingStarted ? { gettingStarted: { ...account.gettingStarted } } : {}),
+  };
 }
 
 /** One account blob extends the existing encrypted teaching persistence, with old
@@ -41,9 +73,13 @@ export function createGuidanceRecords(storage: Storage) {
       for (const value of Object.values(blob.records)) {
         if (!Number.isFinite(value.displayCount) || !Number.isFinite(value.presentAttempts) || !Number.isFinite(value.interruptCount)) throw new Error('Invalid guidance record');
       }
+      if (blob.hadPracticeBeforeGuidance === undefined) {
+        blob.hadPracticeBeforeGuidance = snapshotPracticeBeforeGuidance();
+      }
     } else {
-      blob = { schema: 1, bootedAt: new Date().toISOString(), records: {}, discovery: {} };
-      await Promise.all(GUIDANCE_REGISTRY.map(async def => {
+      blob = { schema: 1, bootedAt: new Date().toISOString(), records: {}, discovery: {}, hadPracticeBeforeGuidance: snapshotPracticeBeforeGuidance() };
+      const legacyDefs = GUIDANCE_REGISTRY.filter(def => LEGACY_MIGRATED_IDS.includes(def.id));
+      await Promise.all(legacyDefs.map(async def => {
         const beats = def.id === 'today.recommended' ? ['home.today', 'practice.today'] : def.beat ? [def.beat] : [];
         const keys = beats.map(beat => account === 'guest' ? `guest:teach:${beat}` : `anchor:v2:teach:${beat}:${encodeURIComponent(account)}`);
         if (def.id === 'chart.next_move') keys.push(account === 'guest' ? 'guest:chart-taught' : `anchor:v2:chart2:taught:${encodeURIComponent(account)}`);
@@ -66,13 +102,13 @@ export function createGuidanceRecords(storage: Storage) {
         await queue(account, () => storage.setItem(guidanceStorageKey(account), JSON.stringify(blob)));
         // Legacy guest keys must also be consumed, otherwise the next account
         // could re-import already-promoted history from the rollback keys.
-        const guestKeys = GUIDANCE_REGISTRY.flatMap(def => def.beat ? [`guest:teach:${def.beat}`] : []);
+        const guestKeys = GUIDANCE_REGISTRY.filter(def => LEGACY_MIGRATED_IDS.includes(def.id)).flatMap(def => def.beat ? [`guest:teach:${def.beat}`] : []);
         guestKeys.push('guest:teach:practice.today', 'guest:chart-taught');
         await queue('guest', async () => {
           await Promise.all(guestKeys.map(key => storage.removeItem(key)));
           await storage.removeItem(guidanceStorageKey('guest'));
         });
-        cache.set('guest', { schema: 1, bootedAt: new Date().toISOString(), records: {}, discovery: {} });
+        cache.set('guest', { schema: 1, bootedAt: new Date().toISOString(), records: {}, discovery: {}, hadPracticeBeforeGuidance: false });
       }
       return blob;
     });
@@ -86,7 +122,14 @@ export function createGuidanceRecords(storage: Storage) {
     save: (account: string, data: GuidanceData) => {
       const previous = cache.get(account);
       if (!previous) return;
-      const blob: Blob = { ...previous, records: { ...data.records }, discovery: { ...data.discovery }, replayedIds: data.replayedIds };
+      const blob: Blob = {
+        ...previous,
+        records: { ...data.records },
+        discovery: { ...data.discovery },
+        replayedIds: data.replayedIds,
+        hadPracticeBeforeGuidance: data.hadPracticeBeforeGuidance ?? previous.hadPracticeBeforeGuidance,
+        gettingStarted: data.gettingStarted ? { ...data.gettingStarted } : undefined,
+      };
       cache.set(account, blob);
       const payload = JSON.stringify(blob);
       void queue(account, () => storage.setItem(guidanceStorageKey(account), payload)).catch(() => undefined);

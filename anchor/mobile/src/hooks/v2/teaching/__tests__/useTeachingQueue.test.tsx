@@ -24,7 +24,7 @@ it('selects one current approved beat and never records a selected step as displ
  expect(guidanceCoordinator.data().records['today.recommended']).toMatchObject({ presentAttempts: 1, displayCount: 0 });
 });
 it('ignores retired eligibility instead of reviving obsolete batches', async () => {
- const hook = renderHook(() => useTeachingQueue({ ...initial, eligible: ['home.progress','home.chart','details.vision'] }));
+ const hook = renderHook(() => useTeachingQueue({ ...initial, eligible: ['home.vision','home.chart','progress.week'] }));
  await act(async () => { await new Promise(resolve => setTimeout(resolve, 20)); }); expect(hook.result.current.steps).toEqual([]);
 });
 it('waits for readiness and tears down without recording on blur', async () => {

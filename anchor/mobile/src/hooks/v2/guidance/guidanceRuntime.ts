@@ -1,6 +1,6 @@
 import { AppState, Keyboard } from 'react-native';
 import { GUIDANCE_REGISTRY, type GuidanceId } from '@/constants/v2/guidanceRegistry';
-import { createGuidanceCoordinator } from '@/stores/v2/guidanceCoordinator';
+import { createGuidanceCoordinator, type DiscoverySignal, type GuidancePending } from '@/stores/v2/guidanceCoordinator';
 import { guidanceRecords } from '@/stores/v2/guidanceRecords';
 import { useMilestoneCelebrationStore } from '@/stores/v2/milestoneCelebrationStore';
 import { useCelebrationStore } from '@/stores/v2/celebrationStore';
@@ -23,9 +23,17 @@ export function bindGuidanceAccount(account: string): Promise<void> {
   }).catch(() => { /* Fail closed for this binding. */ });
   return binding;
 }
-export function discoverGuidance(account: string, id: GuidanceId) {
+export function discoverGuidance(account: string, signal: DiscoverySignal) {
   const generation = revision;
-  void binding.then(() => { if (accountKey === account && revision === generation) guidanceCoordinator.discover(id); });
+  void binding.then(() => { if (accountKey === account && revision === generation) guidanceCoordinator.discover(signal); });
+}
+export function requestGuidance(account: string, id: GuidanceId, options?: { pending?: GuidancePending }) {
+  const generation = revision;
+  void binding.then(() => { if (accountKey === account && revision === generation) guidanceCoordinator.request(id, options); });
+}
+export function dismissGettingStartedGuidance(account: string) {
+  const generation = revision;
+  void binding.then(() => { if (accountKey === account && revision === generation) guidanceCoordinator.dismissGettingStarted(); });
 }
 export async function replayGuidance(account: string, onlyId?: GuidanceId) {
   if (accountKey !== undefined && accountKey !== account) return;

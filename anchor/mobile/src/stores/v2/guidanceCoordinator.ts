@@ -10,7 +10,15 @@ export type GuidanceRecord = {
   firstDisplayedAt?: string; lastDisplayedAt?: string; outcome?: GuidanceOutcome;
   outcomeAt?: string; outcomeDetail?: string; variant?: string;
 };
-export type GuidanceData = { records: Record<string, GuidanceRecord>; discovery: Record<string, string>; replayedIds?: GuidanceId[] };
+export type GuidancePending = 'vision' | 'chart';
+export type DiscoverySignal = GuidanceId | 'thread.explainer_opened' | 'progress.opened' | 'creation.opened';
+export type GuidanceData = {
+  records: Record<string, GuidanceRecord>;
+  discovery: Record<string, string>;
+  replayedIds?: GuidanceId[];
+  hadPracticeBeforeGuidance?: boolean;
+  gettingStarted?: { dismissedAt?: string };
+};
 export type GuidancePresentation = { token: string; id: GuidanceId; hostKey: string; account: string };
 export type GuidanceHost = {
   key: string; variant?: string; visitKey?: string; targetRevision?: number | string; account: string; ready: boolean; candidates: readonly string[];
@@ -20,6 +28,12 @@ export const emptyGuidanceRecord = (): GuidanceRecord => ({ version: 1, displayC
 export function settled(record: GuidanceRecord | undefined, def: GuidanceDefinition): boolean {
   return Boolean(record && (record.outcome || ((def.surface === 'whisper' || def.surface === 'scene_line') && record.displayCount > 0) || record.presentAttempts >= def.maxAttempts || (def.maxDisplays && record.displayCount >= def.maxDisplays)));
 }
+
+const SIGNAL_OBSOLETES: Partial<Record<DiscoverySignal, readonly GuidanceId[]>> = {
+  'thread.explainer_opened': ['home.thread_glow', 'thread.glow', 'progress.levels'],
+  'progress.opened': ['home.progress_section', 'home.progress_moved'],
+  'creation.opened': ['home.create_anchor'],
+};
 
 /** No backlog: every arbitration reads the currently registered, ready contexts. */
 export function createGuidanceCoordinator(registry: readonly GuidanceDefinition[], save: (account: string, data: GuidanceData) => void) {
@@ -35,6 +49,8 @@ export function createGuidanceCoordinator(registry: readonly GuidanceDefinition[
   let chartAllowance = false;
   let backgroundAt: number | null = null;
   let foreground = true;
+  let requestedId: GuidanceId | null = null;
+  let pendingStep: GuidancePending | null = null;
   const hosts = new Map<string, GuidanceHost>();
   const visits = new Set<string>();
   // Only pre-visible measurement failures may recover, on a changed target signal.
@@ -95,12 +111,19 @@ export function createGuidanceCoordinator(registry: readonly GuidanceDefinition[
       }
     });
     const candidates = [...hosts.values()].filter(host => host.account === account && host.ready && !visits.has(visitKey(host)))
-      .flatMap(host => registry.filter(def => host.candidates.includes(def.id) && !settled(data.records[def.id], def)
+      .flatMap(host => registry.filter(def => host.candidates.includes(def.id) && (requestedId === def.id || !settled(data.records[def.id], def))
         && (def.surface === 'scene_line' || !quiet.has(visitKey(host)))
-        && (def.surface === 'scene_line' || def.surface === 'whisper' || (def.priority === 0 ? !chartAllowance : bubbles < 1))).map(def => ({ host, def })))
-      .sort((a, b) => a.def.priority - b.def.priority || registry.indexOf(a.def) - registry.indexOf(b.def) || a.host.key.localeCompare(b.host.key));
+        && (def.surface === 'scene_line' || def.surface === 'whisper' || def.followThrough || requestedId === def.id || (def.priority === 0 ? !chartAllowance : bubbles < 1))).map(def => ({ host, def })))
+      .sort((a, b) => {
+        if (requestedId) {
+          if (a.def.id === requestedId && b.def.id !== requestedId) return -1;
+          if (b.def.id === requestedId && a.def.id !== requestedId) return 1;
+        }
+        return a.def.priority - b.def.priority || registry.indexOf(a.def) - registry.indexOf(b.def) || a.host.key.localeCompare(b.host.key);
+      });
     const next = candidates[0];
     if (!next) return;
+    if (requestedId === next.def.id) requestedId = null;
     active = { token: `${++serial}`, id: next.def.id, hostKey: next.host.key, account };
     const token = active.token;
     // Reserve the visit. A failed measurement can recover only after a target event.
@@ -126,11 +149,16 @@ export function createGuidanceCoordinator(registry: readonly GuidanceDefinition[
     snapshot: () => active,
     diagnostics: () => ({ loaded, foreground, locks: [...locks], hosts: [...hosts.values()].map(({ key, ready, candidates }) => ({ key, ready, candidates })), visits: [...visits], quiet: [...quiet], bubbles, chartAllowance }),
     data: () => data,
+    requested: () => requestedId,
+    pending: () => pendingStep,
+    consumePending: () => { const current = pendingStep; pendingStep = null; return current; },
     subscribe: (listener: () => void) => { listeners.add(listener); return () => { listeners.delete(listener); }; },
     bind: (key: string, value: GuidanceData | null) => {
-      if (account !== key) { hide(true); visits.clear(); measurements.clear(); quiet.clear(); bubbles = 0; chartAllowance = false; }
+      if (account !== key) { hide(true); visits.clear(); measurements.clear(); quiet.clear(); bubbles = 0; chartAllowance = false; requestedId = null; pendingStep = null; }
       account = key; loaded = value !== null;
-      data = value ?? { records: {}, discovery: {} }; schedule();
+      data = value ?? { records: {}, discovery: {} };
+      emit();
+      schedule();
     },
     register: (host: GuidanceHost) => {
       update(host);
@@ -149,7 +177,7 @@ export function createGuidanceCoordinator(registry: readonly GuidanceDefinition[
         started = true;
         rec(presentation.id).presentAttempts++;
         if (host?.variant) rec(presentation.id).variant = host.variant;
-        if (def.surface === 'bubble') {
+        if (def.surface === 'bubble' && !def.followThrough) {
           if (def.priority === 0) chartAllowance = true;
           else bubbles++;
         }
@@ -194,7 +222,7 @@ export function createGuidanceCoordinator(registry: readonly GuidanceDefinition[
         Object.assign(record, { outcome: 'action_performed', outcomeAt: new Date().toISOString(), outcomeDetail: detail });
         data.discovery[origin.id] = new Date().toISOString();
         AnalyticsService.track(AnalyticsEvents.TEACHING_ACTION_TAKEN, { teaching_id: origin.id, host_key: origin.hostKey, detail });
-        persist(); if (active?.token === token) hide(false); schedule();
+        persist(); if (active?.token === token) hide(false); emit(); schedule();
       };
     },
     migrate: (id: GuidanceId) => {
@@ -225,16 +253,49 @@ export function createGuidanceCoordinator(registry: readonly GuidanceDefinition[
         backgroundAt = null; schedule();
       }
     },
-    discover: (id: GuidanceId) => {
-      if (!loaded || data.discovery[id]) return;
-      data.discovery[id] = new Date().toISOString();
-      // A confirmed active action retains its more precise outcome.
-      if (!rec(id).outcome) Object.assign(rec(id), { outcome: 'obsolete', outcomeAt: new Date().toISOString(), outcomeDetail: 'learned_by_use' });
-      if (active?.id === id) hide(false);
-      persist(); schedule();
+    discover: (signal: DiscoverySignal) => {
+      if (!loaded || data.discovery[signal]) return;
+      const now = new Date().toISOString();
+      data.discovery[signal] = now;
+      const isGuidanceId = registry.some(def => def.id === signal);
+      const targets: GuidanceId[] = [
+        ...(isGuidanceId ? [signal as GuidanceId] : []),
+        ...(SIGNAL_OBSOLETES[signal] ?? []),
+      ];
+      targets.forEach(targetId => {
+        if (!rec(targetId).outcome) {
+          Object.assign(rec(targetId), { outcome: 'obsolete', outcomeAt: now, outcomeDetail: 'learned_by_use' });
+        }
+        if (active?.id === targetId) hide(false);
+      });
+      persist(); emit(); schedule();
+    },
+    request: (id: GuidanceId, options?: { pending?: GuidancePending }) => {
+      if (!loaded) return;
+      if (options?.pending) pendingStep = options.pending;
+      requestedId = id;
+      delete data.records[id];
+      if (active && active.id !== id) hide(true);
+      measurements.forEach((pending, key) => { if (pending.id === id) measurements.delete(key); });
+      hosts.forEach(host => {
+        visits.delete(visitKey(host));
+        quiet.delete(visitKey(host));
+      });
+      persist();
+      emit();
+      schedule();
+    },
+    dismissGettingStarted: () => {
+      if (!loaded) return;
+      data.gettingStarted = { ...data.gettingStarted, dismissedAt: new Date().toISOString() };
+      persist();
+      emit();
     },
     replay: (onlyId?: GuidanceId) => {
       data.replayedIds = [...new Set([...(data.replayedIds ?? []), ...(onlyId ? [onlyId] : registry.map(def => def.id))])];
+      if (!onlyId && data.gettingStarted) {
+        delete data.gettingStarted.dismissedAt;
+      }
       if (!onlyId || active?.id === onlyId) hide(true);
       if (onlyId) {
         delete data.records[onlyId];
@@ -242,14 +303,23 @@ export function createGuidanceCoordinator(registry: readonly GuidanceDefinition[
         hosts.forEach(host => { if (host.candidates.includes(onlyId)) visits.delete(visitKey(host)); });
         if (registry.find(def => def.id === onlyId)?.priority === 0) chartAllowance = false;
       } else {
-        data.records = {}; visits.clear(); measurements.clear(); quiet.clear(); bubbles = 0; chartAllowance = false;
+        data.records = {}; visits.clear(); measurements.clear(); quiet.clear(); bubbles = 0; chartAllowance = false; requestedId = null; pendingStep = null;
         if (locks.has('celebration')) hosts.forEach(host => quiet.add(visitKey(host)));
       }
       Object.entries(data.discovery).forEach(([id, at]) => {
-        if (!onlyId || id === onlyId) data.records[id] = { ...emptyGuidanceRecord(), outcome: 'obsolete', outcomeAt: at, outcomeDetail: 'learned_by_use' };
+        const isGuidanceId = registry.some(def => def.id === id);
+        if (isGuidanceId && (!onlyId || id === onlyId)) {
+          data.records[id] = { ...emptyGuidanceRecord(), outcome: 'obsolete', outcomeAt: at, outcomeDetail: 'learned_by_use' };
+        }
+        const mapped = SIGNAL_OBSOLETES[id as DiscoverySignal];
+        mapped?.forEach(targetId => {
+          if (!onlyId || targetId === onlyId) {
+            data.records[targetId] = { ...emptyGuidanceRecord(), outcome: 'obsolete', outcomeAt: at, outcomeDetail: 'learned_by_use' };
+          }
+        });
       });
-      persist(); schedule();
+      persist(); emit(); schedule();
     },
-    dispose: () => { hide(true); clearTimeout(evaluation); evaluation = undefined; hosts.clear(); listeners.clear(); },
+    dispose: () => { hide(true); clearTimeout(evaluation); evaluation = undefined; hosts.clear(); listeners.clear(); requestedId = null; pendingStep = null; },
   };
 }

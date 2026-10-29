@@ -48,13 +48,16 @@ export function ThreadStrengthExplainerSheet({
   const account = useAuthStore(state => state.user?.id ?? 'guest');
   const confirmGuidance = React.useMemo(() => beginGuidanceAction(account, 'progress.levels', 'link:explainer'), [account, visible]);
   const confirmGlow = React.useMemo(() => beginGuidanceAction(account, 'thread.glow', 'link:explainer'), [account, visible]);
+  const confirmHomeGlow = React.useMemo(() => beginGuidanceAction(account, 'home.thread_glow', 'link:explainer'), [account, visible]);
   React.useEffect(() => {
     if (!visible) return;
     confirmGuidance(true);
     confirmGlow(true);
+    confirmHomeGlow(true);
+    discoverGuidance(account, 'thread.explainer_opened');
     discoverGuidance(account, 'thread.glow');
     discoverGuidance(account, 'progress.levels');
-  }, [account, visible, confirmGuidance, confirmGlow]);
+  }, [account, visible, confirmGuidance, confirmGlow, confirmHomeGlow]);
 
   const established = typeof strength === 'number' && Number.isFinite(strength);
   const value = established ? Math.min(100, Math.max(0, Math.round(strength as number))) : null;
