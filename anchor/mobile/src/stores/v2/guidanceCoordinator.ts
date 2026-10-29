@@ -31,6 +31,7 @@ export function settled(record: GuidanceRecord | undefined, def: GuidanceDefinit
 
 const SIGNAL_OBSOLETES: Partial<Record<DiscoverySignal, readonly GuidanceId[]>> = {
   'thread.explainer_opened': ['home.thread_glow', 'thread.glow', 'progress.levels'],
+  'thread.glow': ['home.thread_glow', 'thread.glow', 'progress.levels'],
   'progress.opened': ['home.progress_section', 'home.progress_moved'],
   'creation.opened': ['home.create_anchor'],
 };
@@ -257,6 +258,9 @@ export function createGuidanceCoordinator(registry: readonly GuidanceDefinition[
       if (!loaded || data.discovery[signal]) return;
       const now = new Date().toISOString();
       data.discovery[signal] = now;
+      if (signal === 'thread.glow' && !data.discovery['thread.explainer_opened']) {
+        data.discovery['thread.explainer_opened'] = now;
+      }
       const isGuidanceId = registry.some(def => def.id === signal);
       const targets: GuidanceId[] = [
         ...(isGuidanceId ? [signal as GuidanceId] : []),

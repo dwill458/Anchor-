@@ -101,3 +101,20 @@ it('keeps Begin actionable while its spotlight is visible without dismissing as 
   expect(dismiss).toHaveBeenCalledWith('scrim');
   expect(begin).toHaveBeenCalledTimes(1);
 });
+it('renders no scrim panels and no spotlight ring when step.ring is false', async () => {
+  const ready = jest.fn();
+  const tree = render(
+    <SpotlightCoach
+      visible
+      steps={[{ ...steps[0], ring: false }]}
+      reducedMotion
+      onReady={ready}
+      onAdvance={jest.fn()}
+      onDismiss={jest.fn()}
+    />,
+  );
+  await waitFor(() => expect(ready).toHaveBeenCalledWith('home.today'));
+  expect(tree.queryByTestId('spotlight-target-hole')).toBeNull();
+  expect(tree.queryAllByLabelText('Dismiss tip')).toHaveLength(0);
+  expect(tree.getByText('Got it')).toBeTruthy();
+});

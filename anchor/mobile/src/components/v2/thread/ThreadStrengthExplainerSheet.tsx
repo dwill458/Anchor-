@@ -54,7 +54,6 @@ export function ThreadStrengthExplainerSheet({
     confirmGuidance(true);
     confirmGlow(true);
     confirmHomeGlow(true);
-    discoverGuidance(account, 'thread.explainer_opened');
     discoverGuidance(account, 'thread.glow');
     discoverGuidance(account, 'progress.levels');
   }, [account, visible, confirmGuidance, confirmGlow, confirmHomeGlow]);
