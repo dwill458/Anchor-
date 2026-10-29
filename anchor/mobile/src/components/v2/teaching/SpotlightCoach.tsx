@@ -101,8 +101,9 @@ export function SpotlightCoach(props: Props) {
   const { root: bounds, target } = geometry;
   const topMargin = Math.max(MARGIN, (insets?.top ?? 0) + 8);
   const bottomMargin = Math.max(MARGIN, (insets?.bottom ?? 0) + 8);
-  const tipWidth = Math.min(bounds.width - MARGIN * 2, 360);
-  const tipLeft = (bounds.width - tipWidth) / 2;
+  const availableWidth = Math.min(bounds.width, dimensions.width > 0 ? dimensions.width : bounds.width);
+  const tipWidth = Math.max(0, Math.min(availableWidth - MARGIN * 2, 360));
+  const tipLeft = Math.max(MARGIN, Math.min(availableWidth - tipWidth - MARGIN, (availableWidth - tipWidth) / 2));
   const below = target.y + target.height + 18;
   const placeBelow = below + tipHeight + bottomMargin <= bounds.height;
   const tipTop = placeBelow ? below : Math.max(topMargin, target.y - tipHeight - 18);

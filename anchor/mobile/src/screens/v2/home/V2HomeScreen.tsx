@@ -44,7 +44,7 @@ import { useTeachingQueue } from '@/hooks/v2/teaching/useTeachingQueue';
 import { useTeachingFocus } from '@/hooks/v2/teaching/useTeachingFocus';
 import { homeTeachingBeats } from '@/hooks/v2/teaching/homeTeaching';
 import { ScreenTeaching } from '@/components/v2/teaching/ScreenTeaching';
-import { measureTeachingTarget, scrollToTarget } from '@/components/v2/teaching/scrollToTarget';
+import { measureTeachingTarget, scrollToTarget, waitForScrollSettle } from '@/components/v2/teaching/scrollToTarget';
 import { VisionHomeReturnSkip, useVisionHomeReturn } from './visionHomeReturn';
 
 type Nav = NativeStackNavigationProp<V2DailyShellParamList, 'V2Home'>;
@@ -506,7 +506,9 @@ export function V2HomeScreen() {
     teachingScrollActive.value = true;
     try {
       const viewport = await measureTeachingTarget(scrollViewportRef.current);
-      return await scrollToTarget(target, elastic.scrollRef, () => ({ y: elastic.scrollY.value, max: elastic.maxScroll.value, viewportTop: viewport?.y ?? 0 }), reduceMotion);
+      await scrollToTarget(target, elastic.scrollRef, () => ({ y: elastic.scrollY.value, max: elastic.maxScroll.value, viewportTop: viewport?.y ?? 0 }), reduceMotion);
+      if (!reduceMotion) await waitForScrollSettle(elastic.scrollY);
+      return await measureTeachingTarget(target.current);
     } finally { teachingScrollActive.value = false; }
   }, [elastic.scrollRef, elastic.scrollY, elastic.maxScroll, reduceMotion, teachingScrollActive]);
 

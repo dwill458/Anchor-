@@ -64,7 +64,7 @@ import { useTeachingFocus } from '@/hooks/v2/teaching/useTeachingFocus';
 import { DETAILS_BEATS_PER_VISIT, detailsTeachingBeats } from '@/hooks/v2/teaching/detailsTeaching';
 import { ScreenTeaching } from '@/components/v2/teaching/ScreenTeaching';
 import { useDevThreadStrengthStore, useThreadStrengthPreview } from '@/stores/devThreadStrengthStore';
-import { measureTeachingTarget, scrollToTarget } from '@/components/v2/teaching/scrollToTarget';
+import { measureTeachingTarget, scrollToTarget, waitForScrollSettle } from '@/components/v2/teaching/scrollToTarget';
 
 type Nav = NativeStackNavigationProp<V2DailyShellParamList, 'V2AnchorDetails'>;
 type Route = RouteProp<V2DailyShellParamList, 'V2AnchorDetails'>;
@@ -750,9 +750,12 @@ export function V2AnchorDetailsScreen() {
   const [barOn, setBarOn] = useState(false);
   const [blockMode, setBlockMode] = useState<'centered' | 'header'>('centered');
 
+  const sheetSettledWaitersRef = useRef<Array<() => void>>([]);
   const onSettled = useCallback((target: number) => {
     sheetTeachingMoving.value = false;
     settledSnapRef.current = target === snaps.full ? 'full' : target === snaps.half ? 'half' : 'rest';
+    const waiters = sheetSettledWaitersRef.current.splice(0);
+    for (const resolve of waiters) resolve();
   }, [snaps, sheetTeachingMoving]);
 
   useEffect(() => { sheetY.value = snaps[settledSnapRef.current]; }, [snaps, sheetY]);
@@ -929,11 +932,19 @@ export function V2AnchorDetailsScreen() {
     try {
       // Open the existing sheet before measuring its scroll content, without changing its gestures.
       if (sheetY.value > snaps.full + SHEET_SCROLL_TOLERANCE) {
+        // DEFERRED: Fixed SNAP_MS + 40 wait replaced by sheet snap callback + waitForScrollSettle.
+        const waitSheet = new Promise<void>(resolve => {
+          const timeout = setTimeout(resolve, reduceMotion ? 0 : 2000);
+          sheetSettledWaitersRef.current.push(() => { clearTimeout(timeout); resolve(); });
+        });
         settleTo(snaps.full);
-        await new Promise(resolve => setTimeout(resolve, reduceMotion ? 0 : SNAP_MS + 40));
+        await waitSheet;
+        if (!reduceMotion) await waitForScrollSettle(sheetY);
       }
       const viewport = await measureTeachingTarget(teachingViewportRef.current);
-      return await scrollToTarget(target, teachingScrollRef, () => ({ y: scrollOffset.value, max: Math.max(0, teachingScrollSize.current.content - teachingScrollSize.current.viewport), viewportTop: viewport?.y ?? 0 }), reduceMotion);
+      await scrollToTarget(target, teachingScrollRef, () => ({ y: scrollOffset.value, max: Math.max(0, teachingScrollSize.current.content - teachingScrollSize.current.viewport), viewportTop: viewport?.y ?? 0 }), reduceMotion);
+      if (!reduceMotion) await waitForScrollSettle(scrollOffset);
+      return await measureTeachingTarget(target.current);
     } finally { teachingPreparing.value = false; }
   }, [reduceMotion, scrollOffset, settleTo, sheetY, snaps.full, teachingPreparing]);
 
