@@ -1,6 +1,10 @@
 import { Prisma, PrismaClient } from '@prisma/client';
 import { randomUUID } from 'crypto';
-import { countHistoricalCreationBaseline, countCreationUsage } from './AnchorCreationQuotaPolicy';
+import {
+  countHistoricalCreationBaseline,
+  countCreationUsage,
+  hasSavedAnchorHistory,
+} from './AnchorCreationQuotaPolicy';
 
 /** Internal ledger operations. Policy and owner identity must be resolved by the server. */
 export class AnchorCreationLedger {
@@ -53,8 +57,7 @@ export class AnchorCreationLedger {
         if (
           input.quotaScope === 'free:lifetime' &&
           identity?.user &&
-          (identity.user.totalAnchorsCreated >= 1 ||
-            (await tx.anchor.count({ where: { userId: identity.user.id } })) > 0)
+          (await hasSavedAnchorHistory(tx, identity.user.id, identity.user.totalAnchorsCreated))
         ) {
           throw new Error('Free lifetime Anchor already saved');
         }

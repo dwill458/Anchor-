@@ -51,6 +51,7 @@ model User {
 
   // Relations
   creationQuotaOwner  AnchorCreationQuotaOwner?
+  creationReconciliations AnchorCreationReconciliation[]
   anchors             Anchor[]
   activations         Activation[]
   charges             Charge[]
@@ -1389,4 +1390,24 @@ model AnchorCreationOption {
 
   @@unique([sessionId, position])
   @@map("anchor_creation_options")
+}
+
+// Records the legacy-account classification used by the pre-ledger reconciliation (policy version in code).
+// It is evidence only: it never creates generation sessions or grants/revokes access.
+model AnchorCreationReconciliation {
+  userId         String   @map("user_id")
+  policyVersion  Int      @map("policy_version")
+  classification String
+  uncertainties  String[] @default([])
+  evidence       Json
+  counterBefore  Int      @map("counter_before")
+  counterAfter   Int      @map("counter_after")
+  runId          String   @map("run_id")
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @default(now()) @map("updated_at")
+  user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([userId, policyVersion])
+  @@index([policyVersion, classification])
+  @@map("anchor_creation_reconciliations")
 }
