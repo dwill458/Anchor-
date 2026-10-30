@@ -8,17 +8,21 @@
  * save leaves nothing half-created on the device.
  */
 import { Image } from 'react-native';
-import { apiClient, ApiClientError } from '@/services/ApiClient';
+import { apiClient, ApiClientError, type AccountBoundRequestConfig } from '@/services/ApiClient';
 import { useAnchorStore } from '@/stores/anchorStore';
 import { useAuthStore } from '@/stores/authStore';
 import { CATEGORY_TO_TIER, type Anchor, type ApiResponse } from '@/types';
 import { normalizeExpression } from '@/components/v2/anchor/anchorExpressions';
 import type { CreationDraft, SaveFailure } from '@/stores/v2/creationStore';
+import { flushCreationDraft } from '@/stores/v2/creationStore';
 import type { AnchorExpression } from '@/constants/v2/creation';
 import type { GeneratedAnchorCandidate } from '@/constants/v2/creation';
 import { generationStyleFor } from '@/components/v2/creation/expressionOptions';
 import { logger } from '@/utils/logger';
 import { DEVELOPER_MASTER_ACCOUNT_ID } from '@/utils/developerMasterAccount';
+import { AuthService } from '@/services/AuthService';
+import { generateAuthorizedAnchor } from '@/services/AnchorCreationSession';
+import { captureCreationAuthContext } from '@/services/CreationAuthContext';
 
 /** A save failure the flow can explain and route on. */
 export class CreationSaveError extends Error {
@@ -40,7 +44,7 @@ export function classifySaveFailure(error: unknown): SaveFailure {
   }
   const message = error instanceof Error ? error.message : '';
   if (/network|timeout|connection/i.test(message)) return 'network';
-  if (/session expired|sign in/i.test(message)) return 'auth';
+  if (/session expired|sign in|authentication context changed/i.test(message)) return 'auth';
   return 'server';
 }
 
@@ -56,6 +60,9 @@ export function buildCreatePayload(draft: CreationDraft, idempotencyKey: string)
     throw new CreationSaveError('server', 'The Anchor structure is not ready.');
   }
   const category = draft.category ?? 'custom';
+  const selected = draft.generatedCandidates?.[draft.selectedCandidateIndex];
+  const originalSessionId = draft.expression === 'original' && typeof draft.enhancementMetadata?.creationSessionId === 'string'
+    ? draft.enhancementMetadata.creationSessionId : undefined;
   return {
     intentionText: draft.normalizedIntention ?? draft.intention.trim(),
     category,
@@ -73,28 +80,14 @@ export function buildCreatePayload(draft: CreationDraft, idempotencyKey: string)
       ...(draft.expression !== 'original' && draft.styleChoice ? { v2StyleChoice: draft.styleChoice } : {}),
       source: 'v2_creation',
     },
-    ...(draft.enhancedImageUrl ? { enhancedImageUrl: draft.enhancedImageUrl } : {}),
+    ...(draft.expression !== 'original' && draft.enhancedImageUrl ? { enhancedImageUrl: draft.enhancedImageUrl } : {}),
     ...(draft.enhancementMetadata ? { enhancementMetadata: draft.enhancementMetadata } : {}),
+    ...(originalSessionId ? { creationSessionId: originalSessionId, keepOriginal: true } : selected?.creationSessionId && selected.optionId ? {
+      creationSessionId: selected.creationSessionId, selectedOptionId: selected.optionId,
+    } : {}),
     idempotencyKey,
   };
 }
-
-type EnhanceResponse = {
-  variations?: Array<{
-    imageUrl?: string;
-    variationId?: string;
-    structureMatchScore?: number;
-    structurePreserved?: boolean;
-    classification?: string;
-  }>;
-  prompt?: string;
-  negativePrompt?: string;
-  model?: string;
-  provider?: string;
-  controlMethod?: string;
-  generationTime?: number;
-  reuseRequestId?: string;
-};
 
 /** Why a generation failed, which decides the copy the user sees. */
 export type GenerationFailure = SaveFailure;
@@ -122,41 +115,44 @@ export async function generateExpressionCandidates({
   const wanted = Math.min(2, Math.max(1, Math.round(count)));
 
   try {
-    const response = await apiClient.post<EnhanceResponse>('/api/ai/enhance', {
+    const context = captureCreationAuthContext();
+    await flushCreationDraft(draft.draftId);
+    context.assertCurrent();
+    const data = await generateAuthorizedAnchor({
       sigilSvg: draft.structureSvg,
       styleChoice,
       intentionText: draft.normalizedIntention ?? draft.intention.trim(),
-      anchorId: `temp-${draft.draftId}`,
-      provider: 'gemini',
-      tier: 'premium',
       generationAttempt,
       validateStructure: true,
       variationCount: wanted,
-    }, { timeout: 180000 });
-    const candidates = (response.data.variations ?? [])
+    }, `${draft.draftId}:${styleChoice}:${draft.generationRound ?? 0}`);
+    const candidates = (data.variations ?? [])
       .filter((variation) => variation.structurePreserved === true && typeof variation.imageUrl === 'string' && variation.imageUrl.length > 0)
-      .slice(0, wanted)
+      .slice(0, 2)
       .map((variation) => ({
         imageUrl: variation.imageUrl as string,
         variationId: variation.variationId,
+        optionId: variation.optionId,
+        creationSessionId: variation.creationSessionId ?? data.creationSessionId,
         structureMatchScore: variation.structureMatchScore,
         structurePreserved: variation.structurePreserved,
         classification: variation.classification,
-        provider: response.data.provider,
-        model: response.data.model,
+        provider: data.provider,
+        model: data.model,
       }));
     if (candidates.length === 0) throw new CreationSaveError('server', 'The expression did not return a finished interpretation.');
     return {
       candidates,
       metadata: {
+        creationSessionId: data.creationSessionId,
         styleApplied: styleChoice,
-        modelUsed: response.data.model ?? 'unknown-model',
-        provider: response.data.provider ?? 'unknown',
-        controlMethod: response.data.controlMethod ?? 'lineart',
-        generationTimeMs: typeof response.data.generationTime === 'number' ? response.data.generationTime * 1000 : 0,
-        promptUsed: response.data.prompt ?? '',
-        negativePrompt: response.data.negativePrompt ?? '',
-        reuseRequestId: response.data.reuseRequestId,
+        modelUsed: data.model ?? 'unknown-model',
+        provider: data.provider ?? 'unknown',
+        controlMethod: data.controlMethod ?? 'lineart',
+        generationTimeMs: typeof data.generationTime === 'number' ? data.generationTime * 1000 : 0,
+        promptUsed: data.prompt ?? '',
+        negativePrompt: data.negativePrompt ?? '',
+        reuseRequestId: data.reuseRequestId,
         appliedAt: new Date().toISOString(),
       },
     };
@@ -226,18 +222,26 @@ export async function persistCreatedAnchor({
   idempotencyKey: string;
 }): Promise<{ anchorId: string; anchor: Anchor }> {
   const auth = useAuthStore.getState();
+  const context = captureCreationAuthContext();
   const isDevMaster = __DEV__ && auth.user?.id === DEVELOPER_MASTER_ACCOUNT_ID;
-  const userId = auth.user?.id;
-  if (!auth.isAuthenticated || !userId) {
-    throw new CreationSaveError('auth', 'A signed-in account is required to keep an Anchor.');
-  }
+  await flushCreationDraft(draft.draftId);
+  context.assertCurrent();
+  const identity = await AuthService.ensureGuestSession();
+  context.assertIdentity(identity.user.id, identity.isAnonymous);
+  const userId = auth.user?.id ?? identity.user.id;
 
   let created: Anchor | undefined;
   try {
-    const response = await apiClient.post<ApiResponse<Anchor>>('/api/anchors', buildCreatePayload(draft, idempotencyKey));
+    const config: AccountBoundRequestConfig = {
+      anchorAuthToken: identity.token,
+      anchorAuthGuard: context.isCurrent,
+    };
+    const response = await apiClient.post<ApiResponse<Anchor>>('/api/anchors', buildCreatePayload(draft, idempotencyKey), config);
+    context.assertCurrent();
     created = response.data?.data;
     if (!response.data?.success || !created?.id) throw new CreationSaveError('server', 'The server did not return the Anchor.');
   } catch (error) {
+    context.assertCurrent();
     if (isDevMaster) {
       logger.warn('[creationPersistence] Dev fallback for anchor persistence', error);
       created = {
@@ -267,7 +271,9 @@ export async function persistCreatedAnchor({
   const storedExpression = normalizeExpression(created.classifierMeta?.v2Expression);
   if (storedExpression !== draft.expression) {
     try {
-      await apiClient.put(`/api/anchors/${encodeURIComponent(created.id)}`, { expression: draft.expression });
+      const config: AccountBoundRequestConfig = { anchorAuthToken: identity.token, anchorAuthGuard: context.isCurrent };
+      await apiClient.put(`/api/anchors/${encodeURIComponent(created.id)}`, { expression: draft.expression }, config);
+      context.assertCurrent();
     } catch (error) {
       logger.warn('[creationPersistence] Expression could not be updated after an idempotent replay', error);
     }
@@ -276,17 +282,14 @@ export async function persistCreatedAnchor({
   const record: Anchor = withExpression(
     {
       ...created,
-      // The server hands back a freshly signed URL for the same stored image. Home would have to
-      // fetch it again, so the circle arrived blank; the URL the user just chose from is already
-      // decoded and names the same object. The next sync replaces it with the server's own.
-      ...(draft.enhancedImageUrl && created.enhancedImageUrl ? { enhancedImageUrl: draft.enhancedImageUrl } : {}),
       localId: draft.draftId,
-      userId: created.userId ?? userId,
+      userId: auth.isAuthenticated ? created.userId ?? userId : 'guest',
       createdAt: toDate(created.createdAt) ?? new Date(),
       updatedAt: toDate(created.updatedAt) ?? new Date(),
     },
     draft.expression,
   );
+  context.assertCurrent();
   upsertLocal(record, draft.draftId);
   return { anchorId: record.id, anchor: record };
 }

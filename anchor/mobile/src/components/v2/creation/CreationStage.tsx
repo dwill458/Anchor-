@@ -161,6 +161,7 @@ export interface CreationStageProps {
   onKeep: () => void;
   onGenerate: () => void;
   onKeepOriginal: () => void;
+  onKeepReady?: () => void;
   onSelectCandidate: (index: number) => void;
   /** Back to the pair set aside when a fresh one was asked for. */
   onReturnToPrevious?: () => void;
@@ -182,6 +183,7 @@ export function CreationStage({
   onKeep,
   onGenerate,
   onKeepOriginal,
+  onKeepReady,
   onSelectCandidate,
   onReturnToPrevious,
   onSignIn,
@@ -878,7 +880,10 @@ export function CreationStage({
             {failed ? (
               <>
                 <View style={styles.darkError}><V2InlineError message={draft.generationError ?? GENERATION_COPY.body} offline={draft.generationError === GENERATION_ERRORS.offline} /></View>
-                {/* An exhausted daily allowance is not fixed by trying again today. */}
+                {candidates.length > 0 && onKeepReady ? (
+                  <V2Button size="large" style={styles.cta} onPress={onKeepReady} testID="generation-keep-ready">Keep this interpretation</V2Button>
+                ) : null}
+                {/* An exhausted allowance is not fixed by immediately trying again. */}
                 {draft.generationError === GENERATION_ERRORS.limit ? null : (
                   <V2Button size="large" style={styles.cta} onPress={onGenerate} testID="generation-retry">{GENERATION_COPY.retry}</V2Button>
                 )}
@@ -903,7 +908,7 @@ export function CreationStage({
         const chooseFailure = draft.saveState === 'error' ? draft.saveFailure : undefined;
         return (
           <View style={styles.panelStack}>
-            <Text style={styles.generationBody}>{CHOOSE_COPY.body}</Text>
+            <Text style={styles.generationBody}>{candidates.length === 1 ? 'Your finished interpretation is ready to keep.' : CHOOSE_COPY.body}</Text>
             {draft.generationError && !chooseFailure ? <V2InlineError message={draft.generationError} /> : null}
             {chooseFailure ? (
               <View style={styles.failure}>
@@ -999,7 +1004,7 @@ export function CreationStage({
     ? `Your Anchor, ${expressed && draft.styleChoice ? styleOption(draft.styleChoice)?.name ?? expressionSpec(draft.expression).label : 'original'} expression`
     : step === 'formation' ? 'Your Anchor, forming' : undefined;
   const discSize = markSize / PAPER_ART_SHARE;
-  const showCandidates = (step === 'choose' || keptCandidate) && candidates.length === 2 && stage.width > 0;
+  const showCandidates = (step === 'choose' || keptCandidate) && candidates.length > 0 && stage.width > 0;
 
   return (
     // Insets from the provider, not a native safe-area view: a freshly mounted native one

@@ -193,6 +193,22 @@ describe('V2SealedSaveScreen', () => {
     expect(props.onContinue).toHaveBeenCalledWith('account');
   });
 
+  it('creating an account does not flash Anchor Pro required state when totalAnchorsCreated updates on save', async () => {
+    (AuthService.signUpWithEmail as jest.Mock).mockResolvedValue({ user: { id: 'new-account', totalAnchorsCreated: 0 }, token: 'token' });
+    (PostAuthFlowService.run as jest.Mock).mockImplementation(async () => {
+      mockSignedInUser = { id: 'new-account', totalAnchorsCreated: 1 };
+    });
+    setup();
+    fireEvent.press(screen.getByTestId('v2-sealed-save-email-toggle'));
+    fireEvent.changeText(screen.getByTestId('v2-sealed-save-email'), 'me@example.com');
+    fireEvent.changeText(screen.getByTestId('v2-sealed-save-password'), 'longenough1');
+    fireEvent.press(screen.getByTestId('v2-sealed-save-submit'));
+
+    await waitFor(() => expect(screen.getByText('PROGRESS SAVED')).toBeTruthy());
+    expect(screen.queryByText('Anchor Pro required')).toBeNull();
+    expect(screen.queryByText(/Subscribe to Anchor Pro/i)).toBeNull();
+  });
+
   it('validates the email form before calling the backend', () => {
     setup();
     fireEvent.press(screen.getByTestId('v2-sealed-save-email-toggle'));

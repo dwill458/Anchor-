@@ -33,7 +33,11 @@ import type {
 } from '@/types';
 import { useAnchorStore } from '@/stores/anchorStore';
 import { useAuthStore } from '@/stores/authStore';
-import { post } from '@/services/ApiClient';
+import { post, type AccountBoundRequestConfig } from '@/services/ApiClient';
+import { AuthService } from '@/services/AuthService';
+import { captureCreationAuthContext } from '@/services/CreationAuthContext';
+import { useFirstAnchorFlowStore } from '@/stores/firstAnchorFlowStore';
+import { creationSelection } from '@/services/AnchorCreationSession';
 import { logger } from '@/utils/logger';
 import { setAudioSessionMode } from '@/services/audio/AudioSession';
 
@@ -194,10 +198,12 @@ export const MantraCreationScreen: React.FC = () => {
   const recordingTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const playbackTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const anchorIdRef = useRef<string | null>(null);
+  const saveRequestKeyRef = useRef<string | null>(null);
+  const savedAuthContextRef = useRef<ReturnType<typeof captureCreationAuthContext> | null>(null);
+  const saveInFlightRef = useRef(false);
 
   const addAnchor = useAnchorStore((state) => state.addAnchor);
   const updateAnchor = useAnchorStore((state) => state.updateAnchor);
-  const authUser = useAuthStore((state) => state.user);
   const incrementAnchorCount = useAuthStore((state) => state.incrementAnchorCount);
 
   const canRecord = true;
@@ -325,62 +331,45 @@ export const MantraCreationScreen: React.FC = () => {
         mantraAudioUrl: recordingUri ?? undefined,
       };
 
+      savedAuthContextRef.current?.assertCurrent();
+      const context = captureCreationAuthContext();
       if (!anchorIdRef.current) {
-        let anchorId = `anchor-${Date.now()}`;
-
-        if (authUser?.id) {
-          try {
-            const response = await post<ApiResponse<Anchor>>('/api/anchors', {
-              intentionText: anchorPayload.intentionText,
-              category: anchorPayload.category,
-              distilledLetters: anchorPayload.distilledLetters,
-              baseSigilSvg: anchorPayload.baseSigilSvg,
-              reinforcedSigilSvg: anchorPayload.reinforcedSigilSvg,
-              structureVariant: anchorPayload.structureVariant,
-              reinforcementMetadata: anchorPayload.reinforcementMetadata,
-              enhancedImageUrl: anchorPayload.enhancedImageUrl,
-              enhancementMetadata: anchorPayload.enhancementMetadata,
-              mantraText: anchorPayload.mantraText,
-              mantraAudioUrl: anchorPayload.mantraAudioUrl,
-            });
-
-            if (response?.success && response.data?.id) {
-              anchorId = response.data.id;
-              logger.info('[MantraCreation] Anchor saved to backend', { anchorId });
-            } else {
-              logger.warn('[MantraCreation] Backend returned unexpected response, using local ID', {
-                response,
-              });
-            }
-          } catch (error) {
-            logger.warn('[MantraCreation] Failed to save anchor to backend, proceeding locally', error);
-          }
+        const identity = await AuthService.ensureGuestSession();
+        context.assertIdentity(identity.user.id, identity.isAnonymous);
+        const flow = useFirstAnchorFlowStore.getState();
+        const idempotencyKey = saveRequestKeyRef.current ?? flow.draft?.saveRequestKey
+          ?? `mantra-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+        saveRequestKeyRef.current = idempotencyKey;
+        flow.updateDraft({ saveRequestKey: idempotencyKey });
+        const config: AccountBoundRequestConfig = {
+          anchorAuthToken: identity.token, anchorAuthGuard: context.isCurrent,
+        };
+        const response = await post<ApiResponse<Anchor>>('/api/anchors', {
+          ...anchorPayload, ...creationSelection(anchorPayload.enhancementMetadata), idempotencyKey,
+        }, config);
+        context.assertCurrent();
+        const canonical = response?.data;
+        if (!response?.success || !canonical?.id || canonical.userId !== identity.user.id) {
+          throw new Error('The server did not confirm your saved Anchor.');
         }
-
-        anchorIdRef.current = anchorId;
+        anchorIdRef.current = canonical.id;
+        savedAuthContextRef.current = context;
         addAnchor({
-          id: anchorId,
-          localId: anchorId,
-          userId: authUser?.id || 'user-local',
-          intentionText: anchorPayload.intentionText || '',
-          category: anchorPayload.category || 'custom',
-          distilledLetters: anchorPayload.distilledLetters || [],
-          baseSigilSvg: anchorPayload.baseSigilSvg || buildFallbackSigil(['A', 'N', 'C', 'H']),
-          reinforcedSigilSvg: anchorPayload.reinforcedSigilSvg,
-          structureVariant: anchorPayload.structureVariant || 'balanced',
-          reinforcementMetadata: anchorPayload.reinforcementMetadata,
-          enhancementMetadata: anchorPayload.enhancementMetadata,
-          enhancedImageUrl: anchorPayload.enhancedImageUrl,
-          mantraText: anchorPayload.mantraText,
-          mantraAudioUrl: anchorPayload.mantraAudioUrl,
-          isCharged: false,
-          activationCount: 0,
-          createdAt: new Date(),
-          updatedAt: new Date(),
+          ...canonical,
+          localId: canonical.id,
+          userId: context.authenticated ? canonical.userId : 'guest',
+          createdAt: new Date(canonical.createdAt), updatedAt: new Date(canonical.updatedAt),
         });
+        if (!context.authenticated) {
+          useAuthStore.getState().setPendingFirstAnchorDraft({
+            tempAnchorId: canonical.id, backendAnchorId: canonical.id,
+            source: 'onboarding_first_anchor', requiresAccountGate: false, createdAt: new Date(),
+          });
+        }
         incrementAnchorCount();
       } else {
-        updateAnchor(anchorIdRef.current, anchorPayload);
+        context.assertCurrent();
+        updateAnchor(anchorIdRef.current, { mantraText: anchorPayload.mantraText, mantraAudioUrl: anchorPayload.mantraAudioUrl });
       }
 
       return anchorIdRef.current;
@@ -399,7 +388,6 @@ export const MantraCreationScreen: React.FC = () => {
       route.params.reinforcementMetadata,
       route.params.structureVariant,
       updateAnchor,
-      authUser?.id,
     ]
   );
 
@@ -486,15 +474,19 @@ export const MantraCreationScreen: React.FC = () => {
   }, [isRecording, startRecording, stopRecording]);
 
   const handleContinue = useCallback(async () => {
-    const anchorId = await ensureAnchor(selectedMantraOption);
-    if (!anchorId) {
-      return;
+    if (saveInFlightRef.current) return;
+    saveInFlightRef.current = true;
+    try {
+      const anchorId = await ensureAnchor(selectedMantraOption);
+      savedAuthContextRef.current?.assertCurrent();
+      if (!anchorId) return;
+      navigation.navigate('ChargeSetup', { anchorId, autoStartOnSelection: true });
+    } catch (error) {
+      logger.warn('[MantraCreation] Anchor save did not complete', error);
+      Alert.alert('Your Anchor has not finished saving', 'Your creation is still here. Check your connection and try again.');
+    } finally {
+      saveInFlightRef.current = false;
     }
-
-    navigation.navigate('ChargeSetup', {
-      anchorId,
-      autoStartOnSelection: true,
-    });
   }, [ensureAnchor, navigation, selectedMantraOption]);
 
   const orbOneStyle = {

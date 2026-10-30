@@ -132,12 +132,19 @@ export default function IntentionInputScreen({ fromOnboarding = false, chosenCat
             startingRef.current = false;
             setLaunching(false);
 
-            // Fresh entry or absence of an active in-flight draft always resets the intention text.
-            if (!returningFromGate && (!returningFromChild || !useFirstAnchorFlowStore.getState().draft)) {
-                setIntention(initialIntention);
-                setSubmitError(null);
-                useFirstAnchorFlowStore.getState().clearDraft();
-            }
+            const restoreInput = () => {
+                const saved = useFirstAnchorFlowStore.getState().draft;
+                if (!returningFromGate && (!returningFromChild || !saved)) {
+                    // A cold restart must recover usable paid output through its original
+                    // server session, including a response that never reached this device.
+                    const recoverable = !evolve && saved?.generationRequestKey && saved.originalIntention;
+                    setIntention(recoverable ? saved.originalIntention! : initialIntention);
+                    setSubmitError(null);
+                    if (!recoverable && useFirstAnchorFlowStore.persist.hasHydrated()) useFirstAnchorFlowStore.getState().clearDraft();
+                }
+            };
+            restoreInput();
+            if (!useFirstAnchorFlowStore.persist.hasHydrated()) return useFirstAnchorFlowStore.persist.onFinishHydration(restoreInput);
         }, [initialIntention])
     );
 

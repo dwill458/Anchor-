@@ -49,6 +49,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import Constants from 'expo-constants';
 import PostHog from 'posthog-react-native';
 import { logger } from '@/utils/logger';
+import { ErrorTrackingService } from '@/services/ErrorTrackingService';
 
 interface AnalyticsConfig {
   enabled?: boolean;
@@ -73,6 +74,87 @@ type QueuedAnalyticsCall =
   | { type: 'capture'; eventName: string; properties: Record<string, any>; anonymous?: boolean }
   | { type: 'setUserProperties'; properties?: Record<string, any> }
   | { type: 'reset'; forceReset?: boolean };
+
+// Only known event names are sent; event properties may contain personal content.
+const V2_PRODUCT_BREADCRUMB_NAMES = new Set([
+  'anchor_save_failed',
+  'anchor_save_retry',
+  'anchor_seal_abandoned',
+  'anchor_seal_completed',
+  'anchor_seal_started',
+  'anchor_selected',
+  'anchor_variations_presented',
+  'auth_cancelled',
+  'auth_email_form_opened',
+  'auth_failed',
+  'auth_guest_chosen',
+  'auth_password_reset_requested',
+  'auth_started',
+  'auth_succeeded',
+  'intention_submitted',
+  'onboarding_abandoned',
+  'onboarding_backgrounded',
+  'onboarding_bridge_skipped',
+  'onboarding_bypassed',
+  'onboarding_category_selected',
+  'onboarding_completed',
+  'onboarding_cta_tapped',
+  'onboarding_started',
+  'onboarding_step_completed',
+  'onboarding_step_viewed',
+  'v2_anchor_details_viewed',
+  'v2_anchor_library_viewed',
+  'v2_creation_completed',
+  'v2_creation_formation_started',
+  'v2_creation_generation_completed',
+  'v2_creation_generation_failed',
+  'v2_creation_generation_partial',
+  'v2_creation_generation_started',
+  'v2_creation_intention_completed',
+  'v2_creation_resumed',
+  'v2_creation_revealed',
+  'v2_creation_save_failed',
+  'v2_creation_save_started',
+  'v2_creation_saved',
+  'v2_creation_started',
+  'v2_creation_step_viewed',
+  'v2_home_all_practices_tapped',
+  'v2_home_anchor_switched',
+  'v2_home_chart_tapped',
+  'v2_home_create_anchor_tapped',
+  'v2_home_practice_tapped',
+  'v2_home_progress_tapped',
+  'v2_home_viewed',
+  'v2_home_vision_tapped',
+  'vision_board_saved',
+  'vision_caption_edited',
+  'vision_ceremony_beat_viewed',
+  'vision_ceremony_suggestion_tapped',
+  'vision_create_started',
+  'vision_created',
+  'vision_entrance_viewed',
+  'vision_image_add_started',
+  'vision_image_generation_started',
+  'vision_image_removed',
+  'vision_image_selected',
+  'vision_opened',
+  'vision_photo_added',
+  'vision_picker_failed',
+  'vision_picker_open_ms',
+  'vision_seal_abandoned',
+  'vision_seal_completed',
+  'vision_seal_started',
+]);
+
+const recordProductBreadcrumb = (eventName: string, experience: AnalyticsExperienceVersion): void => {
+  if (experience !== '2.0' ||
+      (!V2_PRODUCT_BREADCRUMB_NAMES.has(eventName) && !(Object.values(AnalyticsEvents) as string[]).includes(eventName))) return;
+  try {
+    ErrorTrackingService.addBreadcrumb(eventName, 'product.2.0');
+  } catch {
+    // Diagnostics must never interrupt product analytics or user flows.
+  }
+};
 
 const MAX_PENDING_QUEUE_SIZE = 100;
 const PERSISTED_IDENTIFIED_USER_ID_KEY = '@anchor_analytics_identified_user_id';
@@ -759,6 +841,7 @@ class Analytics {
     if (!this.enabled) return;
 
     const sharedContext = this.getSharedContext();
+    recordProductBreadcrumb(eventName, sharedContext.experience_version);
     const sanitizedProps = sanitizeAnalyticsProperties(properties);
 
     const event: AnalyticsEvent = {
@@ -796,6 +879,7 @@ class Analytics {
     if (!this.enabled) return;
 
     const sharedContext = this.getSharedContext();
+    recordProductBreadcrumb(eventName, sharedContext.experience_version);
     const event: AnalyticsEvent = {
       name: eventName,
       properties: {

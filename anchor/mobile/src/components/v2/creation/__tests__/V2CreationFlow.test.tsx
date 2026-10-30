@@ -128,6 +128,19 @@ describe('V2CreationFlow', () => {
     expect(props.saveAnchor).toHaveBeenCalledWith(expect.objectContaining({ draft: expect.objectContaining({ expression: 'original', enhancedImageUrl: undefined }) }));
     await waitFor(() => expect(props.onComplete).toHaveBeenCalledTimes(1), { timeout: 3000 });
   });
+  it('retains the charged session when choosing the original structure after generation', async () => {
+    seed(draftAt({ currentStep: 'choose', expression: 'architectural', generatedCandidates: CANDIDATES,
+      generationState: 'complete', enhancementMetadata: { creationSessionId: 'already-charged-session' } }));
+    const { screen, props } = setup();
+    fireEvent.press(screen.getByTestId('creation-back'));
+    await act(async () => fireEvent.press(screen.getByTestId('expression-keep-original')));
+    await act(async () => fireEvent.press(screen.getByTestId('expression-keep')));
+    expect(props.generateExpression).not.toHaveBeenCalled();
+    expect(props.saveAnchor).toHaveBeenCalledWith(expect.objectContaining({ draft: expect.objectContaining({
+      expression: 'original', enhancedImageUrl: undefined,
+      enhancementMetadata: expect.objectContaining({ creationSessionId: 'already-charged-session' }),
+    }) }));
+  });
 
   it('offers the full expression library with the structure itself in every choice', () => {
     seed(draftAt({ currentStep: 'expression' }));
@@ -187,6 +200,35 @@ describe('V2CreationFlow', () => {
     expect(generateExpression).toHaveBeenLastCalledWith(expect.objectContaining({ count: 1 }));
     await waitFor(() => expect(current().currentStep).toBe('choose'), { timeout: 10000 });
     expect(current().generatedCandidates).toEqual(CANDIDATES);
+  });
+  it('accepts the full server option list during missing-option recovery', async () => {
+    seed(draftAt({ currentStep: 'expression', expression: 'architectural', styleChoice: 'architectural_trace' }));
+    const generateExpression = jest.fn().mockResolvedValueOnce({ candidates: [CANDIDATES[0]] })
+      .mockResolvedValueOnce({ candidates: CANDIDATES });
+    const { screen } = setup({ generateExpression });
+    fireEvent.press(screen.getByTestId('expression-generate'));
+    await waitFor(() => expect(current().generationState).toBe('error'), { timeout: 10000 });
+    fireEvent.press(screen.getByTestId('generation-retry'));
+    await waitFor(() => expect(current().currentStep).toBe('choose'), { timeout: 10000 });
+    expect(current().generatedCandidates).toEqual(CANDIDATES);
+  });
+  it('lets the user choose and save a durable ready interpretation when recovery cannot finish the pair', async () => {
+    const ready = { ...CANDIDATES[0], optionId: 'durable-option', creationSessionId: 'durable-session' };
+    seed(draftAt({ currentStep: 'generating', expression: 'architectural', styleChoice: 'architectural_trace',
+      generatedCandidates: [ready], generationState: 'error', generationError: 'The second interpretation did not finish.' }));
+    const { screen, props, layoutStage } = setup();
+    fireEvent.press(screen.getByTestId('generation-keep-ready'));
+    expect(current().currentStep).toBe('choose');
+    expect(current().selectedCandidateIndex).toBe(0);
+    layoutStage();
+    expect(screen.getByTestId('candidate-0')).toBeTruthy();
+    jest.useFakeTimers();
+    await act(async () => fireEvent(screen.getByTestId('seal-hold'), 'pressIn'));
+    await act(async () => jest.advanceTimersByTime(4000));
+    jest.useRealTimers();
+    expect(props.saveAnchor).toHaveBeenCalledWith(expect.objectContaining({ draft: expect.objectContaining({
+      generatedCandidates: [ready], enhancedImageUrl: ready.imageUrl,
+    }) }));
   });
 
   it('preserves the canonical structure when generation fails and retries cleanly', async () => {

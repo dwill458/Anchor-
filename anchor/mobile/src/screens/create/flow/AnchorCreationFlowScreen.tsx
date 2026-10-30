@@ -539,6 +539,11 @@ export default function AnchorCreationFlowScreen() {
 
       useFirstAnchorFlowStore.getState().updateDraft({
         selectedStyleId: style.id,
+        generationRequestKey: !generationRef.current.result
+          && useFirstAnchorFlowStore.getState().draft?.selectedStyleId === style.id
+          && useFirstAnchorFlowStore.getState().draft?.generationRequestKey
+          ? useFirstAnchorFlowStore.getState().draft?.generationRequestKey
+          : `generation-${Date.now()}-${Math.random().toString(36).slice(2)}`,
         generationStatus: 'generating',
         structure: isDrawn ? 'drawn' : 'balanced',
         drawingSvg: isDrawn ? flow.baseSigilSvg : undefined,
@@ -771,6 +776,8 @@ export default function AnchorCreationFlowScreen() {
         negativePrompt: generated.negativePrompt || '',
         appliedAt: new Date(),
         variationId: form.variationId || undefined,
+        creationSessionId: form.creationSessionId,
+        selectedOptionId: form.optionId,
         reuseRequestId: generated.reuseRequestId || undefined,
         reusedFromPool: form.reusedFromPool || false,
       };

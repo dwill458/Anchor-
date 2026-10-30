@@ -2,6 +2,12 @@ import type { CreationDraft } from '@/stores/v2/creationStore';
 
 const mockPost = jest.fn();
 const mockPut = jest.fn();
+const mockFlushDraft = jest.fn(async () => {});
+jest.mock('@/stores/v2/creationStore', () => ({ flushCreationDraft: () => mockFlushDraft() }));
+const mockGuestSession = jest.fn(async () => ({ user: { id: mockAuth.user?.id ?? 'guest-server-user' }, token: 'verified-guest' }));
+jest.mock('@/services/AuthService', () => ({ AuthService: { ensureGuestSession: () => mockGuestSession() } }));
+jest.mock('@/services/AnchorCreationSession', () => ({ generateAuthorizedAnchor: async (input: unknown) =>
+  (await mockPost('/api/ai/enhance', input, { timeout: 180000 })).data }));
 jest.mock('@/services/ApiClient', () => {
   const actual = jest.requireActual('@/services/ApiClient');
   return { ...actual, apiClient: { post: (...args: unknown[]) => mockPost(...args), put: (...args: unknown[]) => mockPut(...args) } };
@@ -23,7 +29,7 @@ jest.mock('@/stores/anchorStore', () => ({
   },
 }));
 
-let mockAuth: { isAuthenticated: boolean; user: { id: string } | null } = { isAuthenticated: true, user: { id: 'user-1' } };
+let mockAuth: { isAuthenticated: boolean; user: { id: string } | null; accountRevision?: number; token?: string } = { isAuthenticated: true, user: { id: 'user-1' } };
 jest.mock('@/stores/authStore', () => ({ useAuthStore: { getState: () => mockAuth } }));
 
 import { ApiClientError } from '@/services/ApiClient';
@@ -76,6 +82,7 @@ const serverAnchor = (overrides: Record<string, unknown> = {}) => ({
 
 beforeEach(() => {
   mockPost.mockReset();
+  mockFlushDraft.mockReset().mockResolvedValue(undefined);
   mockPut.mockReset();
   mockAddAnchor.mockClear();
   mockApplySynced.mockClear();
@@ -84,6 +91,13 @@ beforeEach(() => {
 });
 
 describe('buildCreatePayload', () => {
+  it('keeps the original SVG within its already charged generation session', () => {
+    const payload = buildCreatePayload(draft({ expression: 'original', generatedCandidates: [],
+      enhancementMetadata: { creationSessionId: 'charged-session' } }), 'keep-original-save');
+    expect(payload).toMatchObject({ creationSessionId: 'charged-session', keepOriginal: true, baseSigilSvg: SVG });
+    expect(payload).not.toHaveProperty('selectedOptionId');
+    expect(payload).not.toHaveProperty('enhancedImageUrl');
+  });
   it('sends the real structure, its grid and the kept expression under the draft key', () => {
     const payload = buildCreatePayload(draft(), 'create-request-1');
     expect(payload).toEqual({
@@ -105,6 +119,12 @@ describe('buildCreatePayload', () => {
 });
 
 describe('persistCreatedAnchor', () => {
+  it('does not send a save or create locally when its key receipt fails', async () => {
+    mockFlushDraft.mockRejectedValueOnce(new Error('Private storage write failed'));
+    await expect(persistCreatedAnchor({ draft: draft(), idempotencyKey: 'durable-save' })).rejects.toThrow('Private storage write failed');
+    expect(mockPost).not.toHaveBeenCalled();
+    expect(mockAddAnchor).not.toHaveBeenCalled();
+  });
   it('creates once on the server, then records the confirmed Anchor locally', async () => {
     mockPost.mockResolvedValue({ data: { success: true, data: serverAnchor() } });
     const result = await persistCreatedAnchor({ draft: draft(), idempotencyKey: 'create-request-1' });
@@ -135,14 +155,29 @@ describe('persistCreatedAnchor', () => {
     mockPost.mockResolvedValue({ data: { success: true, data: serverAnchor({ classifierMeta: { v2Expression: 'original' } }) } });
     mockPut.mockResolvedValue({ data: { success: true } });
     const result = await persistCreatedAnchor({ draft: draft({ expression: 'ink' }), idempotencyKey: 'k' });
-    expect(mockPut).toHaveBeenCalledWith('/api/anchors/4f1c2a9e-0000-4000-8000-000000000001', { expression: 'ink' });
+    expect(mockPut).toHaveBeenCalledWith('/api/anchors/4f1c2a9e-0000-4000-8000-000000000001', { expression: 'ink' }, expect.objectContaining({ anchorAuthGuard: expect.any(Function) }));
     expect(result.anchor.classifierMeta?.v2Expression).toBe('ink');
   });
 
-  it('requires an account and touches nothing without one', async () => {
+  it('saves a verified guest without requiring registration', async () => {
     mockAuth = { isAuthenticated: false, user: null };
-    await expect(persistCreatedAnchor({ draft: draft(), idempotencyKey: 'k' })).rejects.toMatchObject({ failure: 'auth' });
-    expect(mockPost).not.toHaveBeenCalled();
+    mockPost.mockResolvedValue({ data: { success: true, data: serverAnchor({ userId: 'guest-server-user' }) } });
+    const saved = await persistCreatedAnchor({ draft: draft(), idempotencyKey: 'k' });
+    expect(mockGuestSession).toHaveBeenCalled();
+    expect(saved.anchor.userId).toBe('guest');
+  });
+  it('keeps the canonical saved option on an idempotent replay', async () => {
+    mockPost.mockResolvedValue({ data: { success: true, data: serverAnchor({ enhancedImageUrl: 'https://cdn.test/canonical-first-option.png' }) } });
+    const saved = await persistCreatedAnchor({ draft: draft({ enhancedImageUrl: 'https://cdn.test/later-selected-option.png' }), idempotencyKey: 'replay' });
+    expect(saved.anchor.enhancedImageUrl).toBe('https://cdn.test/canonical-first-option.png');
+  });
+  it('does not add a late saved record after an A to B to A switch', async () => {
+    mockAuth.accountRevision = 1;
+    mockPost.mockImplementation(async () => {
+      mockAuth.accountRevision = 3;
+      return { data: { success: true, data: serverAnchor() } };
+    });
+    await expect(persistCreatedAnchor({ draft: draft(), idempotencyKey: 'late-save' })).rejects.toThrow('Authentication context changed');
     expect(mockAddAnchor).not.toHaveBeenCalled();
   });
 
@@ -167,6 +202,19 @@ describe('persistCreatedAnchor', () => {
 });
 
 describe('generateExpressionCandidates', () => {
+  it('does not reserve or generate if the private draft cannot be persisted', async () => {
+    mockFlushDraft.mockRejectedValueOnce(new Error('Private storage write failed'));
+    await expect(generateExpressionCandidates({ draft: draft({ expression: 'ink' }) })).rejects.toThrow('Private storage write failed');
+    expect(mockPost).not.toHaveBeenCalled();
+  });
+  it('preserves server session/option IDs into the selected save request', async () => {
+    mockPost.mockResolvedValue({ data: { creationSessionId: 'server-session', variations: [
+      { imageUrl: 'https://cdn.test/a.png', optionId: 'server-option', structurePreserved: true },
+    ] } });
+    const result = await generateExpressionCandidates({ draft: draft({ expression: 'ink' }) });
+    const payload = buildCreatePayload(draft({ generatedCandidates: result.candidates }), 'save-key');
+    expect(payload).toMatchObject({ creationSessionId: 'server-session', selectedOptionId: 'server-option' });
+  });
   it('uses the existing enhancement endpoint with the canonical SVG and selected expression', async () => {
     mockPost.mockResolvedValue({ data: {
       variations: [

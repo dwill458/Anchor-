@@ -245,7 +245,9 @@ export function V2CreationFlow({ saveAnchor, generateExpression, onComplete, onP
     track('v2_creation_generation_started', { expression: current.expression, style, attempt: plan.attempt, requested: plan.missing });
     try {
       const result = await generateExpression({ draft: current, generationAttempt: plan.attempt, count: plan.missing });
-      const fresh = (result.candidates ?? []).filter((candidate) => candidate?.imageUrl).slice(0, plan.missing);
+      const fresh = (result.candidates ?? []).filter((candidate) => candidate?.imageUrl &&
+        !(current.generatedCandidates ?? []).some(kept => candidate.optionId
+          ? kept.optionId === candidate.optionId : kept.imageUrl === candidate.imageUrl)).slice(0, plan.missing);
       // Nothing is revealed until it exists and can be shown: the images are decoded first,
       // and ordinary latency is covered by the development sequence already on screen.
       await imagesReady(fresh.map((candidate) => candidate.imageUrl), GENERATION_TIMING.imageWait);
@@ -313,6 +315,7 @@ export function V2CreationFlow({ saveAnchor, generateExpression, onComplete, onP
       onKeep={keep}
       onGenerate={generate}
       onKeepOriginal={store.getState().keepOriginal}
+      onKeepReady={store.getState().keepReadyInterpretation}
       onSelectCandidate={store.getState().selectCandidate}
       onReturnToPrevious={store.getState().returnToPrevious}
       onSignIn={onSignIn}

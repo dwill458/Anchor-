@@ -22,6 +22,8 @@ export interface FirstAnchorFlowDraft {
   drawingSvg?: string;
   selectedStyleId?: string;
   generationStatus?: 'idle' | 'generating' | 'error' | 'complete';
+  generationRequestKey?: string;
+  saveRequestKey?: string;
   selectedExpressionId?: string;
   updatedAt: string;
 }
@@ -55,3 +57,15 @@ export const useFirstAnchorFlowStore = create<FirstAnchorFlowState>()(
     }
   )
 );
+
+/** A key may authorize provider work only after its private persistence receipt. */
+export async function flushFirstAnchorFlowDraft(): Promise<void> {
+  if (!useFirstAnchorFlowStore.persist.hasHydrated()) {
+    throw new Error('Creation storage is not ready. Try again after your draft restores.');
+  }
+  const options = useFirstAnchorFlowStore.persist.getOptions();
+  if (!options.storage || !options.name || !options.partialize) throw new Error('Creation storage is not ready.');
+  await options.storage.setItem(options.name, {
+    state: options.partialize(useFirstAnchorFlowStore.getState()), version: options.version,
+  });
+}

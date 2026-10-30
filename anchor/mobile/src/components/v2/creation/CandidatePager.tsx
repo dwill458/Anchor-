@@ -30,8 +30,8 @@ export function CandidatePager(props: PairProps) {
     {/* // DEFERRED: horizontal pager and page indicators; both interpretations are on screen. */}
     {props.candidates.slice(0, 2).map((candidate, index) => <PairForm key={candidate.variationId ?? candidate.imageUrl}
       {...props} candidate={candidate} index={index} size={size} interacting={interacting} onInteraction={setInteracting}
-      slotX={portrait ? stage.width * (index === 0 ? 0.38 : 0.62) : stage.width / 2 + (index === 0 ? -1 : 1) * (size + gap) / 2}
-      slotY={stage.height / 2 - captionRoom / 2 + (portrait ? (index === 0 ? -1 : 1) * (size + captionRoom + gap) / 2 : 0)} />)}
+      slotX={props.candidates.length === 1 ? stage.width / 2 : portrait ? stage.width * (index === 0 ? 0.38 : 0.62) : stage.width / 2 + (index === 0 ? -1 : 1) * (size + gap) / 2}
+      slotY={stage.height / 2 - captionRoom / 2 + (props.candidates.length === 1 ? 0 : portrait ? (index === 0 ? -1 : 1) * (size + captionRoom + gap) / 2 : 0)} />)}
   </View>;
 }
 

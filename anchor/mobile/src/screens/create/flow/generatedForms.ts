@@ -12,6 +12,8 @@ export interface GeneratedForm {
   /** Large inline base64 goes through the temp store, never through navigation params. */
   isHeavyInline: boolean;
   variationId?: string;
+  optionId?: string;
+  creationSessionId?: string;
   reusedFromPool: boolean;
 }
 
@@ -39,6 +41,8 @@ export function normalizeGeneratedForms(variations: Array<string | GeneratedVari
         variation && typeof variation === 'object' && 'variationId' in variation
           ? String((variation as { variationId?: unknown }).variationId ?? '') || undefined
           : undefined,
+      optionId: typeof variation === 'object' ? variation.optionId : undefined,
+      creationSessionId: typeof variation === 'object' ? variation.creationSessionId : undefined,
       reusedFromPool:
         variation && typeof variation === 'object' && 'reusedFromPool' in variation
           ? Boolean((variation as { reusedFromPool?: unknown }).reusedFromPool)

@@ -50,6 +50,8 @@ interface VariationAsset {
   fullUri: string;
   isHeavyInline: boolean;
   variationId?: string;
+  optionId?: string;
+  creationSessionId?: string;
   reusedFromPool?: boolean;
 }
 
@@ -205,6 +207,8 @@ export const AIVariationPickerScreen: React.FC = () => {
           variation && typeof variation === 'object' && 'variationId' in variation
             ? String((variation as any).variationId ?? '')
             : undefined,
+        optionId: typeof variation === 'object' ? variation.optionId : undefined,
+        creationSessionId: typeof variation === 'object' ? variation.creationSessionId : undefined,
         reusedFromPool:
           variation && typeof variation === 'object' && 'reusedFromPool' in variation
             ? Boolean((variation as any).reusedFromPool)
@@ -275,6 +279,8 @@ export const AIVariationPickerScreen: React.FC = () => {
         negativePrompt: negativePrompt || '',
         appliedAt: new Date(),
         variationId: selectedVariation.variationId || undefined,
+        creationSessionId: selectedVariation.creationSessionId,
+        selectedOptionId: selectedVariation.optionId,
         reuseRequestId: reuseRequestId || undefined,
         reusedFromPool: selectedVariation.reusedFromPool || false,
       };

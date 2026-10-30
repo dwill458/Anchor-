@@ -1,7 +1,5 @@
 import { Image } from 'react-native';
-import { API_URL } from '@/config';
 import { warmUpBackend } from '@/services/backendWarmup';
-import { AuthService } from '@/services/AuthService';
 import { AnalyticsEvents, AnalyticsService } from '@/services/AnalyticsService';
 import { ErrorTrackingService } from '@/services/ErrorTrackingService';
 import { FrictionAnalytics } from '@/services/FrictionAnalytics';
@@ -10,6 +8,9 @@ import type { AIStyle, AnchorCategory, GeneratedVariation } from '@/types';
 import { logger } from '@/utils/logger';
 import { DEVELOPER_MASTER_ACCOUNT_ID } from '@/utils/developerMasterAccount';
 import { selectedDevImageModel } from '@/stores/devImageModelStore';
+import { generateAuthorizedAnchor } from '@/services/AnchorCreationSession';
+import { useFirstAnchorFlowStore, flushFirstAnchorFlowDraft } from '@/stores/firstAnchorFlowStore';
+import { captureCreationAuthContext } from '@/services/CreationAuthContext';
 
 /**
  * The styling request, extracted from AIGeneratingScreen so the one-screen creation flow can
@@ -42,6 +43,7 @@ export class AnchorGenerationError extends Error {
 }
 
 export interface AnchorGenerationRequest {
+  creationRequestKey?: string;
   /** `reinforcedSigilSvg || baseSigilSvg` — sent as-is; geometry is baked into the result. */
   sigilSvg: string;
   styleChoice: AIStyle;
@@ -87,6 +89,7 @@ export function nextEstimatedProgress(previous: number): number {
 
 export const AnchorGenerationService = {
   async generate(request: AnchorGenerationRequest): Promise<AnchorGenerationResult> {
+    const context = captureCreationAuthContext();
     const devImageModel = selectedDevImageModel('anchor');
     const {
       sigilSvg,
@@ -133,32 +136,23 @@ export const AnchorGenerationService = {
     });
 
     try {
-      const token = await AuthService.getIdToken();
-      const response = await fetch(`${API_URL}/api/ai/enhance`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          ...(token ? { Authorization: `Bearer ${token}` } : {}),
-        },
-        body: JSON.stringify({
+      let requestKey = request.creationRequestKey ?? useFirstAnchorFlowStore.getState().draft?.generationRequestKey;
+      if (!requestKey) {
+        requestKey = `generation-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+        useFirstAnchorFlowStore.getState().updateDraft({ generationRequestKey: requestKey });
+      }
+      await flushFirstAnchorFlowDraft();
+      context.assertCurrent();
+      if (!request.creationRequestKey && useFirstAnchorFlowStore.getState().draft?.generationRequestKey !== requestKey) {
+        throw new Error('Creation draft changed. Retry your current draft.');
+      }
+      const result = await generateAuthorizedAnchor({
           sigilSvg,
           styleChoice,
           intentionText,
-          anchorId: `temp-${Date.now()}`,
-          provider: 'gemini',
-          tier: 'premium',
           generationAttempt,
           ...(devImageModel ? { devImageModel } : {}),
-        }),
-        signal: controller.signal,
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.message || errorData.error || 'AI enhancement failed');
-      }
-
-      const result = await response.json();
+        }, requestKey, controller.signal);
       const variations: Array<string | GeneratedVariation> = Array.isArray(result.variations)
         ? result.variations
         : [];

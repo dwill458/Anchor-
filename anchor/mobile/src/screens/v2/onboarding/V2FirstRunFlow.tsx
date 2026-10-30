@@ -71,6 +71,7 @@ export function V2FirstRunFlow() {
 
   if (!hydrated) return <View style={styles.loading}><Text style={styles.loadingText}>Restoring your progress…</Text></View>;
   if (showRecovery) return <BackupRecoverySubscreen onBack={() => setShowRecovery(false)} />;
+  if (draft.currentStep === 'complete') return <View style={styles.loading} />;
 
   if (['creation', 'intention', 'formation', 'anchor', 'expression'].includes(draft.currentStep)) {
     return <IntentionInputScreen

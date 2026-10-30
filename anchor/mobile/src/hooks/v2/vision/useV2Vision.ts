@@ -199,7 +199,7 @@ function requestV2Vision(anchorId: string, signal?: AbortSignal, accountId = cur
   const mutationVersion = visionMutationVersions.get(key) ?? 0;
   const span = HomeStartupProfiler.start('vision_request', { anchorId });
   const controller = new AbortController();
-  let shared: SharedVisionRead;
+  let shared: SharedVisionRead | undefined;
   const request = (async () => {
     const timeZone = resolveUserTimeZone();
     try {
@@ -228,7 +228,7 @@ function requestV2Vision(anchorId: string, signal?: AbortSignal, accountId = cur
       span({ ok: status === 404, status: status ?? null });
       throw err;
     } finally {
-      if (inFlightVision.get(key) === shared) inFlightVision.delete(key);
+      if (shared && inFlightVision.get(key) === shared) inFlightVision.delete(key);
     }
   })();
 

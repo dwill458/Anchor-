@@ -1,6 +1,16 @@
 import React from 'react';
 import { render, fireEvent, screen, waitFor } from '@testing-library/react-native';
 import { MantraCreationScreen } from '../MantraCreationScreen';
+import { Alert } from 'react-native';
+
+const mockAddAnchor = jest.fn();
+const mockUpdateAnchor = jest.fn();
+const mockPost = jest.fn();
+const mockIncrement = jest.fn();
+const mockAuthState = { user: null, token: null, isAuthenticated: false, accountRevision: 1, anchorCount: 0, incrementAnchorCount: mockIncrement, setPendingFirstAnchorDraft: jest.fn() };
+jest.mock('@/services/ApiClient', () => ({ post: (...args: unknown[]) => mockPost(...args) }));
+jest.mock('@/services/AuthService', () => ({ AuthService: { ensureGuestSession: jest.fn(async () => ({ token: 'guest-token', user: { id: 'guest-db' } })) } }));
+jest.mock('@/stores/firstAnchorFlowStore', () => ({ useFirstAnchorFlowStore: { getState: () => ({ draft: { saveRequestKey: 'stable-mantra-key' }, updateDraft: jest.fn() }) } }));
 
 // Mock navigation
 const mockNavigate = jest.fn();
@@ -19,14 +29,11 @@ jest.mock('@react-navigation/native', () => ({
 
 // Mock stores with minimal required state
 jest.mock('@/stores/anchorStore', () => ({ useAnchorStore: (selector: any) => {
-    const state = { anchors: [], addAnchor: jest.fn(), updateAnchor: jest.fn() };
+    const state = { anchors: [], addAnchor: mockAddAnchor, updateAnchor: mockUpdateAnchor };
     return selector ? selector(state) : state;
 }}));
 jest.mock('@/stores/authStore', () => ({
-    useAuthStore: (selector: any) => {
-        const state = { user: null, anchorCount: 0, incrementAnchorCount: jest.fn() };
-        return selector ? selector(state) : state;
-    }
+    useAuthStore: Object.assign((selector: any) => selector ? selector(mockAuthState) : mockAuthState, { getState: () => mockAuthState })
 }));
 jest.mock('@/stores/subscriptionStore', () => ({ useSubscriptionStore: () => ({ getEffectiveTier: () => 'free' }) }));
 
@@ -52,7 +59,10 @@ jest.mock('react-native-reanimated', () => {
 
 describe('MantraCreationScreen', () => {
     beforeEach(() => {
-        mockNavigate.mockClear();
+        jest.clearAllMocks();
+        mockAuthState.accountRevision = 1;
+        mockPost.mockResolvedValue({ success: true, data: { id: 'server-mantra', userId: 'guest-db', intentionText: 'Test Intention', category: 'health', distilledLetters: ['T', 'S', 'T'], baseSigilSvg: '<svg></svg>', enhancedImageUrl: 'canonical-art', createdAt: '2026-10-29', updatedAt: '2026-10-29' } });
+        jest.spyOn(Alert, 'alert').mockImplementation(() => {});
     });
 
     it('stub: renders 4 mantra style options', () => {
@@ -92,5 +102,46 @@ describe('MantraCreationScreen', () => {
                 autoStartOnSelection: true,
             }));
         });
+    });
+
+    it('requires a verified guest server save and keeps canonical artwork before continuing', async () => {
+        render(<MantraCreationScreen />);
+        fireEvent.press(screen.getByText('Continue to Ritual ›'));
+        await waitFor(() => expect(mockNavigate).toHaveBeenCalled());
+        expect(mockPost).toHaveBeenCalledWith('/api/anchors', expect.objectContaining({ idempotencyKey: 'stable-mantra-key' }), expect.objectContaining({ anchorAuthToken: 'guest-token', anchorAuthGuard: expect.any(Function) }));
+        expect(mockAddAnchor).toHaveBeenCalledWith(expect.objectContaining({ id: 'server-mantra', enhancedImageUrl: 'canonical-art', userId: 'guest' }));
+    });
+
+    it('retains the draft without local save or navigation after a quota denial', async () => {
+        mockPost.mockRejectedValue(new Error('Creation quota exceeded'));
+        render(<MantraCreationScreen />);
+        fireEvent.press(screen.getByText('Continue to Ritual ›'));
+        await waitFor(() => expect(Alert.alert).toHaveBeenCalled());
+        expect(mockAddAnchor).not.toHaveBeenCalled();
+        expect(mockNavigate).not.toHaveBeenCalled();
+        expect(mockIncrement).not.toHaveBeenCalled();
+    });
+
+    it('discards an old successful response after an account switch', async () => {
+        mockPost.mockImplementation(async () => { mockAuthState.accountRevision++; return { success: true, data: { id: 'old-account', userId: 'guest-db' } }; });
+        render(<MantraCreationScreen />);
+        fireEvent.press(screen.getByText('Continue to Ritual ›'));
+        await waitFor(() => expect(mockPost).toHaveBeenCalled());
+        await waitFor(() => expect(Alert.alert).toHaveBeenCalled());
+        expect(mockAddAnchor).not.toHaveBeenCalled();
+        expect(mockNavigate).not.toHaveBeenCalled();
+    });
+
+    it('retries with the same save key after a lost response without inventing a local record', async () => {
+        mockPost.mockRejectedValueOnce(new Error('Response lost'));
+        render(<MantraCreationScreen />);
+        fireEvent.press(screen.getByText('Continue to Ritual ›'));
+        await waitFor(() => expect(Alert.alert).toHaveBeenCalled());
+        expect(mockAddAnchor).not.toHaveBeenCalled();
+        fireEvent.press(screen.getByText('Continue to Ritual ›'));
+        await waitFor(() => expect(mockNavigate).toHaveBeenCalled());
+        expect(mockPost.mock.calls[0][1].idempotencyKey).toBe(mockPost.mock.calls[1][1].idempotencyKey);
+        expect(mockAddAnchor).toHaveBeenCalledTimes(1);
+        expect(mockIncrement).toHaveBeenCalledTimes(1);
     });
 });

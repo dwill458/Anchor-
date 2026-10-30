@@ -20,6 +20,7 @@ export interface AuthResult {
   user: User;
   token: string;
   isNewUser: boolean;
+  isAnonymous?: boolean;
 }
 
 export interface AuthSyncOptions {
@@ -59,6 +60,10 @@ function assertMockAuthEnabled(): void {
 }
 
 export class AuthService {
+  static async ensureGuestSession(): Promise<AuthResult> {
+    assertMockAuthEnabled();
+    return { user: createMockUser(), token: 'mock-jwt-token', isNewUser: false, isAnonymous: false };
+  }
   static initialize(): void {
     if (!mockAuthEnabled && !__DEV__) {
       throw new Error('Firebase auth is only available in the native build. Web fallback is not configured for production.');

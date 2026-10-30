@@ -6,13 +6,13 @@ import type { StackNavigationProp } from '@react-navigation/stack';
 import { useNotificationController } from '@/hooks/useNotificationController';
 import { useEntitlements } from '@/hooks/useEntitlements';
 import { AnalyticsEvents, AnalyticsService } from '@/services/AnalyticsService';
-import { ApiClientError, post } from '@/services/ApiClient';
+import { ApiClientError, post, type AccountBoundRequestConfig } from '@/services/ApiClient';
 import { isBackendAnchorId } from '@/services/BackendAnchorService';
 import { ErrorTrackingService } from '@/services/ErrorTrackingService';
 import { FrictionAnalytics } from '@/services/FrictionAnalytics';
 import { useAnchorStore, useTempStore } from '@/stores/anchorStore';
 import { useAuthStore } from '@/stores/authStore';
-import { useFirstAnchorFlowStore } from '@/stores/firstAnchorFlowStore';
+import { useFirstAnchorFlowStore, flushFirstAnchorFlowDraft } from '@/stores/firstAnchorFlowStore';
 import type {
   Anchor,
   AnchorCategory,
@@ -24,18 +24,15 @@ import type {
 } from '@/types';
 import { getAnchorCreationLimitCopy } from '@/utils/entitlements';
 import { logger } from '@/utils/logger';
+import { AuthService } from '@/services/AuthService';
+import { creationSelection } from '@/services/AnchorCreationSession';
+import { captureCreationAuthContext } from '@/services/CreationAuthContext';
 import { classifyToTierPreliminary } from '@/utils/tierClassifier';
 
 /**
- * The save half of anchor creation, extracted verbatim from AnchorRevealScreen so the
- * one-screen creation flow's Seal can run the very same persistence: entitlement gate,
- * guest queue, `POST /api/anchors` with an idempotency key (one network-only retry), local
- * continue-on-backend-failure, analytics, and the post-save routing.
- *
- * Nothing in the behaviour changed in the move. The only structural difference is that the
- * original `handleContinue` is split at its tail: `saveAnchor` does everything up to the
- * routing decision and hands back `proceed`, so a caller can finish an animation before it
- * navigates. AnchorRevealScreen calls `proceed` immediately, which is the original order.
+ * Both guest and registered creation save through verified server ownership before
+ * writing the local vault. The stable key survives a retry or interrupted first run.
+ * `proceed` leaves the caller in control of the existing seal animation and routing.
  */
 
 type SaveAnchorNavigation = StackNavigationProp<RootStackParamList>;
@@ -82,9 +79,6 @@ export function useSaveAnchor(input: SaveAnchorInput, routing: SaveAnchorRouting
   const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
   const existingAnchorCount = useAuthStore((state) => state.anchorCount);
   const setPendingFirstAnchorDraft = useAuthStore((state) => state.setPendingFirstAnchorDraft);
-  const enqueuePendingFirstAnchorMutation = useAuthStore(
-    (state) => state.enqueuePendingFirstAnchorMutation
-  );
   const clearPendingFirstAnchorState = useAuthStore((state) => state.clearPendingFirstAnchorState);
   const { handleAnchorSaved, canOfferFirstAnchorReminder } = useNotificationController();
   const entitlements = useEntitlements();
@@ -98,6 +92,7 @@ export function useSaveAnchor(input: SaveAnchorInput, routing: SaveAnchorRouting
   // guard across the whole create-and-reminder flow so a second tap cannot start
   // another request while an async continuation is still pending.
   const creationInFlightRef = useRef(false);
+  const saveKeyRef = useRef<string | null>(null);
 
   // The latest render's input, so `saveAnchor(override)` always sees current values.
   const inputRef = useRef(input);
@@ -186,6 +181,7 @@ export function useSaveAnchor(input: SaveAnchorInput, routing: SaveAnchorRouting
 
   const saveAnchor = async (override?: Partial<SaveAnchorInput>): Promise<SaveAnchorOutcome> => {
     if (isSaving || creationInFlightRef.current) return { status: 'blocked' };
+    const authContext = captureCreationAuthContext();
 
     const resolved: SaveAnchorInput = { ...inputRef.current, ...override };
     const {
@@ -237,10 +233,14 @@ export function useSaveAnchor(input: SaveAnchorInput, routing: SaveAnchorRouting
       has_image: Boolean(enhancedImageUrl),
     });
 
-    const idempotencyKey = `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+    const firstFlow = useFirstAnchorFlowStore.getState();
+    const idempotencyKey = saveKeyRef.current ?? firstFlow.draft?.saveRequestKey ?? `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+    saveKeyRef.current = idempotencyKey;
+    firstFlow.updateDraft({ saveRequestKey: idempotencyKey });
     let anchorId = isGuestFirstAnchor
       ? `pending-first-anchor-${idempotencyKey}`
       : `anchor-${idempotencyKey}`;
+    let confirmedAnchor: Anchor | undefined;
 
     // Precedence rule: the deterministic category -> tier map (CATEGORY_TO_TIER) is
     // authoritative whenever the resolved category is one of the 9 specific categories.
@@ -250,20 +250,16 @@ export function useSaveAnchor(input: SaveAnchorInput, routing: SaveAnchorRouting
     const { tier, confidenceScore, isCustomFallback } = classifyToTierPreliminary(intentionText, category);
 
     try {
-      if (isGuestFirstAnchor) {
-        clearPendingFirstAnchorState();
-        setPendingFirstAnchorDraft({
-          tempAnchorId: anchorId,
-          source: 'onboarding_first_anchor',
-          requiresAccountGate: false,
-          createdAt: new Date(),
-        });
-        enqueuePendingFirstAnchorMutation({
-          type: 'create_anchor',
-          tempAnchorId: anchorId,
-          queuedAt: new Date().toISOString(),
-        });
-      } else {
+      {
+        await flushFirstAnchorFlowDraft();
+        authContext.assertCurrent();
+        const identity = await AuthService.ensureGuestSession();
+        authContext.assertIdentity(identity.user.id, identity.isAnonymous);
+        const requestConfig: AccountBoundRequestConfig = {
+          anchorAuthToken: identity.token,
+          anchorAuthGuard: () => authContext.isCurrent() && useAuthStore.getState().user?.id === authUser?.id
+            && useAuthStore.getState().isAuthenticated === isAuthenticated,
+        };
         // Persist anchor to backend — this is the source of truth.
         // idempotencyKey lets a retried request return the anchor that was
         // already created rather than creating a duplicate, so a single
@@ -278,6 +274,7 @@ export function useSaveAnchor(input: SaveAnchorInput, routing: SaveAnchorRouting
           reinforcementMetadata: reinforcementMetadata || undefined,
           enhancedImageUrl: enhancedImageUrl || undefined,
           enhancementMetadata: enhancementMetadata || undefined,
+          ...creationSelection(enhancementMetadata, !enhancedImageUrl),
           planetaryTier: tier,
           classifierVersion: 2,
           classifierMeta: { confidenceScore, isCustomFallback },
@@ -286,7 +283,8 @@ export function useSaveAnchor(input: SaveAnchorInput, routing: SaveAnchorRouting
 
         let response: ApiResponse<Anchor> | undefined;
         try {
-          response = await post<ApiResponse<Anchor>>('/api/anchors', anchorPayload);
+          response = await post<ApiResponse<Anchor>>('/api/anchors', anchorPayload, requestConfig);
+          authContext.assertCurrent();
         } catch (firstAttemptErr) {
           const isNetworkError =
             !(firstAttemptErr instanceof ApiClientError) &&
@@ -296,17 +294,35 @@ export function useSaveAnchor(input: SaveAnchorInput, routing: SaveAnchorRouting
             throw firstAttemptErr;
           }
           await new Promise((resolve) => setTimeout(resolve, 500));
-          response = await post<ApiResponse<Anchor>>('/api/anchors', anchorPayload);
+          authContext.assertCurrent();
+          response = await post<ApiResponse<Anchor>>('/api/anchors', anchorPayload, requestConfig);
+          authContext.assertCurrent();
         }
 
         if (response?.success && response?.data?.id) {
+          confirmedAnchor = response.data;
           anchorId = response.data.id;
+          resolved.enhancedImageUrl = response.data.enhancedImageUrl ?? resolved.enhancedImageUrl;
+          resolved.enhancementMetadata = response.data.enhancementMetadata ?? resolved.enhancementMetadata;
           logger.info('[AnchorReveal] Anchor saved to backend', { anchorId });
         } else {
-          logger.warn('[AnchorReveal] Backend returned unexpected response, using local ID', { response });
+          throw new Error('The server did not confirm your saved Anchor. Please retry.');
+        }
+        if (isGuestFirstAnchor) {
+          clearPendingFirstAnchorState();
+          setPendingFirstAnchorDraft({
+            tempAnchorId: anchorId, backendAnchorId: anchorId,
+            source: 'onboarding_first_anchor', requiresAccountGate: false, createdAt: new Date(),
+          });
         }
       }
     } catch (err) {
+      if (err instanceof ApiClientError && err.code === 'ANCHOR_CREATION_QUOTA_EXCEEDED') {
+        Alert.alert('Creation limit reached', 'You have reached your current creation allowance. Your Anchor is still here.');
+        creationInFlightRef.current = false;
+        setIsSaving(false);
+        return { status: 'blocked' };
+      }
       const serverLimitReason =
         err instanceof ApiClientError && err.code === 'PRO_DAILY_ANCHOR_CAP_REACHED'
           ? 'pro_daily_anchor_cap_reached'
@@ -336,7 +352,7 @@ export function useSaveAnchor(input: SaveAnchorInput, routing: SaveAnchorRouting
         return { status: 'blocked' };
       }
 
-      logger.warn('[AnchorReveal] Failed to save anchor to backend, proceeding locally', err);
+      logger.warn('[AnchorReveal] Failed to save anchor to backend', err);
       FrictionAnalytics.flowError('anchor_creation', 'anchor_reveal', 'backend_save_failed', {
         is_first_anchor: isGuestFirstAnchor,
         category,
@@ -350,12 +366,19 @@ export function useSaveAnchor(input: SaveAnchorInput, routing: SaveAnchorRouting
         screen: 'AnchorRevealScreen',
         action: 'save_anchor_to_backend',
       });
-      // Continue with local fallback — don't block the user
+      Alert.alert('Your Anchor has not finished saving', 'Your creation is still here. Check your connection and try again.');
+      creationInFlightRef.current = false;
+      setIsSaving(false);
+      return { status: 'blocked' };
     }
 
+    if (!authContext.isCurrent()) {
+      creationInFlightRef.current = false;
+      setIsSaving(false);
+      return { status: 'blocked' };
+    }
     const createdAnchor: Anchor = {
       id: anchorId,
-      userId: authUser?.id || 'user-local',
       intentionText,
       category,
       distilledLetters,
@@ -370,8 +393,12 @@ export function useSaveAnchor(input: SaveAnchorInput, routing: SaveAnchorRouting
       classifierMeta: { confidenceScore, isCustomFallback },
       isCharged: false,
       activationCount: 0,
-      createdAt: new Date(),
-      updatedAt: new Date(),
+      ...(confirmedAnchor as Partial<Anchor> | undefined),
+      // The backend owns verified guest attribution. The device's signed-out
+      // vault deliberately uses its existing guest partition until account linking.
+      userId: isAuthenticated ? confirmedAnchor?.userId ?? authUser?.id ?? 'guest' : 'guest',
+      createdAt: confirmedAnchor?.createdAt ? new Date(confirmedAnchor.createdAt) : new Date(),
+      updatedAt: confirmedAnchor?.updatedAt ? new Date(confirmedAnchor.updatedAt) : new Date(),
     };
     addAnchor(createdAnchor);
     setCurrentAnchor?.(anchorId);

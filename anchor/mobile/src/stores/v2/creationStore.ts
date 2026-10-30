@@ -39,7 +39,7 @@ export const GENERATION_ERRORS = {
   partial: 'One interpretation is ready. The second did not finish. Try again for the second.',
   interrupted: 'Your structure is safe. Development was interrupted. Try again to continue.',
   offline: 'You look to be offline. Your structure is safe. Try again when you are connected.',
-  limit: 'You have developed as many expressions as allowed for today. Your structure is safe here.',
+  limit: 'You have reached your creation limit. Your structure is safe here.',
   kept: 'We could not develop a new pair. Your previous two are still here.',
 } as const;
 
@@ -213,6 +213,7 @@ type CreationStore = {
   selectCandidate: (index: number) => void;
   /** Expression → saving for original, or expression → generating for AI. */
   keepOriginal: () => void;
+  keepReadyInterpretation: () => void;
   /** Deterministic back. Returns false when Back should leave the flow instead. */
   goBack: () => boolean;
   /** Returns the idempotency key, or null when a save is already running or not allowed. */
@@ -378,7 +379,7 @@ export const useCreationStore = create<CreationStore>()(
         const watching = draft.currentStep === 'generating';
         const merged: GeneratedAnchorCandidate[] = [];
         for (const candidate of [...(draft.generatedCandidates ?? []), ...(generatedCandidates ?? [])]) {
-          if (!candidate?.imageUrl || merged.some((kept) => kept.imageUrl === candidate.imageUrl)) continue;
+          if (!candidate?.imageUrl || merged.some((kept) => candidate.optionId ? kept.optionId === candidate.optionId : kept.imageUrl === candidate.imageUrl)) continue;
           merged.push(candidate);
         }
         const candidates = merged.slice(0, CANDIDATE_COUNT);
@@ -434,6 +435,14 @@ export const useCreationStore = create<CreationStore>()(
         const draft = state.draft;
         if (!draft || draft.currentStep !== 'expression' || draft.expression !== 'original') return state;
         return update(draft, { enhancedImageUrl: undefined, generatedCandidates: [], selectedCandidateIndex: -1, generationState: 'idle', styleChoice: undefined });
+      }),
+
+      keepReadyInterpretation: () => set((state) => {
+        const draft = state.draft;
+        const ready = draft?.generatedCandidates?.[0];
+        if (!draft || draft.currentStep !== 'generating' || draft.generationState !== 'error' || !ready?.imageUrl) return state;
+        return update(draft, { currentStep: 'choose', generationState: 'complete', generationError: undefined,
+          selectedCandidateIndex: 0, enhancedImageUrl: ready.imageUrl });
       }),
 
       goBack: () => {
@@ -539,4 +548,16 @@ export function whenCreationHydrated(): Promise<void> {
       resolve();
     });
   });
+}
+
+/** Confirm the exact request/save key before crossing the server boundary. */
+export async function flushCreationDraft(expectedDraftId: string): Promise<void> {
+  if (!useCreationStore.persist.hasHydrated()) throw new Error('Creation storage is not ready. Try again after your draft restores.');
+  if (useCreationStore.getState().draft?.draftId !== expectedDraftId) throw new Error('Creation draft changed. Retry your current draft.');
+  const options = useCreationStore.persist.getOptions();
+  if (!options.storage || !options.name || !options.partialize) throw new Error('Creation storage is not ready.');
+  await options.storage.setItem(options.name, {
+    state: options.partialize(useCreationStore.getState()), version: options.version,
+  });
+  if (useCreationStore.getState().draft?.draftId !== expectedDraftId) throw new Error('Creation draft changed. Retry your current draft.');
 }

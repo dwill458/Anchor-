@@ -483,6 +483,8 @@ export interface EnhancementMetadata {
   appliedAt: Date;
 
   /** Reserved pool variation selected by the user, if applicable */
+  creationSessionId?: string;
+  selectedOptionId?: string;
   variationId?: string;
 
   /** Reservation group returned by the AI enhancement endpoint */
@@ -548,6 +550,8 @@ export type NavigationResumeTarget =
   | { kind: 'chart_waypoint'; courseId: string; waypointId: string };
 
 export interface GeneratedVariation {
+  optionId?: string;
+  creationSessionId?: string;
   variationId?: string;
   imageUrl: string;
   structureMatchScore?: number;

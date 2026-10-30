@@ -29,12 +29,15 @@ import { logger } from '@/utils/logger';
 import type { ApiResponse, FirebaseUser, User } from '@/types';
 
 const CACHED_USER_KEY = 'anchor:cached_user';
+const GUEST_TRANSFER_KEY = 'anchor:pending_guest_transfer';
 let googleConfigured = false;
+let guestSessionPromise: Promise<AuthResult> | null = null;
 
 export interface AuthResult {
   user: User;
   token: string;
   isNewUser: boolean;
+  isAnonymous?: boolean;
 }
 
 export interface AuthSyncOptions {
@@ -250,8 +253,20 @@ async function buildAuthResult(
   options?: AuthSyncOptions,
   firebaseIsNewUser?: boolean
 ): Promise<AuthResult> {
-  const idToken = await firebaseUser.getIdToken();
-  const user = await syncUserWithBackend(firebaseUser, idToken, displayNameOverride, options);
+  const idToken = await firebaseUser.getIdToken(true);
+  let user = await syncUserWithBackend(firebaseUser, idToken, displayNameOverride, options);
+  const pending = await readSecureValue(GUEST_TRANSFER_KEY);
+  if (pending) {
+    const proof = JSON.parse(pending) as { guestUid: string; transferToken: string };
+    if (proof.guestUid !== firebaseUser.uid) {
+      const response = await fetch(`${API_URL}/api/auth/merge-guest`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${idToken}` }, body: JSON.stringify(proof),
+      });
+      if (!response.ok) throw new Error('Your guest progress is safely stored. Reconnect and try signing in again to finish linking it.');
+      user = await syncUserWithBackend(firebaseUser, idToken, displayNameOverride, options);
+    }
+    await encryptedPersistStorage.removeItem(GUEST_TRANSFER_KEY);
+  }
   await writeSecureValue(CACHED_USER_KEY, JSON.stringify(user)).catch(() => undefined);
   await AsyncStorage.removeItem(CACHED_USER_KEY).catch(() => undefined);
 
@@ -265,9 +280,51 @@ async function buildAuthResult(
   };
 }
 
+async function preserveGuestTransfer(): Promise<void> {
+  const guest = auth().currentUser;
+  if (!guest?.isAnonymous) return;
+  const existing = await readSecureValue(GUEST_TRANSFER_KEY);
+  if (existing && (JSON.parse(existing) as { guestUid: string }).guestUid === guest.uid) return;
+  const response = await fetch(`${API_URL}/api/auth/guest-transfer-token`, {
+    method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${await guest.getIdToken()}` }, body: '{}',
+  });
+  const payload = await response.json();
+  if (!response.ok || !payload?.data?.transferToken) throw new Error('Reconnect before signing in so your guest Anchor can be preserved.');
+  await writeSecureValue(GUEST_TRANSFER_KEY, JSON.stringify(payload.data));
+}
+
+async function signInOrLinkCredential(credential: FirebaseAuthTypes.AuthCredential): Promise<FirebaseAuthTypes.UserCredential> {
+  const guest = auth().currentUser;
+  if (!guest?.isAnonymous) return auth().signInWithCredential(credential);
+  try {
+    return await guest.linkWithCredential(credential);
+  } catch (error) {
+    const code = (error as { code?: string })?.code;
+    if (code !== 'auth/credential-already-in-use' && code !== 'auth/email-already-in-use') throw error;
+    await preserveGuestTransfer();
+    return auth().signInWithCredential(credential);
+  }
+}
+
 export class AuthService {
   static initialize(): void {
     auth();
+  }
+
+  /** Native Firebase persists this anonymous UID across restarts. It is never a registered UI session. */
+  static async ensureGuestSession(): Promise<AuthResult> {
+    if (guestSessionPromise) return guestSessionPromise;
+    guestSessionPromise = (async () => {
+      const user = auth().currentUser ?? (await auth().signInAnonymously()).user;
+      const token = await user.getIdToken();
+      const account = await syncUserWithBackend(user, token);
+      return { user: account, token, isNewUser: false, isAnonymous: user.isAnonymous };
+    })();
+    try {
+      return await guestSessionPromise;
+    } finally {
+      guestSessionPromise = null;
+    }
   }
 
   static async signInWithEmail(
@@ -275,7 +332,9 @@ export class AuthService {
     password: string,
     options?: AuthSyncOptions
   ): Promise<AuthResult> {
+    const guest = auth().currentUser?.isAnonymous ? auth().currentUser : null;
     try {
+      await preserveGuestTransfer();
       const credential = await auth().signInWithEmailAndPassword(email.trim(), password);
       return await buildAuthResult(
         credential.user,
@@ -284,7 +343,7 @@ export class AuthService {
         credential.additionalUserInfo?.isNewUser
       );
     } catch (error) {
-      await auth().signOut().catch(() => undefined);
+      if (!guest) await auth().signOut().catch(() => undefined);
       logger.error('Failed to sign in with email', error);
       throw mapAuthError(error);
     }
@@ -296,8 +355,11 @@ export class AuthService {
     displayName?: string,
     options?: AuthSyncOptions
   ): Promise<AuthResult> {
+    const guest = auth().currentUser?.isAnonymous ? auth().currentUser : null;
     try {
-      const credential = await auth().createUserWithEmailAndPassword(email.trim(), password);
+      const credential = guest
+        ? await guest.linkWithCredential(auth.EmailAuthProvider.credential(email.trim(), password))
+        : await auth().createUserWithEmailAndPassword(email.trim(), password);
       const trimmedName = displayName?.trim();
 
       if (trimmedName) {
@@ -314,12 +376,13 @@ export class AuthService {
       );
     } catch (error) {
       logger.error('Failed to sign up with email', error);
-      await auth().signOut().catch(() => undefined);
+      if (!guest) await auth().signOut().catch(() => undefined);
       throw mapAuthError(error);
     }
   }
 
   static async signInWithGoogle(options?: AuthSyncOptions): Promise<AuthResult> {
+    const guest = auth().currentUser?.isAnonymous ? auth().currentUser : null;
     try {
       configureGoogleSignin();
       await GoogleSignin.hasPlayServices({ showPlayServicesUpdateDialog: true });
@@ -335,7 +398,7 @@ export class AuthService {
       }
 
       const credential = auth.GoogleAuthProvider.credential(idToken);
-      const firebaseCredential = await auth().signInWithCredential(credential);
+      const firebaseCredential = await signInOrLinkCredential(credential);
       return await buildAuthResult(
         firebaseCredential.user,
         undefined,
@@ -343,13 +406,14 @@ export class AuthService {
         firebaseCredential.additionalUserInfo?.isNewUser
       );
     } catch (error) {
-      await auth().signOut().catch(() => undefined);
+      if (!guest) await auth().signOut().catch(() => undefined);
       logger.error('Failed to sign in with Google', error);
       throw mapAuthError(error);
     }
   }
 
   static async signInWithApple(options?: AuthSyncOptions): Promise<AuthResult> {
+    const guest = auth().currentUser?.isAnonymous ? auth().currentUser : null;
     try {
       const isAvailable = await AppleAuthentication.isAvailableAsync();
       if (!isAvailable) {
@@ -370,7 +434,7 @@ export class AuthService {
       }
 
       const credential = auth.AppleAuthProvider.credential(appleCredential.identityToken, nonce);
-      const firebaseCredential = await auth().signInWithCredential(credential);
+      const firebaseCredential = await signInOrLinkCredential(credential);
 
       const displayName =
         [appleCredential.fullName?.givenName, appleCredential.fullName?.familyName]
@@ -391,7 +455,7 @@ export class AuthService {
         firebaseCredential.additionalUserInfo?.isNewUser
       );
     } catch (error) {
-      await auth().signOut().catch(() => undefined);
+      if (!guest) await auth().signOut().catch(() => undefined);
       logger.error('Failed to sign in with Apple', error);
       throw mapAuthError(error);
     }
@@ -399,7 +463,7 @@ export class AuthService {
 
   static async syncCurrentUser(): Promise<AuthResult | null> {
     const currentUser = auth().currentUser;
-    if (!currentUser) {
+    if (!currentUser || currentUser.isAnonymous) {
       return null;
     }
 
@@ -450,11 +514,13 @@ export class AuthService {
   }
 
   static hasAuthenticatedSession(): boolean {
-    return auth().currentUser != null;
+    const user = auth().currentUser;
+    return user != null && !user.isAnonymous;
   }
 
   static getCurrentFirebaseUser(): FirebaseUser | null {
     const currentUser = auth().currentUser;
+    if (currentUser?.isAnonymous) return null;
     if (currentUser) {
       return toFirebaseUser(currentUser);
     }
@@ -563,7 +629,7 @@ export class AuthService {
     callback: (user: FirebaseUser | null) => void
   ): () => void {
     return auth().onAuthStateChanged((user) => {
-      callback(user ? toFirebaseUser(user) : null);
+      callback(user && !user.isAnonymous ? toFirebaseUser(user) : null);
     });
   }
 }

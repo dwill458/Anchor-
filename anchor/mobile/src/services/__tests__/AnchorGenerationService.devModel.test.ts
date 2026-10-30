@@ -1,9 +1,15 @@
 import { AnchorGenerationService } from '../AnchorGenerationService';
 import { Image } from 'react-native';
 import { useDevImageModelStore } from '@/stores/devImageModelStore';
+const mockFlushDraft = jest.fn(async () => {});
+jest.mock('@/stores/firstAnchorFlowStore', () => ({ flushFirstAnchorFlowDraft: () => mockFlushDraft(),
+  useFirstAnchorFlowStore: { getState: () => ({ draft: { generationRequestKey: 'persisted-request' }, updateDraft: jest.fn() }) } }));
 
 jest.mock('@/services/backendWarmup', () => ({ warmUpBackend: jest.fn() }));
-jest.mock('@/services/AuthService', () => ({ AuthService: { getIdToken: jest.fn(async () => 'test-token') } }));
+jest.mock('@/services/AnchorCreationSession', () => ({ generateAuthorizedAnchor: async (input: unknown) => {
+  const response = await global.fetch('generation-test', { method: 'POST', body: JSON.stringify(input) });
+  return response.json();
+} }));
 jest.mock('@/services/ErrorTrackingService', () => ({ ErrorTrackingService: { addBreadcrumb: jest.fn(), captureException: jest.fn() } }));
 jest.mock('@/services/FrictionAnalytics', () => ({ FrictionAnalytics: { stepCompleted: jest.fn(), flowError: jest.fn() } }));
 jest.mock('@/services/PerformanceMonitoring', () => ({ PerformanceMonitoring: { startTrace: () => ({ putAttribute: jest.fn(), stop: jest.fn() }) } }));
@@ -11,7 +17,7 @@ jest.mock('@/utils/developerMasterAccount', () => ({ DEVELOPER_MASTER_ACCOUNT_ID
 
 describe('Anchor comparison request', () => {
   const originalFetch = global.fetch;
-  beforeEach(() => { useDevImageModelStore.setState({ anchor: null, vision: null }); });
+  beforeEach(() => { mockFlushDraft.mockReset().mockResolvedValue(undefined); useDevImageModelStore.setState({ anchor: null, vision: null }); });
   afterEach(() => { global.fetch = originalFetch; useDevImageModelStore.setState({ anchor: null, vision: null }); });
 
   it.each(['Network unavailable', 'Selected model unavailable'])('reports %s instead of showing developer fixtures for a pinned model', async message => {
@@ -36,5 +42,13 @@ describe('Anchor comparison request', () => {
     useDevImageModelStore.getState().select('anchor', null);
     await AnchorGenerationService.generate(input);
     expect(JSON.parse(fetchMock.mock.calls[1][1].body)).not.toHaveProperty('devImageModel');
+  });
+  it('does not call generation when the request key cannot be durably written', async () => {
+    mockFlushDraft.mockRejectedValueOnce(new Error('Private storage write failed'));
+    global.fetch = jest.fn();
+    await expect(AnchorGenerationService.generate({
+      sigilSvg: '<svg/>', styleChoice: 'cosmic', intentionText: 'I focus', category: 'career', generationAttempt: 1,
+    })).rejects.toThrow('Private storage write failed');
+    expect(global.fetch).not.toHaveBeenCalled();
   });
 });

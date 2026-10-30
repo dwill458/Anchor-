@@ -23,17 +23,28 @@ jest.mock('@react-navigation/native', () => ({
 }));
 jest.mock('@/hooks/useReduceMotionEnabled', () => ({ useReduceMotionEnabled: () => true }));
 jest.mock('@/hooks/useTrialStatus', () => ({ useTrialStatus: () => ({ hasActiveEntitlement: true, entitlementReady: true }) }));
-jest.mock('@/stores/authStore', () => ({
-  useAuthStore: (selector: (state: unknown) => unknown) => selector({
+jest.mock('@/stores/authStore', () => {
+  const getState = () => ({
     user: { id: 'user-1' },
     isAuthenticated: true,
     anchorCount: 1,
-  }),
-}));
+  });
+  return { useAuthStore: Object.assign((selector: (state: unknown) => unknown) => selector(getState()), { getState }) };
+});
 jest.mock('@/stores/firstAnchorFlowStore', () => ({
-  useFirstAnchorFlowStore: { getState: () => ({ updateDraft: mockUpdateDraft }) },
+  flushFirstAnchorFlowDraft: async () => {},
+  useFirstAnchorFlowStore: { getState: () => ({ draft: { generationRequestKey: 'persisted-legacy-request' }, updateDraft: mockUpdateDraft }) },
 }));
-jest.mock('@/services/AuthService', () => ({ AuthService: { getIdToken: jest.fn(() => Promise.resolve('token')) } }));
+jest.mock('@/services/AuthService', () => ({ AuthService: { ensureGuestSession: async () => ({ user: { id: 'user-1' }, token: 'token', isAnonymous: false }) } }));
+jest.mock('@/services/ApiClient', () => ({ apiClient: {
+  post: async (url: string, body: unknown, config: { anchorAuthToken: string }) => {
+    if (url.endsWith('creation-sessions')) return { data: { creationSessionId: 'legacy-server-session' } };
+    const response = await mockFetch(`https://fixture.test${url}`, { method: 'POST',
+      headers: { Authorization: `Bearer ${config.anchorAuthToken}` }, body: JSON.stringify(body) });
+    return { data: await response.json() };
+  },
+  get: async () => ({ data: { variations: [] } }),
+} }));
 jest.mock('@/services/PerformanceMonitoring', () => ({
   PerformanceMonitoring: { startTrace: jest.fn(() => ({ putAttribute: jest.fn(), stop: jest.fn() })) },
 }));
@@ -79,7 +90,7 @@ describe('AIGeneratingScreen', () => {
 
     const [, request] = mockFetch.mock.calls[0];
     expect(request.headers).toEqual(expect.objectContaining({ Authorization: 'Bearer token' }));
-    expect(JSON.parse(request.body)).toEqual(expect.objectContaining({ sigilSvg: routeParams.reinforcedSigilSvg }));
+    expect(JSON.parse(request.body)).toEqual(expect.objectContaining({ sigilSvg: routeParams.reinforcedSigilSvg, creationSessionId: 'legacy-server-session' }));
 
     expect(mockUpdateDraft).toHaveBeenCalledWith({ generationStatus: 'complete' });
   });

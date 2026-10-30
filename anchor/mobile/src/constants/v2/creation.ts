@@ -39,6 +39,8 @@ export type AnchorExpression = (typeof ANCHOR_EXPRESSIONS)[number];
 
 /** A finished AI interpretation kept beside the canonical structure. */
 export type GeneratedAnchorCandidate = {
+  optionId?: string;
+  creationSessionId?: string;
   imageUrl: string;
   variationId?: string;
   structureMatchScore?: number;

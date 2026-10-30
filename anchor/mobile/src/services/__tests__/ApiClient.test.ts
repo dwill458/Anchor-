@@ -118,6 +118,17 @@ describe('ApiClient', () => {
   });
 
   describe('Response Interceptor - Error Handling', () => {
+    it.each([200, 401, 404])('discards an obsolete account response (%s) before consuming data or recovering authentication', async (status) => {
+      let current = true;
+      mock.onPost('/account-bound').reply(() => {
+        current = false;
+        return [status, status === 200 ? { success: true, data: { privateText: 'account-A-only' } } : { error: { code: 'USER_NOT_FOUND', message: 'Old account unavailable' } }];
+      });
+      const config: AccountBoundRequestConfig = { anchorAuthToken: 'account-A', anchorAuthGuard: () => current };
+      await expect(apiClient.post('/account-bound', {}, config)).rejects.toThrow('Authentication context changed');
+      expect(AuthService.syncCurrentUser).not.toHaveBeenCalled();
+      expect(mock.history.post).toHaveLength(1);
+    });
     it('records slow successful requests without creating a Sentry issue', async () => {
       const addBreadcrumbSpy = jest.spyOn(ErrorTrackingService, 'addBreadcrumb');
       const captureMessageSpy = jest.spyOn(ErrorTrackingService, 'captureMessage');

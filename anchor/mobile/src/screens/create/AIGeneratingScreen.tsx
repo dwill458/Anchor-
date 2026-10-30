@@ -17,15 +17,15 @@ import { type StackNavigationProp } from '@react-navigation/stack';
 import { Clock3 } from 'lucide-react-native';
 
 import { SigilSvg } from '@/components/common/SigilSvg';
-import { API_URL } from '@/config';
 import { useReduceMotionEnabled } from '@/hooks/useReduceMotionEnabled';
 import { useTrialStatus } from '@/hooks/useTrialStatus';
 import { ErrorTrackingService } from '@/services/ErrorTrackingService';
 import { PerformanceMonitoring } from '@/services/PerformanceMonitoring';
-import { AuthService } from '@/services/AuthService';
+import { generateAuthorizedAnchor } from '@/services/AnchorCreationSession';
 import { FrictionAnalytics } from '@/services/FrictionAnalytics';
 import { useAuthStore } from '@/stores/authStore';
-import { useFirstAnchorFlowStore } from '@/stores/firstAnchorFlowStore';
+import { useFirstAnchorFlowStore, flushFirstAnchorFlowDraft } from '@/stores/firstAnchorFlowStore';
+import { captureCreationAuthContext } from '@/services/CreationAuthContext';
 import { colors, typography } from '@/theme';
 import type { RootStackParamList } from '@/types';
 import { isCompactPhoneViewport } from '@/utils/layout';
@@ -202,30 +202,21 @@ export default function AIGeneratingScreen() {
     }, 800);
 
     try {
-      const token = await AuthService.getIdToken();
-      const response = await fetch(`${API_URL}/api/ai/enhance`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          ...(token ? { Authorization: `Bearer ${token}` } : {}),
-        },
-        body: JSON.stringify({
+      const context = captureCreationAuthContext();
+      let requestKey = useFirstAnchorFlowStore.getState().draft?.generationRequestKey;
+      if (!requestKey) {
+        requestKey = `generation-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+        useFirstAnchorFlowStore.getState().updateDraft({ generationRequestKey: requestKey });
+      }
+      await flushFirstAnchorFlowDraft();
+      context.assertCurrent();
+      if (useFirstAnchorFlowStore.getState().draft?.generationRequestKey !== requestKey) throw new Error('Creation draft changed. Retry your current draft.');
+      const result = await generateAuthorizedAnchor({
           sigilSvg: actualStructure,
           styleChoice,
           intentionText,
-          anchorId: `temp-${Date.now()}`,
-          provider: 'gemini',
-          tier: 'premium',
           generationAttempt: generationAttemptRef.current,
-        }),
-        signal: controller.signal,
-      });
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.message || errorData.error || 'AI enhancement failed');
-      }
-
-      const result = await response.json();
+        }, requestKey, controller.signal);
       trace.putAttribute('variation_count', Array.isArray(result.variations) ? result.variations.length : 0);
       trace.stop({ success: true });
       FrictionAnalytics.stepCompleted('anchor_creation', 'ai_generating', {
@@ -254,7 +245,7 @@ export default function AIGeneratingScreen() {
           reinforcedSigilSvg,
           structureVariant,
           styleChoice,
-          variations: result.variations,
+          variations: result.variations ?? [],
           reinforcementMetadata,
           prompt: result.prompt || '',
           negativePrompt: result.negativePrompt || '',

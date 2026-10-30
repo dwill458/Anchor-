@@ -13,7 +13,7 @@ import { useSettingsStore } from '@/stores/settingsStore';
 import { useSessionStore } from '@/stores/sessionStore';
 import { apiClient } from '@/services/ApiClient';
 import { ErrorTrackingService } from '@/services/ErrorTrackingService';
-import { createMockAnchor } from '@/__tests__/utils/testUtils';
+import { createMockAnchor, createMockUser } from '@/__tests__/utils/testUtils';
 import { usePostPrimeTraceStore } from '@/stores/postPrimeTraceStore';
 
 const TEST_ACTIVATION_DURATION_SECONDS = 2;
@@ -111,6 +111,10 @@ jest.mock('@/stores/anchorStore');
 jest.mock('@/stores/settingsStore');
 jest.mock('@/stores/sessionStore');
 jest.mock('@/services/ApiClient');
+// Canonical event persistence has its own service coverage; this screen suite
+// verifies the seal interaction and its legacy activation HTTP request.
+jest.mock('@/services/PracticeCompletionService', () => ({ PracticeCompletionService: { queueLegacyCompletion: async () => {} } }));
+jest.mock('@/services/AuthService', () => ({ AuthService: { ensureGuestSession: async () => ({ user: { id: 'test-user-123' }, token: 'verified-test-token', isAnonymous: false }) } }));
 jest.mock('@/services/ErrorTrackingService');
 jest.mock('@/utils/scheduleAfterInteractions', () => ({
   scheduleAfterInteractions: (callback: () => void) => {
@@ -246,7 +250,7 @@ describe('ActivationScreen', () => {
     mockGuidance120ClosingPlayer.play.mockReset();
     mockGuidance120ClosingPlayer.setVolume.mockReset();
     mockGuidance120ClosingPlayer.stop.mockReset();
-    useAuthStore.setState({ pendingFirstAnchorDraft: null });
+    useAuthStore.setState({ pendingFirstAnchorDraft: null, user: createMockUser({ id: 'test-user-123' }), token: 'test-token', isAuthenticated: true });
 
     mockGoBack = jest.fn();
     mockPopToTop = jest.fn();
@@ -1222,7 +1226,8 @@ describe('ActivationScreen', () => {
         expect.objectContaining({
           intentionText: localTempAnchor.intentionText,
           baseSigilSvg: localTempAnchor.baseSigilSvg,
-        })
+        }),
+        expect.objectContaining({ anchorAuthToken: 'verified-test-token', anchorAuthGuard: expect.any(Function) })
       );
       expect(apiClient.post).toHaveBeenNthCalledWith(
         2,

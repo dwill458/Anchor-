@@ -344,6 +344,10 @@ function buildAnchorCreatePayload(anchor: Anchor) {
     reinforcementMetadata: anchor.reinforcementMetadata,
     enhancedImageUrl: anchor.enhancedImageUrl,
     enhancementMetadata: anchor.enhancementMetadata,
+    ...(anchor.enhancementMetadata?.creationSessionId && (!anchor.enhancedImageUrl || anchor.enhancementMetadata.selectedOptionId) ? {
+      creationSessionId: anchor.enhancementMetadata.creationSessionId,
+      ...(!anchor.enhancedImageUrl ? { keepOriginal: true } : { selectedOptionId: anchor.enhancementMetadata.selectedOptionId }),
+    } : {}),
     mantraText: anchor.mantraText,
     mantraPronunciation: anchor.mantraPronunciation,
     mantraAudioUrl: anchor.mantraAudioUrl,
@@ -793,7 +797,7 @@ export const useAuthStore = create<AuthState>()(
           try {
             AnalyticsService.markFirstAnchorAlreadyCreated?.();
             const anchorStore = useAnchorStore.getState();
-            const localAnchor =
+            let localAnchor =
               anchorStore.getAnchorById(pendingFirstAnchorDraft.tempAnchorId) ??
               (pendingFirstAnchorDraft.backendAnchorId
                 ? anchorStore.getAnchorById(pendingFirstAnchorDraft.backendAnchorId)
@@ -802,9 +806,22 @@ export const useAuthStore = create<AuthState>()(
               (mutation) => mutation.tempAnchorId === pendingFirstAnchorDraft.tempAnchorId
             );
 
-            if (!localAnchor) {
-              throw new Error('Your first anchor draft could not be found.');
+            if ((!localAnchor || localAnchor.userId !== initiatingUserId) && pendingFirstAnchorDraft.backendAnchorId) {
+              const token = initiatingToken ?? await AuthService.getIdToken();
+              if (!isCurrentOperation()) return false;
+              if (!token) throw new Error('Sign in again to restore your first Anchor.');
+              const ownershipConfig: AccountBoundRequestConfig = { ...requestConfig, anchorAuthToken: token };
+              const confirmed = await apiClient.get<ApiResponse<Anchor>>(
+                `/api/anchors/${encodeURIComponent(pendingFirstAnchorDraft.backendAnchorId)}`,
+                ownershipConfig
+              );
+              if (!isCurrentOperation()) return false;
+              const canonical = confirmed.data?.data;
+              if (confirmed.data?.success && canonical?.id === pendingFirstAnchorDraft.backendAnchorId && canonical.userId === initiatingUserId) {
+                localAnchor = localAnchor ? mergeServerAnchor(localAnchor, canonical) : normalizeAnchor({ ...canonical, localId: pendingFirstAnchorDraft.tempAnchorId });
+              }
             }
+            if (!localAnchor) throw new Error('Your first anchor draft could not be found.');
             if (localAnchor.userId !== initiatingUserId &&
                 !['guest', 'guest-user', 'user-local', 'local-user'].includes(localAnchor.userId)) {
               throw new Error('Your first anchor draft belongs to another account.');
@@ -882,6 +899,8 @@ export const useAuthStore = create<AuthState>()(
             };
 
             let backendAnchorId = pendingFirstAnchorDraft.backendAnchorId;
+            const createdInThisFinalization = !backendAnchorId;
+            let serverAnchorCount: number | undefined;
             let nextPendingMutationIndex = pendingFirstAnchorDraft.nextPendingMutationIndex ?? 0;
             let finalizedAnchor = normalizeAnchor(
               backendAnchorId
@@ -997,6 +1016,18 @@ export const useAuthStore = create<AuthState>()(
 
             if (!isCurrentOperation()) return false;
 
+            try {
+              const profile = await apiClient.get<ApiResponse<User>>('/api/auth/me', requestConfig);
+              if (!isCurrentOperation()) return false;
+              const confirmed = profile.data?.data;
+              if (profile.data?.success && confirmed?.id === initiatingUserId && Number.isInteger(confirmed.totalAnchorsCreated)) {
+                serverAnchorCount = confirmed.totalAnchorsCreated;
+              }
+            } catch (error) {
+              if (!isCurrentOperation()) return false;
+              logger.warn('Could not refresh the confirmed Anchor count after saving.', error);
+            }
+
             const latestAnchorStore = useAnchorStore.getState();
             const existingMatch = latestAnchorStore.anchors.some((anchor) =>
               matchesPendingDraftAnchor(anchor, pendingFirstAnchorDraft.tempAnchorId, finalizedAnchor.id)
@@ -1033,7 +1064,7 @@ export const useAuthStore = create<AuthState>()(
               user: state.user
                 ? {
                   ...state.user,
-                  totalAnchorsCreated: state.user.totalAnchorsCreated + 1,
+                  totalAnchorsCreated: serverAnchorCount ?? (state.user.totalAnchorsCreated + (createdInThisFinalization ? 1 : 0)),
                 }
                 : state.user,
               profileData: state.profileData
@@ -1041,7 +1072,7 @@ export const useAuthStore = create<AuthState>()(
                   ...state.profileData,
                   user: {
                     ...state.profileData.user,
-                    totalAnchorsCreated: state.profileData.user.totalAnchorsCreated + 1,
+                    totalAnchorsCreated: serverAnchorCount ?? (state.profileData.user.totalAnchorsCreated + (createdInThisFinalization ? 1 : 0)),
                   },
                 }
                 : state.profileData,

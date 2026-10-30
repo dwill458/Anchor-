@@ -77,7 +77,8 @@ describe('VisionAddSceneSheet', () => {
     const input = view.getByTestId('vision-scene-input');
     const gallery = view.getByTestId('vision-add-scene-reference');
     const body = gallery.parent;
-    expect(body?.children.indexOf(input.parent)).toBeLessThan(body?.children.indexOf(gallery) ?? -1);
+    expect(input.parent).not.toBeNull();
+    expect(body?.children.indexOf(input.parent!)).toBeLessThan(body?.children.indexOf(gallery) ?? -1);
     for (const id of ['vision-add-own-photo', 'vision-add-own-camera', 'vision-add-note']) {
       const style = StyleSheet.flatten(view.getByTestId(id).props.style);
       expect(style.minHeight).toBe(44);

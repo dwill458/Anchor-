@@ -22,7 +22,6 @@ import Animated, {
   FadeInDown,
   FadeOut,
   interpolate,
-  useAnimatedKeyboard,
   useAnimatedStyle,
   useSharedValue,
   withDelay,
@@ -140,11 +139,17 @@ export function V2SealedSaveScreen({ onAccountReady, onContinueWithout, onContin
   const [showPaywall, setShowPaywall] = useState(false);
   const passwordRef = useRef<TextInputInstance>(null);
   const scrollViewRef = useRef<ScrollViewInstance>(null);
-  const keyboard = useAnimatedKeyboard();
-  const fallbackHeight = useSharedValue(0);
+  const [keyboardHeight, setKeyboardHeight] = useState(0);
   const retryAttemptRef = useRef(0);
   const sealedSoundPlayedRef = useRef(false);
 
+  useEffect(() => {
+    if (initialSaved) {
+      setSaved(initialSaved);
+    }
+  }, [initialSaved]);
+
+  const isInitialSignedInUser = useRef(Boolean(signedInUser)).current;
   const activeUser = signedInUser ?? authedUser;
   const hasUserEntitlement = Boolean(
     hasActiveEntitlement ||
@@ -157,7 +162,7 @@ export function V2SealedSaveScreen({ onAccountReady, onContinueWithout, onContin
     !hasUserEntitlement &&
     (activeUser.freeAnchorConsumed || (activeUser.totalAnchorsCreated ?? 0) >= 1)
   );
-  const isSubscriptionRequired = requiresSubscription || (isLockedFreeUser && !canRetryPendingSave);
+  const isSubscriptionRequired = requiresSubscription || (isInitialSignedInUser && isLockedFreeUser && !canRetryPendingSave);
 
   useEffect(() => {
     if (!anchor || sealedSoundPlayedRef.current) return;
@@ -365,11 +370,11 @@ export function V2SealedSaveScreen({ onAccountReady, onContinueWithout, onContin
   useEffect(() => {
     const handleShow = (event?: { endCoordinates?: { height?: number } }) => {
       const h = event?.endCoordinates?.height ?? 0;
-      fallbackHeight.value = keyboard.height.value === 0 ? h : 0;
+      setKeyboardHeight(h);
       scrollToEmailPanel();
     };
     const handleHide = () => {
-      fallbackHeight.value = 0;
+      setKeyboardHeight(0);
     };
 
     const showSub = Keyboard.addListener('keyboardDidShow', handleShow);
@@ -383,11 +388,16 @@ export function V2SealedSaveScreen({ onAccountReady, onContinueWithout, onContin
       hideSub.remove();
       willHideSub?.remove();
     };
-  }, [keyboard.height, fallbackHeight, scrollToEmailPanel]);
+  }, [scrollToEmailPanel]);
 
-  const keyboardSpacerStyle = useAnimatedStyle(() => ({
-    height: Math.max(keyboard.height.value || fallbackHeight.value, 0),
-  }));
+  useEffect(() => {
+    if (keyboardHeight > 0 && emailOpen) {
+      const timer = setTimeout(() => {
+        scrollViewRef.current?.scrollToEnd({ animated: !reduceMotion });
+      }, 50);
+      return () => clearTimeout(timer);
+    }
+  }, [keyboardHeight, emailOpen, reduceMotion]);
 
   const toggleEmail = (open: boolean, nextMode?: Mode) => {
     setError(null);
@@ -422,7 +432,7 @@ export function V2SealedSaveScreen({ onAccountReady, onContinueWithout, onContin
       <ScrollView
         ref={scrollViewRef}
         style={styles.flex}
-        contentContainerStyle={[styles.content, { paddingTop: coinTop, paddingBottom: Math.max(insets.bottom, 16) + 24 }]}
+        contentContainerStyle={[styles.content, { paddingTop: coinTop, paddingBottom: Math.max(insets.bottom, 16) + 24 + keyboardHeight }]}
         keyboardShouldPersistTaps="handled"
         keyboardDismissMode={Platform.OS === 'ios' ? 'interactive' : 'on-drag'}
         showsVerticalScrollIndicator={false}
@@ -595,7 +605,10 @@ export function V2SealedSaveScreen({ onAccountReady, onContinueWithout, onContin
                       accessibilityLabel="Email"
                       value={email}
                       onChangeText={(value) => { setEmail(value); setError(null); }}
-                      onFocus={scrollToEmailPanel}
+                      onFocus={() => {
+                        scrollToEmailPanel();
+                        setTimeout(scrollToEmailPanel, 100);
+                      }}
                       placeholder="you@example.com"
                       placeholderTextColor="#9A958C"
                       keyboardType="email-address"
@@ -614,7 +627,10 @@ export function V2SealedSaveScreen({ onAccountReady, onContinueWithout, onContin
                         accessibilityLabel="Password"
                         value={password}
                         onChangeText={(value) => { setPassword(value); setError(null); }}
-                        onFocus={scrollToEmailPanel}
+                        onFocus={() => {
+                          scrollToEmailPanel();
+                          setTimeout(scrollToEmailPanel, 100);
+                        }}
                         placeholder={mode === 'create' ? 'Create a password' : 'Your password'}
                         placeholderTextColor="#9A958C"
                         secureTextEntry={!passwordVisible}
@@ -700,8 +716,6 @@ export function V2SealedSaveScreen({ onAccountReady, onContinueWithout, onContin
           </Animated.View>
         )}
       </ScrollView>
-
-      <Animated.View style={keyboardSpacerStyle} />
 
       {!confirmed ? (
         <Pressable

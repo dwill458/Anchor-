@@ -58,9 +58,8 @@ jest.mock('@/stores/anchorStore', () => ({
         selector({ tempEnhancedImage: null, setTempEnhancedImage: jest.fn() }),
 }));
 
-jest.mock('@/stores/authStore', () => ({
-    useAuthStore: (selector: any) =>
-        selector({
+jest.mock('@/stores/authStore', () => {
+    const getState = () => ({
             incrementAnchorCount: mockIncrementAnchorCount,
             wallpaperPromptSeen: true,
             user: { id: 'user-1' },
@@ -69,8 +68,12 @@ jest.mock('@/stores/authStore', () => ({
             setPendingFirstAnchorDraft: jest.fn(),
             enqueuePendingFirstAnchorMutation: jest.fn(),
             clearPendingFirstAnchorState: jest.fn(),
-        }),
-}));
+        });
+    return { useAuthStore: Object.assign((selector: any) => selector(getState()), { getState }) };
+});
+jest.mock('@/services/AuthService', () => ({ AuthService: { ensureGuestSession: async () => ({ user: { id: 'user-1' }, token: 'verified-token', isAnonymous: false }) } }));
+jest.mock('@/stores/firstAnchorFlowStore', () => ({ flushFirstAnchorFlowDraft: async () => {},
+    useFirstAnchorFlowStore: { getState: () => ({ updateDraft: jest.fn(), clearDraft: jest.fn() }) } }));
 
 jest.mock('@/stores/settingsStore', () => ({
     useSettingsStore: (selector: any) => selector({ guideMode: false }),

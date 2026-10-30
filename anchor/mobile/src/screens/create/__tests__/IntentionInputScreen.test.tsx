@@ -74,6 +74,14 @@ describe('IntentionInputScreen', () => {
         expect(screen.getByText('Or draw it yourself')).toBeTruthy();
     });
 
+    it('keeps the interrupted server creation key and intention on a cold return', () => {
+        useFirstAnchorFlowStore.getState().updateDraft({ originalIntention: 'I stay focused',
+            selectedStyleId: 'alloy', generationRequestKey: 'recoverable-session-key', generationStatus: 'generating' });
+        render(<IntentionInputScreen fromOnboarding />);
+        expect(screen.getByLabelText('Your intention').props.value).toBe('I stay focused');
+        expect(useFirstAnchorFlowStore.getState().draft?.generationRequestKey).toBe('recoverable-session-key');
+    });
+
     it('shows the static hint pair before anything is typed', () => {
         render(<IntentionInputScreen />);
         expect(screen.getByText('“I want to stop getting distracted.”')).toBeTruthy();

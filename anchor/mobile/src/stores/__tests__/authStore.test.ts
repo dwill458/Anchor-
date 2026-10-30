@@ -788,6 +788,33 @@ describe('authStore', () => {
       return anchor;
     };
 
+    it('adopts a merged guest Anchor only after the server confirms ownership with the registered token', async () => {
+      const local = prepareTransfer('guest-local');
+      useAnchorStore.setState({ anchors: [] });
+      useAuthStore.setState({ pendingFirstAnchorDraft: { ...useAuthStore.getState().pendingFirstAnchorDraft!, backendAnchorId: 'merged-backend' }, pendingFirstAnchorMutations: [] });
+      const canonical = { ...local, id: 'merged-backend', userId: 'user-123' };
+      expect(useAuthStore.getState().pendingFirstAnchorDraft?.tempAnchorId).toBe('guest-local');
+      const get = jest.spyOn(apiClient, 'get').mockImplementation(async (url) => ({ data: { success: true, data: url === '/api/auth/me' ? createMockUser({ totalAnchorsCreated: 1 }) : canonical } }) as any);
+      expect(await useAuthStore.getState().finalizePendingFirstAnchorDraft()).toBe(true);
+      expect(get).toHaveBeenCalledWith('/api/anchors/merged-backend', expect.objectContaining({ anchorAuthToken: 'firebase-id-token', anchorAuthGuard: expect.any(Function) }));
+      expect(useAnchorStore.getState().getAnchorById('merged-backend')?.userId).toBe('user-123');
+      expect(useAuthStore.getState().user?.totalAnchorsCreated).toBe(1);
+      get.mockRestore();
+    });
+
+    it('retains the cross-account guard if the server does not confirm ownership after linking', async () => {
+      const local = prepareTransfer('guest-local');
+      useAuthStore.setState({ user: null });
+      useAnchorStore.setState({ anchors: [{ ...local, userId: 'other-account' }] });
+      useAuthStore.setState({ user: createMockUser() });
+      useAuthStore.setState({ pendingFirstAnchorDraft: { ...useAuthStore.getState().pendingFirstAnchorDraft!, backendAnchorId: 'other-backend' }, pendingFirstAnchorMutations: [] });
+      const get = jest.spyOn(apiClient, 'get').mockResolvedValue({ data: { success: true, data: { ...local, id: 'other-backend', userId: 'other-account' } } } as any);
+      expect(await useAuthStore.getState().finalizePendingFirstAnchorDraft()).toBe(false);
+      expect(useAnchorStore.getState().getAnchorById('guest-local')?.userId).toBe('other-account');
+      expect(useAuthStore.getState().pendingFirstAnchorDraft).not.toBeNull();
+      get.mockRestore();
+    });
+
     it('uses stable account-scoped keys after a server commit whose response was lost', async () => {
       const anchor = prepareTransfer();
       const post = jest.spyOn(apiClient, 'post');

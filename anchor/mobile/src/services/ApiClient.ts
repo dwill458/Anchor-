@@ -122,6 +122,10 @@ apiClient.interceptors.request.use(
 apiClient.interceptors.response.use(
   (response) => {
     const requestConfig = response.config as AnchorRequestConfig;
+    if (requestConfig.anchorAuthGuard && !requestConfig.anchorAuthGuard()) {
+      requestConfig.metadata?.trace.stop({ success: false, stage: 'account_changed' });
+      throw new axios.CanceledError('Authentication context changed.');
+    }
     const metadata = requestConfig.metadata;
     const duration = metadata ? Date.now() - metadata.startTime : 0;
 
@@ -158,7 +162,12 @@ apiClient.interceptors.response.use(
     return response;
   },
   async (error: AxiosError<ApiResponse>) => {
+    if (axios.isCancel(error)) throw error;
     const requestConfig = error.config as AnchorRequestConfig | undefined;
+    if (requestConfig?.anchorAuthGuard && !requestConfig.anchorAuthGuard()) {
+      requestConfig.metadata?.trace.stop({ success: false, stage: 'account_changed' });
+      throw new axios.CanceledError('Authentication context changed.');
+    }
     const metadata = requestConfig?.metadata;
     const duration = metadata ? Date.now() - metadata.startTime : 0;
 
@@ -287,8 +296,8 @@ export async function get<T = unknown>(url: string): Promise<T> {
 /**
  * Type-safe POST request
  */
-export async function post<T = unknown>(url: string, data?: unknown): Promise<T> {
-  const response = await apiClient.post<T>(url, data);
+export async function post<T = unknown>(url: string, data?: unknown, config?: AccountBoundRequestConfig): Promise<T> {
+  const response = await apiClient.post<T>(url, data, config);
   return response.data;
 }
 
