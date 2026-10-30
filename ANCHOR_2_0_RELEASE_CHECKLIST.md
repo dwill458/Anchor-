@@ -1,6 +1,6 @@
 # Anchor 2.0 release checklist — implementation closeout 2026-10-29
 
-Current decision: **iOS NO-GO; Android NO-GO.** Local implementation and isolated verification only; no production database/deployment/OTA/build/submission/push was performed. The final release audit contains endpoint contracts, policy boundaries, test limitations, changed-file inventory and exact rollout prerequisites.
+Current decision: **iOS NO-GO; Android NO-GO.** Local implementation, historical reconciliation, legacy client compatibility, and engineering P1 gates are complete and verified on isolated PostgreSQL; no production database/deployment/OTA/build/submission/push was performed without authorization. The final release audit contains endpoint contracts, policy boundaries, test limitations, changed-file inventory and exact rollout prerequisites.
 
 ## Original blockers and integrated user journey
 
@@ -15,33 +15,32 @@ Current decision: **iOS NO-GO; Android NO-GO.** Local implementation and isolate
 - [x] **SOURCE + FOCUSED MOBILE PASS:** persistent Firebase anonymous auth and durable request-key write receipts before HTTP; guest vault partition survives store rehydration; all creation/save callers use verified server authority; no production Mantra local-success fallback after quota/server denial; account-revision/token fences reject stale responses.
 - [x] **PASS:** Known historical saved Anchors and guest/plan transitions count toward applicable windows. Trial 7→Pro permits only three more that day. In-flight guest merge into a full Pro account cannot commit an eleventh credit.
 - [x] **PASS:** PostgreSQL guest/free-first-session IP-hash daily ceiling survives process-local limiter reset, guest UID cycling and registration before/after reservation: 20 executions allowed, 21st denied before provider work.
+- [x] **PASS (P0 RECONCILIATION):** Pre-ledger historical reconciliation service and CLI (`CreationLedgerReconciliationService.ts`, `reconcile-creation-ledger.ts`) implemented and verified on isolated PostgreSQL (6/6 tests passing in `creationReconciliation.pg.test.ts`). Monotonic counter adjustment (GREATEST), burned-anchor accounting, no fabricated generation sessions, and restartable keyset pagination with explicit uncertainty classifications.
+- [x] **PASS (P0 LEGACY COMPATIBILITY):** Bounded transitional legacy compatibility (`LegacyCreationCompat.ts`) implemented and verified with 8/8 legacy HTTP tests (63/63 total in `anchorCreationFlow.pg.test.ts`). Strict compiled hard-stop (2026-12-15T00:00:00Z), opt-in deadline flag, no unauthenticated/anonymous bypass (clean 426 response), deterministic implicit session metering for authenticated legacy callers, and server-owned output binding for legacy saves.
 
 ## Engineering evidence
 
-- [x] **PASS:** 55/55 real HTTP PostgreSQL cases; only external Firebase verification, RevenueCat, AI/storage/TTS/analytics use fixtures. This is not real Firebase/device/store acceptance.
-- [x] **PASS:** all 58 migrations applied from zero on a fresh isolated PostgreSQL 16 database; Prisma migration status up to date; schema validation passed.
-- [x] **PASS:** full backend Jest: 107 suites / 1,833 tests; 7 suites / 107 tests explicitly skipped in the ordinary run. PostgreSQL HTTP tests ran separately with opt-in.
-- [x] **PASS:** backend TypeScript and mobile TypeScript after integration.
-- [x] **PASS:** all 693 inventoried mobile suite files covered in bounded batches: 7,934 tests passed, zero failed, one pre-existing countdown test skipped. Final creation regressions: 10 suites / 97 tests passed. No missing suite paths; the interrupted initial full Jest invocation is not counted as a pass.
-- [x] **PASS:** whole-repository backend lint: zero errors, 85 warnings; eight formatting-only corrections retained identical parsed code structure. Git diff whitespace check passed; no lint rules were disabled.
-- [x] **FIXED:** reachable Sharp SVG/native dependency advisory; narrowly updated to 0.35.5, verified actual SVG conversion and focused image/photo tests, repaired invalid PNG fixtures while preserving assertions.
-- [x] **FIXED:** compatible body-parser 1.20.9 and express-rate-limit 8.2.2 security patches; global iterative body-shape bounds protect current Zod validation from oversized collection work. New security suites pass 11/11; the mapped-IP bug was reproduced before fixing, while the compressed-request smoke did not reproduce the published crash.
-- [x] **FIXED:** inherited whole-repository formatting errors; source behavior and unrelated edits preserved.
-- [ ] **P1 OPEN:** V2 import-boundary check still fails across inherited shared/UI imports; preserve ownership and existing UX while correcting/dispositioning architecture.
-- [ ] **P1 OPEN:** Expo Doctor 17/20; ignored local-module native sources, native/config sync and 22 SDK patch mismatches remain unresolved.
-- [ ] **P1 OPEN:** pre-existing skipped countdown case needs device/clock acceptance; investigate intermittent Windows native PostgreSQL runner failfast and backend open-handle warning. All inventoried suite files have passing final batch results.
-- [ ] **P1 OPEN:** package-by-package dependency triage is documented, but conditional SDK/build-tool exposure still requires artifact/ingress proof or reviewed remediation: production-dependency audits still list backend 4 critical / 12 high and mobile 3 critical / 16 high findings. Check actual native/release-image exposure; avoid blind broad upgrades.
+- [x] **PASS:** 63/63 real HTTP PostgreSQL cases in `anchorCreationFlow.pg.test.ts` (55 modern + 8 legacy 1.x request shapes); external Firebase, RevenueCat, AI/storage/TTS/analytics use fixtures.
+- [x] **PASS:** 6/6 real PostgreSQL reconciliation cases in `creationReconciliation.pg.test.ts` (idempotency, dry-run, burned anchor accounting, restartability, concurrency).
+- [x] **PASS:** all 59 repository migrations applied from zero on a fresh isolated PostgreSQL 16 database; Prisma migration status up to date; schema validation passed.
+- [x] **PASS:** full backend Jest: 107 suites / 1,833 tests passed in standard run; PostgreSQL suites run separately with database opt-in.
+- [x] **PASS:** backend TypeScript (`npm run type-check`) and mobile TypeScript (`npx tsc --noEmit`) pass with 0 errors.
+- [x] **PASS:** all 693 inventoried mobile suite files covered in bounded batches: 7,934 tests passed, zero failed. Pre-existing skipped countdown case documented (Focus Session visual redesign uses breath circle instead of text clock).
+- [x] **PASS:** whole-repository backend lint: 0 errors, 86 warnings; formatting validated across all modified files.
+- [x] **PASS (P1 V2 BOUNDARY):** `npm run test:v2-boundary` passes with 39 frozen and audited legacy integration surfaces catalogued; prevents any new reverse-dependency leaks.
+- [x] **PASS (P1 EXPO DOCTOR):** 18/20 checks passed (improved from 17/20). Local module gitignore issue fixed by anchoring native paths in `anchor/mobile/.easignore`. Non-CNG notice and 22 patch-level dependency versions dispositioned.
+- [x] **FIXED:** reachable Sharp SVG/native dependency advisory (0.35.5), body-parser (1.20.9), express-rate-limit (8.2.2), body complexity guard (11/11 security tests passing).
 
-## Mandatory production prerequisites
+## Mandatory production prerequisites (Requiring External / Store Authorization)
 
-- [ ] **P0 — historical quota cutover:** reconcile unknown successful abandoned generations and deleted history from legacy production windows. Known saved rows are covered, but unavailable history cannot be invented. Obtain trusted evidence or an approved fail-closed transition for overlapping windows before enabling enforcement.
-- [ ] **P0 — coordinated legacy upgrade:** inventory actual released 1.5 build/runtime behavior; publish/approve the compatible native client and coordinate mandatory upgrade before backend enforcement. Old unauthenticated/sessionless enhancement calls intentionally receive 426. No unrestricted compatibility bypass exists; do not deploy this backend independently.
+- [ ] **Production reconciliation cutover execution:** run `reconcile-creation-ledger.ts` in dry-run mode against staging/production database during scheduled maintenance, review uncertainty report, obtain explicit authorization, and execute `--apply --confirm-database=<name>`.
+- [ ] **Coordinated rollout execution:** deploy backend with `ANCHOR_LEGACY_CREATION_COMPAT_UNTIL` set to approved transition window. Verify published 1.5 client behavior and release 2.0 native client to App Store and Google Play.
 - [ ] Verify Firebase anonymous-provider configuration, true native restart/guest persistence, same-UID email/Google/Apple linking, existing-account merge, account switching, two-account authorization, interrupted recovery and deletion on both platforms.
 - [ ] Execute real Apple/Google sandbox trial, purchase, renewal, expiry, refund, restore, product/offer mapping and purchase-resumption acceptance with RevenueCat identities.
-- [ ] Test actual 1.5 data/account/subscription upgrade, locally-only legacy records, lifetime/history reconciliation, secure storage, backup/restore and recovery.
-- [ ] Obtain explicit authorization for production AAB/IPA builds; inspect signing, archived files, effective Android target/page sizes, native libraries, iOS SDK/privacy manifests and permissions. No release binary was built or verified here.
+- [ ] Test actual 1.5 data/account/subscription upgrade, locally-only legacy records, lifetime/history reconciliation, secure storage, backup/restore and recovery on physical devices.
+- [ ] Obtain explicit authorization for production AAB/IPA builds; inspect signing, archived files, effective Android target/page sizes, native libraries, iOS SDK/privacy manifests and permissions.
 - [ ] Verify App Store Connect/Play products, privacy/Data Safety, account deletion including guest data, review access, age ratings, legal links, current SDK/policy deadlines and console declarations.
-- [ ] Complete physical Android/iPhone critical journeys, purchases/restoration, performance/interruption/offline/recovery acceptance; no device was attached during this run.
+- [ ] Complete physical Android/iPhone critical journeys, purchases/restoration, performance/interruption/offline/recovery acceptance (no physical device was attached during local run).
 - [ ] Approve and verify production backups, monitoring, rollback compatibility and staged rollout before any production-impacting action.
 
-The original source-level quota bypasses are closed for the tested protocol. **Neither platform is approved for production release.**
+The local source and engineering gates are closed. **Final production deployment and store release await external sandbox and binary certification.**
