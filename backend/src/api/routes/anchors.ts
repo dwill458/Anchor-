@@ -12,6 +12,8 @@ import { randomUUID } from 'crypto';
 import { AuthRequest, authMiddleware } from '../middleware/auth';
 import { AppError } from '../middleware/errorHandler';
 import { creationPolicy } from '../../services/AnchorCreationService';
+import { hasSavedAnchorHistory } from '../../services/AnchorCreationQuotaPolicy';
+import { isLegacyCompatActive, isLegacyCompatCaller } from '../../services/LegacyCreationCompat';
 import {
   countHistoricalCreationBaseline,
   countCreationUsage,
@@ -20,7 +22,7 @@ import { prisma } from '../../lib/prisma';
 import { BackendAnalyticsService } from '../../services/AnalyticsService';
 import { resolveMonetizationAccess } from '../../services/MonetizationAccessService';
 import { logger } from '../../utils/logger';
-import { resolveStoredAssetUrl } from '../../services/StorageService';
+import { extractStorageObjectKey, resolveStoredAssetUrl } from '../../services/StorageService';
 import { courseService } from '../../services/CourseService';
 import { threadStrengthService } from '../../services/v2/ThreadStrengthService';
 import { globalAiCeilingLimiter, anchorEnhanceLimiter } from '../middleware/aiRateLimit';
@@ -399,6 +401,39 @@ async function resolveAnchorCollectionArtworkUrls<T extends { enhancedImageUrl?:
   return Promise.all(anchors.map(resolveAnchorArtworkUrls));
 }
 
+async function resolveLegacyGeneratedOption(
+  userId: string,
+  imageUrl: string
+): Promise<{ sessionId: string; optionId: string } | null> {
+  const identity = (url: string): string | null => {
+    const objectKey = extractStorageObjectKey(url);
+    if (objectKey) return `key:${objectKey}`;
+    try {
+      const parsed = new URL(url);
+      return `url:${parsed.origin}${parsed.pathname}`; // signatures/query parameters never identify an asset
+    } catch {
+      return null;
+    }
+  };
+  const key = identity(imageUrl);
+  if (!key) return null;
+  const sessions = await prisma.anchorCreationSession.findMany({
+    where: { owner: { userId }, status: 'completed', savedAnchorId: null },
+    include: { options: true },
+    orderBy: { completedAt: 'desc' },
+    take: 25,
+  });
+  for (const session of sessions) {
+    for (const option of session.options) {
+      const stored = (option.payload as { imageUrl?: string } | null)?.imageUrl;
+      if (stored && identity(stored) === key) {
+        return { sessionId: session.id, optionId: option.id };
+      }
+    }
+  }
+  return null;
+}
+
 async function assertCanCreateAnchor(tx: Prisma.TransactionClient, userId: string): Promise<void> {
   // Serialize count + create for this user so concurrent requests cannot both
   // observe the same count and exceed the configured cap.
@@ -421,10 +456,7 @@ async function assertCanCreateAnchor(tx: Prisma.TransactionClient, userId: strin
   }
 
   const access = await resolveMonetizationAccess(user);
-  if (
-    !access.hasProAccess &&
-    (user.totalAnchorsCreated >= 1 || (await tx.anchor.count({ where: { userId } })) > 0)
-  ) {
+  if (!access.hasProAccess && (await hasSavedAnchorHistory(tx, userId, user.totalAnchorsCreated))) {
     throw new AppError('Create more anchors with Pro', 403, 'CREATE_ANCHOR_FREE_LOCKED');
   }
 }
@@ -643,12 +675,33 @@ router.post('/', async (req: AuthRequest, res: Response, next: NextFunction) => 
       mantraPronunciation,
       mantraAudioUrl,
       idempotencyKey,
-      creationSessionId,
-      selectedOptionId,
+      creationSessionId: requestedSessionId,
+      selectedOptionId: requestedOptionId,
       keepOriginal,
     } = validate(CreateAnchorExtendedSchema, req.body);
 
     const userId = req.dbUser!.id;
+    let creationSessionId = requestedSessionId;
+    let selectedOptionId = requestedOptionId;
+    if (
+      !creationSessionId &&
+      !selectedOptionId &&
+      !keepOriginal &&
+      enhancedImageUrl &&
+      isLegacyCompatActive() &&
+      isLegacyCompatCaller(req.user)
+    ) {
+      // Released 1.x saves only the generated image URL. Honour it solely when it is an output this
+      // user generated and has not yet saved; the session lock below keeps it one-time.
+      const legacy = await resolveLegacyGeneratedOption(userId, enhancedImageUrl);
+      if (legacy) {
+        creationSessionId = legacy.sessionId;
+        selectedOptionId = legacy.optionId;
+        logger.info('[LegacyCompat] legacy save bound to owned generated output', {
+          sessionId: legacy.sessionId,
+        });
+      }
+    }
     let variationReservation: ReturnType<typeof extractVariationReservation> = null;
 
     if (idempotencyKey) {

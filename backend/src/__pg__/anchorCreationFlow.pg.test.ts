@@ -53,11 +53,15 @@ jest.mock('../services/AIEnhancer', () => ({
   estimateGenerationTime: () => 1,
   getCostEstimate: () => ({ amount: 1 }),
 }));
-jest.mock('../services/StorageService', () => ({
-  isServerStoredAssetUrl: (url: string) => url.startsWith('http://localhost/'),
-  resolveStoredAssetUrl: async (url: string) => url,
-  uploadImageFromUrl: async (url: string) => url,
-}));
+jest.mock('../services/StorageService', () => {
+  const actual = jest.requireActual('../services/StorageService');
+  return {
+    ...actual,
+    isServerStoredAssetUrl: (url: string) => url.startsWith('http://localhost/'),
+    resolveStoredAssetUrl: async (url: string) => url,
+    uploadImageFromUrl: async (url: string) => url,
+  };
+});
 jest.mock('../services/TTSService', () => ({
   generateAllMantraAudio: jest.fn(),
   isTTSAvailable: () => false,
@@ -1262,4 +1266,163 @@ describePg('Anchor creation production HTTP flow on isolated PostgreSQL', () => 
       expect(mockGenerate).toHaveBeenCalledTimes(20);
     }
   );
+});
+
+describePg('Released 1.x client request shapes against the session-gated backend', () => {
+  jest.setTimeout(120_000);
+  const savedEnv = process.env.ANCHOR_LEGACY_CREATION_COMPAT_UNTIL;
+  const compatOn = () => {
+    process.env.ANCHOR_LEGACY_CREATION_COMPAT_UNTIL = new Date(Date.now() + 86_400_000).toISOString();
+  };
+  beforeEach(() => {
+    delete process.env.ANCHOR_LEGACY_CREATION_COMPAT_UNTIL;
+    mockGenerate.mockReset();
+    mockGenerate.mockImplementation(async (input: { numberOfVariations: number }) => ({
+      variations: Array.from({ length: input.numberOfVariations }, (_, index) => ({
+        imageUrl: `http://localhost/anchors/${randomUUID()}-${index}.png`,
+        structureMatch: {
+          combinedScore: 0.95,
+          iouScore: 0.95,
+          edgeOverlapScore: 0.95,
+          structurePreserved: true,
+          classification: 'Structure Preserved',
+        },
+        wasComposited: false,
+        seed: index,
+      })),
+      passingCount: input.numberOfVariations,
+      bestVariationIndex: 0,
+      model: 'gemini-fixture',
+      prompt: 'fixture',
+      negativePrompt: '',
+      generationTime: 1,
+      controlMethod: 'lineart',
+      styleApplied: 'cosmic',
+      structureThreshold: 0.85,
+    }));
+  });
+  afterAll(async () => {
+    if (savedEnv === undefined) delete process.env.ANCHOR_LEGACY_CREATION_COMPAT_UNTIL;
+    else process.env.ANCHOR_LEGACY_CREATION_COMPAT_UNTIL = savedEnv;
+    await prisma.$disconnect();
+  });
+
+  // Exactly the body AIGeneratingScreen.tsx sent in released 1.5.0 (commit d09a53e54).
+  const legacyBody = (n = randomUUID()) => ({
+    sigilSvg: `<svg><path d="M 0 0 L 10 10"/></svg>`,
+    styleChoice: 'cosmic',
+    intentionText: `legacy ${n}`,
+    anchorId: `temp-${Date.now()}`,
+    provider: 'gemini',
+    tier: 'premium',
+    generationAttempt: 1,
+  });
+  // The error text 1.5.0 renders: `errorData.message || errorData.error || 'AI enhancement failed'`.
+  const legacyErrorText = (body: { message?: unknown; error?: unknown }) =>
+    String(new Error((body.message || body.error || 'AI enhancement failed') as string).message);
+  const anonymousLegacy = (body: object) =>
+    request(app).post('/api/ai/enhance').set('X-Forwarded-For', fixtureIp()).send(body);
+  const legacySave = (user: Actor, body: ReturnType<typeof legacyBody>, imageUrl?: string) =>
+    post('/api/anchors', user, {
+      intentionText: body.intentionText,
+      category: 'health',
+      distilledLetters: ['H', 'T'],
+      baseSigilSvg: body.sigilSvg,
+      ...(imageUrl ? { enhancedImageUrl: imageUrl } : {}),
+    });
+
+  it('window closed: authenticated 1.5 enhance gets a readable 426 and spends nothing', async () => {
+    const user = await actor('free');
+    const result = await post('/api/ai/enhance', user, legacyBody());
+    expect(result.status).toBe(426);
+    expect(result.body.code).toBe('ANCHOR_CREATION_UPGRADE_REQUIRED');
+    expect(result.body.error.code).toBe('ANCHOR_CREATION_UPGRADE_REQUIRED');
+    expect(legacyErrorText(result.body)).toBe('Update Anchor to continue creating artwork.');
+    expect(mockGenerate).not.toHaveBeenCalled();
+    expect(await prisma.anchorCreationSession.count({ where: { owner: { userId: user.id } } })).toBe(0);
+  });
+
+  it('window open: unauthenticated and anonymous callers are still refused', async () => {
+    compatOn();
+    const unauthenticated = await anonymousLegacy(legacyBody());
+    expect(unauthenticated.status).toBe(426);
+    const guest = await actor('guest');
+    const anonymous = await post('/api/ai/enhance', guest, legacyBody());
+    expect(anonymous.status).toBe(426);
+    expect(mockGenerate).not.toHaveBeenCalled();
+  });
+
+  it('window open: a legacy free account gets exactly one metered creation and can save it', async () => {
+    compatOn();
+    const user = await actor('free');
+    const body = legacyBody();
+    const first = await post('/api/ai/enhance', user, body);
+    expect(first.status).toBe(200);
+    expect(first.body.variations).toHaveLength(2);
+    expect(await completed(user.id)).toBe(1);
+    const second = await post('/api/ai/enhance', user, legacyBody());
+    expect([403, 429]).toContain(second.status);
+    expect(mockGenerate).toHaveBeenCalledTimes(1);
+    const saved = await legacySave(user, body, first.body.variations[0].imageUrl);
+    expect([200, 201]).toContain(saved.status);
+    expect(await prisma.anchor.count({ where: { userId: user.id } })).toBe(1);
+    // A repeated legacy save of the same generated output creates no second Anchor.
+    await legacySave(user, body, first.body.variations[0].imageUrl);
+    await legacySave(user, body, first.body.variations[1].imageUrl);
+    expect(await prisma.anchor.count({ where: { userId: user.id } })).toBe(1);
+    expect(await completed(user.id)).toBe(1);
+  });
+
+  it('window open: the trial cap of seven still binds legacy requests, including the alias route', async () => {
+    compatOn();
+    const user = await actor('trial');
+    for (let i = 0; i < 7; i += 1) {
+      const route = i % 2 ? '/api/ai/enhance-controlnet' : '/api/ai/enhance';
+      expect((await post(route, user, legacyBody())).status).toBe(200);
+    }
+    const eighth = await post('/api/ai/enhance', user, legacyBody());
+    expect(eighth.status).toBe(429);
+    expect(await completed(user.id)).toBe(7);
+    expect(mockGenerate).toHaveBeenCalledTimes(7);
+  });
+
+  it('window open: a paying legacy Pro account is not locked out and keeps the ten-per-day bound', async () => {
+    compatOn();
+    const user = await actor('pro');
+    for (let i = 0; i < 10; i += 1) {
+      expect((await post('/api/ai/enhance', user, legacyBody())).status).toBe(200);
+    }
+    expect((await post('/api/ai/enhance', user, legacyBody())).status).toBe(429);
+  });
+
+  it('window open: forged and cross-account generated URLs cannot authorize a legacy save', async () => {
+    compatOn();
+    const owner = await actor('pro');
+    const intruder = await actor('pro');
+    const body = legacyBody();
+    const generated = await post('/api/ai/enhance', owner, body);
+    expect(generated.status).toBe(200);
+    const url = generated.body.variations[0].imageUrl;
+    const stolen = await legacySave(intruder, body, url);
+    expect(stolen.status).toBe(426);
+    const forged = await legacySave(intruder, body, 'http://localhost/anchors/not-generated-here.png');
+    expect(forged.status).toBe(426);
+    expect(await prisma.anchor.count({ where: { userId: intruder.id } })).toBe(0);
+  });
+
+  it('a legacy original-SVG save (no generated art) keeps working and shares the quota path', async () => {
+    const user = await actor('free');
+    const body = legacyBody();
+    const saved = await legacySave(user, body);
+    expect([200, 201]).toContain(saved.status);
+    expect(await prisma.anchor.count({ where: { userId: user.id } })).toBe(1);
+    const again = await legacySave(user, legacyBody());
+    expect(again.status).toBe(403);
+  });
+
+  it('window expiry fails closed even if the deadline variable is left in place', async () => {
+    process.env.ANCHOR_LEGACY_CREATION_COMPAT_UNTIL = new Date(Date.now() - 1000).toISOString();
+    const user = await actor('pro');
+    expect((await post('/api/ai/enhance', user, legacyBody())).status).toBe(426);
+  });
 });

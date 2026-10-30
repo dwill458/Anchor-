@@ -46,6 +46,12 @@ import {
   getAvailableVoicePresets,
 } from '../../services/TTSService';
 import { logger } from '../../utils/logger';
+import {
+  isLegacyCompatActive,
+  isLegacyCompatCaller,
+  legacyImplicitSessionKey,
+  sendUpgradeRequired,
+} from '../../services/LegacyCreationCompat';
 import { AppError } from '../middleware/errorHandler';
 import {
   creationHash,
@@ -233,12 +239,7 @@ async function handleEnhance(req: AuthRequest, res: Response): Promise<void> {
 
     // A caller-controlled temporary ID does not establish guest ownership.
     if (!req.user?.uid) {
-      res.status(426).json({
-        error: {
-          code: 'ANCHOR_CREATION_UPGRADE_REQUIRED',
-          message: 'Update Anchor to continue creating artwork.',
-        },
-      });
+      sendUpgradeRequired(res, 'Update Anchor to continue creating artwork.');
       return;
     }
     if (getStyleGenerationVersion(parsed.styleChoice) === 'anchor2' && !isAnchor2StylesEnabled()) {
@@ -247,13 +248,22 @@ async function handleEnhance(req: AuthRequest, res: Response): Promise<void> {
     }
 
     if (!parsed.creationSessionId) {
-      res.status(426).json({
-        error: {
-          code: 'ANCHOR_CREATION_UPGRADE_REQUIRED',
-          message: 'Update Anchor to continue creating artwork.',
-        },
+      // Bounded transitional path for released 1.x clients: verified, non-anonymous callers only,
+      // metered by the same ledger as everyone else. Off unless explicitly enabled and time-limited.
+      if (!isLegacyCompatCaller(req.user) || !isLegacyCompatActive()) {
+        sendUpgradeRequired(res, 'Update Anchor to continue creating artwork.');
+        return;
+      }
+      const implicit = await reserveCreation(
+        req.user.uid,
+        legacyImplicitSessionKey(req.user.uid, creationHash(parsed)),
+        creationHash(parsed)
+      );
+      parsed.creationSessionId = implicit.id;
+      logger.info('[LegacyCompat] metered legacy enhance request admitted', {
+        route: req.path,
+        sessionId: implicit.id,
       });
-      return;
     }
     execution = await claimCreation(req.user.uid, parsed.creationSessionId, creationHash(parsed));
     if (!execution.token) {
