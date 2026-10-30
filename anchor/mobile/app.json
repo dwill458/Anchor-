@@ -26,7 +26,7 @@
       "supportsTablet": false,
       "usesAppleSignIn": true,
       "bundleIdentifier": "com.anchorintentions.app",
-      "buildNumber": "16",
+      "buildNumber": "21",
       "googleServicesFile": "./GoogleService-Info.plist",
       "infoPlist": {
         "NSCameraUsageDescription": "Anchor uses your camera so you can take a profile photo or add a photo to your Vision.",
@@ -111,7 +111,7 @@
         "monochromeImage": "./assets/anchor-monochrome-v2.png"
       },
       "package": "com.anchorintentions.app",
-      "versionCode": 39,
+      "versionCode": 44,
       "googleServicesFile": "./google-services.json",
       "blockedPermissions": [
         "android.permission.READ_EXTERNAL_STORAGE",
@@ -259,7 +259,9 @@
         {
           "microphonePermission": "Anchor uses your microphone only while you hold dictation on, to turn what you say into text for describing a scene.",
           "speechRecognitionPermission": "Anchor uses speech recognition to turn what you say into text for describing a scene. Your speech may be processed by Apple or Google to do this.",
-          "androidSpeechServicePackages": ["com.google.android.googlequicksearchbox"]
+          "androidSpeechServicePackages": [
+            "com.google.android.googlequicksearchbox"
+          ]
         }
       ]
     ],
