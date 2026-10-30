@@ -44,6 +44,14 @@ const mockPrisma = {
   anchorVariationPool: {
     updateMany: jest.fn(),
   },
+  anchorCreationQuotaOwner: { upsert: jest.fn() },
+  anchorCreationSession: {
+    count: jest.fn(),
+    create: jest.fn(),
+    update: jest.fn(),
+    updateMany: jest.fn(),
+    findFirst: jest.fn(),
+  },
   $queryRaw: jest.fn(),
   $transaction: jest.fn(),
 };
@@ -87,6 +95,7 @@ const MOCK_DB_USER = {
   id: 'db-user-1',
   authUid: 'firebase-uid-1',
   email: 'test@example.com',
+  authProvider: 'email',
   subscriptionStatus: 'free',
   isComped: false,
   trialStartedAt: new Date(),
@@ -137,6 +146,34 @@ const VALID_CREATE_BODY = {
 
 beforeEach(() => {
   jest.clearAllMocks();
+  mockPrisma.user.findUnique.mockResolvedValue({ ...MOCK_DB_USER });
+  mockPrisma.anchor.findUnique.mockResolvedValue(null);
+  mockPrisma.anchorCreationQuotaOwner.upsert.mockResolvedValue({ id: 'creation-owner-1' });
+  mockPrisma.anchorCreationSession.count.mockResolvedValue(0);
+  mockPrisma.anchorCreationSession.create.mockResolvedValue({
+    id: '11111111-1111-4111-8111-111111111111',
+  });
+  mockPrisma.anchorCreationSession.update.mockResolvedValue({});
+  mockPrisma.anchorCreationSession.updateMany.mockResolvedValue({ count: 0 });
+  mockPrisma.anchorCreationSession.findFirst.mockResolvedValue({
+    id: '11111111-1111-4111-8111-111111111111',
+    status: 'completed',
+    savedAnchorId: null,
+    options: [
+      {
+        id: '22222222-2222-4222-8222-222222222222',
+        payload: {
+          imageUrl: 'http://localhost:8000/variation.png',
+          variationId: 'pool-variation-1',
+          reuseRequestId: 'reuse-request-1',
+          creationInput: {
+            sigilSvg: VALID_CREATE_BODY.baseSigilSvg,
+            intentionText: VALID_CREATE_BODY.intentionText,
+          },
+        },
+      },
+    ],
+  });
   mockResolveStoredAssetUrl.mockImplementation(async (url: string | null | undefined) => url);
 
   // Default: auth passes and attaches mock user
@@ -247,18 +284,19 @@ describe('POST /api/anchors', () => {
     expect(mockPrisma.anchor.create).not.toHaveBeenCalled();
   });
 
-  it('does not apply the retired trial anchor cap to the first Free Anchor', async () => {
+  it('preserves the free lifetime limit when a legacy counter is stale but saved Anchors exist', async () => {
     (mockPrisma.user.findUnique as jest.Mock).mockResolvedValue(MOCK_DB_USER);
     (mockPrisma.anchor.count as jest.Mock).mockResolvedValue(7);
     (mockPrisma.anchor.create as jest.Mock).mockResolvedValue(MOCK_ANCHOR);
 
     const res = await request(buildApp()).post('/api/anchors').send(VALID_CREATE_BODY);
 
-    expect(res.status).toBe(201);
-    expect(mockPrisma.anchor.create).toHaveBeenCalledTimes(1);
+    expect(res.status).toBe(403);
+    expect(res.body.error.code).toBe('CREATE_ANCHOR_FREE_LOCKED');
+    expect(mockPrisma.anchor.create).not.toHaveBeenCalled();
   });
 
-  it('returns 429 when a paid Pro user has created 10 anchors today', async () => {
+  it('returns 429 when a paid Pro user has consumed 10 creation sessions today', async () => {
     (mockPrisma.user.findUnique as jest.Mock).mockResolvedValue({
       ...MOCK_DB_USER,
       subscriptionStatus: 'pro',
@@ -267,12 +305,12 @@ describe('POST /api/anchors', () => {
       isActive: true,
       productIdentifier: 'anchor_pro_monthly',
     });
-    (mockPrisma.anchor.count as jest.Mock).mockResolvedValue(10);
+    mockPrisma.anchorCreationSession.count.mockResolvedValue(10);
 
     const res = await request(buildApp()).post('/api/anchors').send(VALID_CREATE_BODY);
 
     expect(res.status).toBe(429);
-    expect(res.body.error.code).toBe('PRO_DAILY_ANCHOR_CAP_REACHED');
+    expect(res.body.error.code).toBe('ANCHOR_CREATION_QUOTA_EXCEEDED');
     expect(mockPrisma.anchor.create).not.toHaveBeenCalled();
   });
 
@@ -295,7 +333,7 @@ describe('POST /api/anchors', () => {
         subscriptionId: 'anchor_pro_annual',
       },
     });
-    expect(mockPrisma.$queryRaw).toHaveBeenCalledTimes(1);
+    expect(mockPrisma.$queryRaw).toHaveBeenCalled();
   });
 
   it('returns 500 on unexpected database error', async () => {
@@ -320,6 +358,8 @@ describe('POST /api/anchors', () => {
       .post('/api/anchors')
       .send({
         ...VALID_CREATE_BODY,
+        creationSessionId: '11111111-1111-4111-8111-111111111111',
+        selectedOptionId: '22222222-2222-4222-8222-222222222222',
         enhancedImageUrl: 'http://localhost:8000/variation.png',
         enhancementMetadata: {
           styleApplied: 'watercolor',
@@ -609,7 +649,9 @@ describe('PUT /api/anchors/:id', () => {
   });
 
   it('rejects an expression outside the known vocabulary', async () => {
-    const res = await request(buildApp()).put('/api/anchors/anchor-1').send({ expression: 'nebula' });
+    const res = await request(buildApp())
+      .put('/api/anchors/anchor-1')
+      .send({ expression: 'nebula' });
     expect(res.status).toBe(400);
     expect(res.body.error.code).toBe('VALIDATION_ERROR');
   });
@@ -618,10 +660,14 @@ describe('PUT /api/anchors/:id', () => {
     (mockPrisma.user.findUnique as jest.Mock).mockResolvedValue(MOCK_DB_USER);
     (mockPrisma.anchor.findFirst as jest.Mock).mockResolvedValue(null);
 
-    const res = await request(buildApp()).put('/api/anchors/someone-else').send({ expression: 'ink' });
+    const res = await request(buildApp())
+      .put('/api/anchors/someone-else')
+      .send({ expression: 'ink' });
 
     expect(res.status).toBe(404);
-    expect(mockPrisma.anchor.updateMany).not.toHaveBeenCalledWith(expect.objectContaining({ where: { id: 'someone-else', userId: MOCK_DB_USER.id } }));
+    expect(mockPrisma.anchor.updateMany).not.toHaveBeenCalledWith(
+      expect.objectContaining({ where: { id: 'someone-else', userId: MOCK_DB_USER.id } })
+    );
   });
 });
 
@@ -651,7 +697,6 @@ describe('DELETE /api/anchors/:id', () => {
 
     expect(res.status).toBe(404);
   });
-
 });
 
 // ═════════════════════════════════════════════════════════════════════════════
@@ -1004,10 +1049,9 @@ describe('POST /api/anchors/:id/burn', () => {
     expect(res.status).toBe(200);
     expect(res.body.data.burned).toBe(true);
     expect(mockPrisma.$transaction).toHaveBeenCalledTimes(1);
-    expect(mockPrisma.$transaction).toHaveBeenCalledWith(
-      expect.any(Function),
-      { isolationLevel: Prisma.TransactionIsolationLevel.Serializable }
-    );
+    expect(mockPrisma.$transaction).toHaveBeenCalledWith(expect.any(Function), {
+      isolationLevel: Prisma.TransactionIsolationLevel.Serializable,
+    });
     expect(mockPrisma.anchor.findFirst).toHaveBeenCalledWith({
       where: { id: 'anchor-1', userId: 'db-user-1' },
       include: expect.objectContaining({

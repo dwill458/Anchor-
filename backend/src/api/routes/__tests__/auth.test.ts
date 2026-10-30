@@ -25,6 +25,9 @@ const mockPrisma = {
   $queryRaw: jest.fn(),
   $executeRaw: jest.fn().mockResolvedValue(0),
   $transaction: jest.fn(),
+  anchorCreationOption: { deleteMany: jest.fn() },
+  anchorCreationSession: { deleteMany: jest.fn() },
+  anchorCreationQuotaOwner: { deleteMany: jest.fn() },
   user: {
     findUnique: jest.fn(),
     findFirst: jest.fn(),
@@ -98,7 +101,7 @@ function buildApp(): Application {
 
 // ── Fixtures ─────────────────────────────────────────────────────────────────
 
-const MOCK_USER_AUTH = { uid: 'firebase-uid-1', email: 'test@example.com' };
+const MOCK_USER_AUTH = { uid: 'firebase-uid-1', email: 'test@example.com', emailVerified: true };
 
 const MOCK_DB_USER = {
   id: 'db-user-1',
@@ -148,6 +151,7 @@ const MOCK_SETTINGS = {
 
 beforeEach(() => {
   jest.clearAllMocks();
+  mockPrisma.$queryRaw.mockResolvedValue([]);
   delete process.env.COMPED_ACCESS_EMAILS;
   (mockPrisma.$transaction as jest.Mock).mockImplementation(async (callback: any) =>
     callback(mockPrisma)
@@ -297,6 +301,16 @@ describe('POST /api/auth/sync', () => {
     );
   });
 
+  it('does not grant comped access from an unverified allowlisted email', async () => {
+    process.env.COMPED_ACCESS_EMAILS = 'test@example.com';
+    mockedAuthMiddleware.mockImplementation((req: any, _res: any, next: any) => { req.user = { ...MOCK_USER_AUTH, emailVerified: false }; next(); });
+    mockPrisma.user.findUnique.mockResolvedValue(MOCK_DB_USER);
+    mockPrisma.user.update.mockResolvedValue(MOCK_DB_USER);
+    const res = await request(buildApp()).post('/api/auth/sync').send({ authProvider: 'email' });
+    expect(res.status).toBe(200);
+    expect(mockPrisma.user.update).toHaveBeenCalledWith(expect.objectContaining({ data: expect.objectContaining({ isComped: false }) }));
+  });
+
   it('links an existing user by email when auth uid changes', async () => {
     (mockPrisma.user.findUnique as jest.Mock).mockResolvedValueOnce(null);
     (mockPrisma.user.findFirst as jest.Mock).mockResolvedValueOnce(MOCK_DB_USER);
@@ -427,7 +441,7 @@ describe('POST /api/auth/sync', () => {
 
   it('links an existing user by email case-insensitively and normalizes the stored email', async () => {
     mockedAuthMiddleware.mockImplementation((req: any, _res: any, next: any) => {
-      req.user = { uid: 'firebase-uid-2', email: 'Test@Example.com ' };
+      req.user = { uid: 'firebase-uid-2', email: 'Test@Example.com ', emailVerified: true };
       next();
     });
 
@@ -480,6 +494,42 @@ describe('POST /api/auth/sync', () => {
 
     expect(res.status).toBe(400);
     expect(res.body.error.code).toBe('INVALID_AUTH_CONTEXT');
+  });
+
+  it('creates a guest only from the verified anonymous provider claim', async () => {
+    mockedAuthMiddleware.mockImplementation((req: any, _res: any, next: any) => {
+      req.user = { uid: 'verified-guest', signInProvider: 'anonymous' };
+      next();
+    });
+    mockPrisma.user.findUnique.mockResolvedValue(null);
+    mockPrisma.user.findFirst.mockResolvedValue(null);
+    mockPrisma.user.create.mockResolvedValue({ ...MOCK_DB_USER, authUid: 'verified-guest', email: 'verified-guest@guest.anchor.invalid' });
+    const res = await request(buildApp()).post('/api/auth/sync').send({ authProvider: 'email', email: 'forged@example.com' });
+    expect(res.status).toBe(200);
+    expect(mockPrisma.user.create).toHaveBeenCalledWith(expect.objectContaining({ data: expect.objectContaining({ authUid: 'verified-guest', email: 'verified-guest@guest.anchor.invalid', authProvider: 'anonymous', isComped: false }) }));
+  });
+
+  it('retains the guest account row and counters when credentials link to the same Firebase UID', async () => {
+    mockPrisma.user.findUnique.mockResolvedValue({ ...MOCK_DB_USER, email: 'firebase-uid-1@guest.anchor.invalid', authProvider: 'anonymous', totalAnchorsCreated: 1 });
+    mockPrisma.user.findFirst.mockResolvedValue(null);
+    mockPrisma.user.update.mockResolvedValue({ ...MOCK_DB_USER, totalAnchorsCreated: 1 });
+    const res = await request(buildApp()).post('/api/auth/sync').send({ authProvider: 'email' });
+    expect(res.status).toBe(200);
+    expect(mockPrisma.user.update).toHaveBeenCalledWith(expect.objectContaining({ where: { authUid: 'firebase-uid-1' }, data: expect.objectContaining({ email: 'test@example.com' }) }));
+    expect(mockPrisma.user.create).not.toHaveBeenCalled();
+    expect(res.body.data.totalAnchorsCreated).toBe(1);
+  });
+
+  it('rejects attaching another account by an unverified email claim', async () => {
+    mockedAuthMiddleware.mockImplementation((req: any, _res: any, next: any) => {
+      req.user = { uid: 'attacker', email: 'test@example.com', emailVerified: false };
+      next();
+    });
+    mockPrisma.user.findUnique.mockResolvedValue(null);
+    mockPrisma.user.findFirst.mockResolvedValue(MOCK_DB_USER);
+    const res = await request(buildApp()).post('/api/auth/sync').send({ authProvider: 'email' });
+    expect(res.status).toBe(403);
+    expect(mockPrisma.user.update).not.toHaveBeenCalled();
   });
 
   it('returns 500 on database error', async () => {
@@ -1144,6 +1194,12 @@ describe('DELETE /api/auth/me', () => {
     expect(res.status).toBe(200);
     expect(res.body.data.deletedUserId).toBe('db-user-1');
     expect(res.body.data.authAccountDeleted).toBe(true);
+    expect(mockPrisma.anchorCreationOption.deleteMany).toHaveBeenCalledWith({ where: { session: { owner: { userId: 'db-user-1' } } } });
+    expect(mockPrisma.anchorCreationSession.deleteMany).toHaveBeenCalledWith({ where: { owner: { userId: 'db-user-1' } } });
+    expect(mockPrisma.anchorCreationQuotaOwner.deleteMany).toHaveBeenCalledWith({ where: { userId: 'db-user-1' } });
+    expect(mockPrisma.anchorCreationOption.deleteMany.mock.invocationCallOrder[0]).toBeLessThan(mockPrisma.anchorCreationSession.deleteMany.mock.invocationCallOrder[0]);
+    expect(mockPrisma.anchorCreationSession.deleteMany.mock.invocationCallOrder[0]).toBeLessThan(mockPrisma.anchorCreationQuotaOwner.deleteMany.mock.invocationCallOrder[0]);
+    expect(mockPrisma.anchorCreationQuotaOwner.deleteMany.mock.invocationCallOrder[0]).toBeLessThan(mockPrisma.user.delete.mock.invocationCallOrder[0]);
     expect(mockPrisma.flaggedContent.deleteMany).toHaveBeenCalledWith({
       where: {
         OR: [{ userId: 'db-user-1' }, { userId: 'firebase-uid-1' }],

@@ -50,6 +50,7 @@ model User {
   notificationsEnabled Boolean   @default(true) @map("notifications_enabled")
 
   // Relations
+  creationQuotaOwner  AnchorCreationQuotaOwner?
   anchors             Anchor[]
   activations         Activation[]
   charges             Charge[]
@@ -1332,4 +1333,60 @@ model RecommendationSignalAck {
   @@unique([userId, signalKey])
   @@index([userId, acknowledgedAt])
   @@map("recommendation_signal_acks")
+}
+
+// Durable accounting for Anchor creation sessions. Guest credentials are stored
+// only as hashes; an owner may later be linked to an authenticated account.
+model AnchorCreationQuotaOwner {
+  id              String   @id @default(uuid())
+  userId          String?  @unique @map("user_id")
+  guestTokenHash  String?  @unique @map("guest_token_hash")
+  createdAt       DateTime @default(now()) @map("created_at")
+  user            User?    @relation(fields: [userId], references: [id], onDelete: Restrict)
+  sessions        AnchorCreationSession[]
+
+  @@map("anchor_creation_quota_owners")
+}
+
+// Shared guest identity-cycling ceiling. Keys contain a hash of the normalized IP and UTC day.
+model AnchorCreationAbuseBudget {
+  key       String @id
+  attempts  Int @default(0)
+  expiresAt DateTime @map("expires_at")
+  @@map("anchor_creation_abuse_budgets")
+}
+
+model AnchorCreationSession {
+  id              String   @id @default(uuid())
+  ownerId         String   @map("owner_id")
+  idempotencyKey  String   @map("idempotency_key")
+  requestHash     String   @map("request_hash")
+  quotaScope      String   @map("quota_scope")
+  status          String   @default("reserved")
+  attempts        Int      @default(0)
+  expiresAt       DateTime @map("expires_at")
+  createdAt       DateTime @default(now()) @map("created_at")
+  completedAt     DateTime? @map("completed_at")
+  leaseToken      String?  @map("lease_token")
+  leaseUntil      DateTime? @map("lease_until")
+  savedAnchorId   String?  @map("saved_anchor_id")
+  owner           AnchorCreationQuotaOwner @relation(fields: [ownerId], references: [id], onDelete: Restrict)
+  options         AnchorCreationOption[]
+
+  @@unique([ownerId, idempotencyKey])
+  @@index([ownerId, quotaScope, status])
+  @@index([savedAnchorId])
+  @@map("anchor_creation_sessions")
+}
+
+model AnchorCreationOption {
+  id          String   @id @default(uuid())
+  sessionId   String   @map("session_id")
+  position    Int
+  payload     Json
+  createdAt   DateTime @default(now()) @map("created_at")
+  session     AnchorCreationSession @relation(fields: [sessionId], references: [id], onDelete: Restrict)
+
+  @@unique([sessionId, position])
+  @@map("anchor_creation_options")
 }

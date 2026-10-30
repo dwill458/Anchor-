@@ -20,6 +20,20 @@ describe('RevenueCatEntitlementService', () => {
     else process.env.REVENUECAT_ENTITLEMENT_ID = originalEntitlementId;
   });
 
+  it('identifies a store trial from the matching subscription record', async () => {
+    jest.spyOn(axios, 'get').mockResolvedValue({
+      data: { subscriber: {
+        entitlements: { pro: { expires_date: '2026-07-20T00:00:00.000Z', product_identifier: 'anchor_pro_annual' } },
+        subscriptions: {
+          anchor_pro_annual: { period_type: 'trial' },
+          other: { period_type: 'normal' },
+        },
+      } },
+    });
+    await expect(getRevenueCatAccess('trial-user', new Date('2026-07-10T00:00:00.000Z')))
+      .resolves.toMatchObject({ isActive: true, isTrialPeriod: true });
+  });
+
   it('returns active access for an unexpired entitlement', async () => {
     const getSpy = jest.spyOn(axios, 'get').mockResolvedValue({
       data: {

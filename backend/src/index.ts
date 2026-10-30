@@ -13,6 +13,7 @@ import dotenv from 'dotenv';
 import path from 'path';
 import { optionalAuthMiddleware, AuthRequest } from './api/middleware/auth';
 import { isAiDeveloper } from './api/middleware/aiRateLimit';
+import { bodyComplexityGuard } from './api/middleware/bodyComplexity';
 import authRoutes from './api/routes/auth';
 import usersRoutes from './api/routes/users';
 import anchorRoutes from './api/routes/anchors';
@@ -155,6 +156,7 @@ app.use('/api/v2/vision/photo-expand', express.json({ limit: '8mb' }));
 // Limit request body size to prevent memory exhaustion attacks
 app.use(express.json({ limit: '1mb' }));
 app.use(express.urlencoded({ extended: true, limit: '1mb' }));
+app.use(bodyComplexityGuard);
 
 // Resolve authentication token optionally before global rate limiting so
 // authenticated requests can be identified and developers elevated.

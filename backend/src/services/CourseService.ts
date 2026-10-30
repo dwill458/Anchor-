@@ -442,10 +442,19 @@ export async function runSerializable<T>(work: (tx: TxClient) => Promise<T>): Pr
         isolationLevel: Prisma.TransactionIsolationLevel.Serializable,
       });
     } catch (error) {
-      const candidate = error as { code?: unknown; meta?: { code?: unknown }; cause?: { code?: unknown } } | null;
-      const conflict = candidate?.code === 'P2034' || candidate?.code === '40001' || candidate?.meta?.code === '40001' || candidate?.cause?.code === '40001';
+      const candidate = error as {
+        code?: unknown;
+        meta?: { code?: unknown };
+        cause?: { code?: unknown };
+      } | null;
+      const conflict =
+        candidate?.code === 'P2034' ||
+        candidate?.code === '40001' ||
+        candidate?.meta?.code === '40001' ||
+        candidate?.cause?.code === '40001';
       if (!conflict) throw error;
-      if (attempt === 2) throw new AppError('Chart transaction could not be serialized', 409, 'SYNC_CONFLICT');
+      if (attempt === 2)
+        throw new AppError('Chart transaction could not be serialized', 409, 'SYNC_CONFLICT');
       await new Promise(resolve => setTimeout(resolve, 20 * (attempt + 1)));
     }
   }

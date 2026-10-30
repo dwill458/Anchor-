@@ -4,11 +4,12 @@ import { errorHandler } from '../../middleware/errorHandler';
 
 jest.mock('../../middleware/auth', () => ({
   optionalAuthMiddleware: (req: any, _res: any, next: any) => {
-    req.user = { uid: 'firebase-user-1', email: 'test@example.com' };
+    if (!req.headers['x-test-guest'])
+      req.user = { uid: 'firebase-user-1', email: 'test@example.com', emailVerified: true };
     next();
   },
   authMiddleware: (req: any, _res: any, next: any) => {
-    req.user = { uid: 'firebase-user-1', email: 'test@example.com' };
+    req.user = { uid: 'firebase-user-1', email: 'test@example.com', emailVerified: true };
     next();
   },
 }));
@@ -25,6 +26,23 @@ const mockPrisma = {
 
 jest.mock('../../../lib/prisma', () => ({
   prisma: mockPrisma,
+}));
+
+// These route tests isolate provider/storage behavior. Real session accounting
+// and ownership are exercised by anchorCreationFlow.pg.test.ts.
+jest.mock('../../../services/AnchorCreationService', () => ({
+  creationHash: () => 'fixture-input-hash',
+  claimCreation: async (_uid: string, id: string) => ({
+    user: { id: 'db-user-1' },
+    owner: { id: 'owner-1' },
+    session: { id, options: [] },
+    token: 'fixture-lease',
+  }),
+  persistCreationOptions: async (_id: string, _token: string, payloads: object[]) =>
+    payloads.map((payload, index) => ({ id: `option-${index}`, payload })),
+  releaseCreation: async () => undefined,
+  reserveCreation: jest.fn(),
+  consumeGuestCreationBudget: jest.fn(),
 }));
 
 const mockEnhanceSigilWithAI = jest.fn();
@@ -69,9 +87,39 @@ function buildApp(): Application {
 }
 
 describe('POST /api/ai/enhance-controlnet', () => {
+  it('requires an authorized session for an authenticated legacy request', async () => {
+    const res = await request(buildApp()).post('/api/ai/enhance').send({
+      sigilSvg: '<svg/>',
+      styleChoice: 'cosmic',
+      anchorId: 'temp-legacy',
+    });
+    expect(res.status).toBe(426);
+    expect(res.body.error.code).toBe('ANCHOR_CREATION_UPGRADE_REQUIRED');
+    expect(mockEnhanceSigilWithAI).not.toHaveBeenCalled();
+  });
+  it.each(['/api/ai/enhance', '/api/ai/enhance-controlnet'])(
+    'rejects an unauthenticated temporary request to %s before generation',
+    async path => {
+      mockEnhanceSigilWithAI.mockClear();
+      const res = await request(buildApp()).post(path).set('x-test-guest', '1').send({
+        creationSessionId: '11111111-1111-4111-8111-111111111111',
+        sigilSvg: '<svg/>',
+        styleChoice: 'cosmic',
+        anchorId: 'temp-forged',
+      });
+      expect(res.status).toBe(426);
+      expect(res.body.error.code).toBe('ANCHOR_CREATION_UPGRADE_REQUIRED');
+      expect(mockEnhanceSigilWithAI).not.toHaveBeenCalled();
+    }
+  );
+
   it('rejects model overrides from an ordinary authenticated account before generation', async () => {
     const res = await request(buildApp()).post('/api/ai/enhance').send({
-      sigilSvg: '<svg></svg>', styleChoice: 'cosmic', anchorId: 'temp-compare', devImageModel: 'gemini-nano-banana-2.1',
+      creationSessionId: '11111111-1111-4111-8111-111111111111',
+      sigilSvg: '<svg></svg>',
+      styleChoice: 'cosmic',
+      anchorId: 'temp-compare',
+      devImageModel: 'gemini-nano-banana-2.1',
     });
     expect(res.status).toBe(403);
     expect(mockEnhanceSigilWithAI).not.toHaveBeenCalled();
@@ -125,6 +173,7 @@ describe('POST /api/ai/enhance-controlnet', () => {
     );
 
     const res = await request(buildApp()).post('/api/ai/enhance-controlnet').send({
+      creationSessionId: '11111111-1111-4111-8111-111111111111',
       sigilSvg: '<svg><rect/></svg>',
       styleChoice: 'watercolor',
       anchorId: 'anchor-1',
@@ -200,6 +249,7 @@ describe('POST /api/ai/enhance-controlnet', () => {
     mockUploadImageFromUrl.mockResolvedValue('https://cdn.example.com/generated-only-one.png');
 
     let res = await request(buildApp()).post('/api/ai/enhance').send({
+      creationSessionId: '11111111-1111-4111-8111-111111111111',
       sigilSvg: '<svg><rect/></svg>',
       styleChoice: 'watercolor',
       anchorId: 'anchor-1',
@@ -272,6 +322,7 @@ describe('POST /api/ai/enhance-controlnet', () => {
       .mockResolvedValueOnce(pooledRowsTwo);
 
     res = await request(buildApp()).post('/api/ai/enhance').send({
+      creationSessionId: '11111111-1111-4111-8111-111111111111',
       sigilSvg: '<svg><rect/></svg>',
       styleChoice: 'watercolor',
       anchorId: 'anchor-1',
@@ -330,10 +381,14 @@ describe('POST /api/ai/enhance — storage and partial retries', () => {
     // Production regression: the Gemini path uploads to our bucket, and re-fetching that
     // (non-public) URL failed for every variation, so every generation answered 502.
     mockEnhanceSigilWithAI.mockResolvedValue(
-      result([variation(`${STORED_HOST}anchors/u/a-0.png`, 1), variation(`${STORED_HOST}anchors/u/a-1.png`, 2)])
+      result([
+        variation(`${STORED_HOST}anchors/u/a-0.png`, 1),
+        variation(`${STORED_HOST}anchors/u/a-1.png`, 2),
+      ])
     );
 
     const res = await request(buildApp()).post('/api/ai/enhance').send({
+      creationSessionId: '11111111-1111-4111-8111-111111111111',
       sigilSvg: '<svg><path d="M 1,1 L 2,2"/></svg>',
       styleChoice: 'minimal_line',
       anchorId: 'temp-creation-1',
@@ -351,15 +406,24 @@ describe('POST /api/ai/enhance — storage and partial retries', () => {
     const originalAllowlist = process.env.AI_DEV_ALLOWLIST;
     process.env.AI_DEV_ALLOWLIST = 'test@example.com';
     mockEnhanceSigilWithAI.mockResolvedValue({
-      ...result([variation(`${STORED_HOST}anchors/u/compare-0.png`, 1), variation(`${STORED_HOST}anchors/u/compare-1.png`, 2)]),
+      ...result([
+        variation(`${STORED_HOST}anchors/u/compare-0.png`, 1),
+        variation(`${STORED_HOST}anchors/u/compare-1.png`, 2),
+      ]),
       model: 'gemini-nano-banana-2.1',
     });
     try {
       const res = await request(buildApp()).post('/api/ai/enhance').send({
-        sigilSvg: '<svg></svg>', styleChoice: 'minimal_line', anchorId: 'temp-compare', devImageModel: 'gemini-nano-banana-2.1',
+        creationSessionId: '11111111-1111-4111-8111-111111111111',
+        sigilSvg: '<svg></svg>',
+        styleChoice: 'minimal_line',
+        anchorId: 'temp-compare',
+        devImageModel: 'gemini-nano-banana-2.1',
       });
       expect(res.status).toBe(200);
-      expect(mockEnhanceSigilWithAI).toHaveBeenCalledWith(expect.objectContaining({ devImageModel: 'gemini-nano-banana-2.1', numberOfVariations: 2 }));
+      expect(mockEnhanceSigilWithAI).toHaveBeenCalledWith(
+        expect.objectContaining({ devImageModel: 'gemini-nano-banana-2.1', numberOfVariations: 2 })
+      );
       expect(mockPrisma.anchorVariationPool.findMany).not.toHaveBeenCalled();
       expect(res.body.model).toBe('gemini-nano-banana-2.1');
     } finally {
@@ -369,10 +433,13 @@ describe('POST /api/ai/enhance — storage and partial retries', () => {
   });
 
   it('still copies an upstream (provider-hosted) image into storage', async () => {
-    mockEnhanceSigilWithAI.mockResolvedValue(result([variation('https://replicate.example/out.png', 3)]));
+    mockEnhanceSigilWithAI.mockResolvedValue(
+      result([variation('https://replicate.example/out.png', 3)])
+    );
     mockUploadImageFromUrl.mockResolvedValue(`${STORED_HOST}anchors/u/copied.png`);
 
     const res = await request(buildApp()).post('/api/ai/enhance').send({
+      creationSessionId: '11111111-1111-4111-8111-111111111111',
       sigilSvg: '<svg/>',
       styleChoice: 'minimal_line',
       anchorId: 'temp-creation-2',
@@ -385,9 +452,12 @@ describe('POST /api/ai/enhance — storage and partial retries', () => {
   });
 
   it('generates only the requested number of interpretations', async () => {
-    mockEnhanceSigilWithAI.mockResolvedValue(result([variation(`${STORED_HOST}anchors/u/b-0.png`, 4)]));
+    mockEnhanceSigilWithAI.mockResolvedValue(
+      result([variation(`${STORED_HOST}anchors/u/b-0.png`, 4)])
+    );
 
     const res = await request(buildApp()).post('/api/ai/enhance').send({
+      creationSessionId: '11111111-1111-4111-8111-111111111111',
       sigilSvg: '<svg/>',
       styleChoice: 'minimal_line',
       anchorId: 'temp-creation-3',
@@ -395,12 +465,17 @@ describe('POST /api/ai/enhance — storage and partial retries', () => {
     });
 
     expect(res.status).toBe(200);
-    expect(mockEnhanceSigilWithAI).toHaveBeenCalledWith(expect.objectContaining({ numberOfVariations: 1 }));
-    expect(mockPrisma.anchorVariationPool.findMany).toHaveBeenCalledWith(expect.objectContaining({ take: 1 }));
+    expect(mockEnhanceSigilWithAI).toHaveBeenCalledWith(
+      expect.objectContaining({ numberOfVariations: 1 })
+    );
+    expect(mockPrisma.anchorVariationPool.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({ take: 1 })
+    );
   });
 
   it('rejects a variation count outside the two-candidate contract', async () => {
     const res = await request(buildApp()).post('/api/ai/enhance').send({
+      creationSessionId: '11111111-1111-4111-8111-111111111111',
       sigilSvg: '<svg/>',
       styleChoice: 'minimal_line',
       anchorId: 'temp-creation-4',

@@ -5,6 +5,7 @@
  */
 
 import { Prisma } from '@prisma/client';
+import { createHash, randomBytes } from 'crypto';
 import { Router, Response, NextFunction } from 'express';
 import { z } from 'zod';
 import rateLimit, { ipKeyGenerator } from 'express-rate-limit';
@@ -19,6 +20,7 @@ import { hasLegacyMigrationAccess } from '../../services/MonetizationAccessServi
 import { getTrialState, type TrialState } from '../../services/v2/TrialLifecycleService';
 import { OnboardingContextSchema } from '../../services/v2/OnboardingContextService';
 import { getChartCapabilities } from '../../services/ChartCapabilityService';
+import { mergeGuestAccount } from '../../services/GuestAccountMergeService';
 import {
   resolveLocalDateKeyFromDate,
   type ThreadStrengthSensitivity,
@@ -26,6 +28,76 @@ import {
 } from '../../services/v2/ThreadStrengthService';
 
 const router = Router();
+
+// Hashed one-time proof allows retrying an interrupted login beyond the ID-token TTL.
+router.post(
+  '/guest-transfer-token',
+  authMiddleware,
+  async (req: AuthRequest, res: Response, next: NextFunction) => {
+    try {
+      if (!req.user || req.user.signInProvider !== 'anonymous')
+        throw new AppError('Guest identity required.', 403, 'INVALID_GUEST_PROOF');
+      const guest = await prisma.user.findUnique({ where: { authUid: req.user.uid } });
+      if (!guest || guest.authProvider !== 'anonymous')
+        throw new AppError('Guest unavailable.', 409, 'GUEST_ACCOUNT_ALREADY_LINKED');
+      const transferToken = randomBytes(32).toString('hex');
+      const guestTokenHash = createHash('sha256').update(transferToken).digest('hex');
+      await prisma.anchorCreationQuotaOwner.upsert({
+        where: { userId: guest.id },
+        create: { userId: guest.id, guestTokenHash },
+        update: { guestTokenHash },
+      });
+      res.json({ success: true, data: { guestUid: req.user.uid, transferToken } });
+    } catch (error) {
+      next(error);
+    }
+  }
+);
+
+router.post(
+  '/merge-guest',
+  authMiddleware,
+  async (req: AuthRequest, res: Response, next: NextFunction) => {
+    try {
+      const body = z
+        .union([
+          z.object({ guestIdToken: z.string().min(1).max(20000) }),
+          z.object({ guestUid: z.string().min(1).max(128), transferToken: z.string().length(64) }),
+        ])
+        .parse(req.body);
+      if (!req.user?.uid || req.user.signInProvider === 'anonymous') {
+        throw new AppError('A registered account is required.', 403, 'REGISTERED_ACCOUNT_REQUIRED');
+      }
+      let guestUid: string;
+      let transferHash: string | undefined;
+      if ('guestIdToken' in body) {
+        const proof = await getFirebaseAdmin().auth().verifyIdToken(body.guestIdToken, true);
+        if (proof.firebase?.sign_in_provider !== 'anonymous' || proof.uid === req.user.uid) {
+          throw new AppError(
+            'A verified guest credential is required.',
+            403,
+            'INVALID_GUEST_PROOF'
+          );
+        }
+        guestUid = proof.uid;
+      } else {
+        guestUid = body.guestUid;
+        transferHash = createHash('sha256').update(body.transferToken).digest('hex');
+      }
+      await mergeGuestAccount(guestUid, req.user.uid, transferHash);
+      res.json({ success: true });
+    } catch (error) {
+      if (error instanceof z.ZodError)
+        next(new AppError('Invalid guest credential.', 400, 'VALIDATION_ERROR'));
+      else if (
+        typeof (error as { code?: string })?.code === 'string' &&
+        (error as { code: string }).code.startsWith('auth/')
+      )
+        next(new AppError('Guest credential expired or invalid.', 401, 'INVALID_GUEST_PROOF'));
+      else next(error);
+    }
+  }
+);
 
 // Tighter rate limits for sensitive auth endpoints to prevent brute-force/enumeration.
 const syncLimiter = rateLimit({
@@ -138,12 +210,15 @@ function serializeUser(user: {
   };
 }
 
-async function syncCompedFlag(user: {
-  id: string;
-  email: string;
-  isComped: boolean;
-}): Promise<boolean> {
-  const nextIsComped = hasCompedAccess(user.email);
+async function syncCompedFlag(
+  user: {
+    id: string;
+    email: string;
+    isComped: boolean;
+  },
+  emailVerified: boolean
+): Promise<boolean> {
+  const nextIsComped = emailVerified && hasCompedAccess(user.email);
   if (user.isComped === nextIsComped) {
     return nextIsComped;
   }
@@ -159,14 +234,14 @@ async function syncCompedFlag(user: {
 function buildUserSyncPayload(input: {
   email: string;
   displayName?: string;
-  authProvider: 'email' | 'google' | 'apple';
+  authProvider: 'email' | 'google' | 'apple' | 'anonymous';
   isComped: boolean;
   hasCompletedOnboarding?: boolean;
   lastSeenAt: Date;
 }): {
   email: string;
   displayName: string | undefined;
-  authProvider: 'email' | 'google' | 'apple';
+  authProvider: 'email' | 'google' | 'apple' | 'anonymous';
   isComped: boolean;
   hasCompletedOnboarding?: true;
   lastSeenAt: Date;
@@ -493,7 +568,9 @@ router.post(
         hasCompletedOnboarding,
         allowCreate = true,
       } = validate(SyncSchema, req.body);
-      const rawEmail = req.user.email;
+      const isAnonymous = req.user.signInProvider === 'anonymous';
+      // Synthetic email is only a database compatibility value, never an auth credential.
+      const rawEmail = isAnonymous ? `${authUid}@guest.anchor.invalid` : req.user.email;
 
       if (!rawEmail) {
         throw new AppError(
@@ -505,6 +582,10 @@ router.post(
 
       const email = normalizeEmail(rawEmail);
 
+      if (!isAnonymous && email.endsWith('@guest.anchor.invalid')) {
+        throw new AppError('This email domain is reserved.', 403, 'INVALID_AUTH_CONTEXT');
+      }
+
       if (!email) {
         throw new AppError(
           'Authenticated user is missing an email address',
@@ -513,8 +594,10 @@ router.post(
         );
       }
 
-      const isComped = hasCompedAccess(email);
-      let provider = authProvider;
+      const isComped = !isAnonymous && req.user.emailVerified === true && hasCompedAccess(email);
+      let provider: 'email' | 'google' | 'apple' | 'anonymous' | undefined = isAnonymous
+        ? 'anonymous'
+        : authProvider;
       if (!provider) {
         const firebaseUser = await getFirebaseAdmin().auth().getUser(authUid);
         provider = mapProviderIdToAuthProvider(firebaseUser.providerData[0]?.providerId);
@@ -532,9 +615,32 @@ router.post(
 
       const user = await prisma
         .$transaction(async tx => {
+          // Serialize sync with guest transfers so a stale anonymous sync cannot erase the tombstone.
+          await tx.$queryRaw`SELECT id FROM users WHERE "authUid" = ${authUid} FOR UPDATE`;
           const existingByAuthUid = await tx.user.findUnique({
             where: { authUid },
           });
+
+          if (existingByAuthUid?.authProvider?.startsWith('merged_guest:')) {
+            throw new AppError(
+              'Sign in to the account linked to this guest.',
+              409,
+              'GUEST_ACCOUNT_ALREADY_LINKED'
+            );
+          }
+
+          if (existingByAuthUid?.authProvider === 'anonymous' && !isAnonymous) {
+            const collision = await tx.user.findFirst({
+              where: { email: { equals: email, mode: 'insensitive' } },
+            });
+            if (collision && collision.id !== existingByAuthUid.id) {
+              throw new AppError(
+                'This email belongs to another Anchor account. Your guest progress remains saved.',
+                409,
+                'GUEST_ACCOUNT_LINK_CONFLICT'
+              );
+            }
+          }
 
           const syncedUser = existingByAuthUid
             ? await tx.user.update({
@@ -552,6 +658,13 @@ router.post(
                 });
 
                 if (existingByEmail) {
+                  if (existingByEmail.authUid !== authUid && req.user?.emailVerified !== true) {
+                    throw new AppError(
+                      'Verify your email before linking an existing Anchor account.',
+                      403,
+                      'EMAIL_VERIFICATION_REQUIRED'
+                    );
+                  }
                   return tx.user.update({
                     where: { id: existingByEmail.id },
                     data: {
@@ -607,6 +720,17 @@ router.post(
 
             if (!userCreatedByConcurrentSync) {
               throw error;
+            }
+
+            if (
+              userCreatedByConcurrentSync.authUid !== authUid &&
+              req.user?.emailVerified !== true
+            ) {
+              throw new AppError(
+                'Verify your email before linking an existing Anchor account.',
+                403,
+                'EMAIL_VERIFICATION_REQUIRED'
+              );
             }
 
             const syncedUser = await tx.user.update({
@@ -687,7 +811,7 @@ router.get('/me', authMiddleware, async (req: AuthRequest, res: Response, next: 
       throw new AppError('User not found', 404, 'USER_NOT_FOUND');
     }
 
-    const isComped = await syncCompedFlag(userRecord);
+    const isComped = await syncCompedFlag(userRecord, req.user?.emailVerified === true);
     const user = { ...userRecord, isComped };
     const chartCapabilities = await getChartCapabilities(user);
 
@@ -977,7 +1101,7 @@ router.put(
         success: true,
         data: serializeUser({
           ...user,
-          isComped: await syncCompedFlag(user),
+          isComped: await syncCompedFlag(user, req.user?.emailVerified === true),
         }),
       });
     } catch (error) {
@@ -1374,6 +1498,15 @@ router.delete(
       }
 
       await prisma.$transaction(async tx => {
+        await tx.$queryRaw`SELECT id FROM users WHERE id = ${user.id} FOR UPDATE`;
+        await tx.$queryRaw`SELECT id FROM anchor_creation_quota_owners WHERE user_id = ${user.id} FOR UPDATE`;
+        // The additive creation ledger deliberately restricts parent deletion.
+        // Erase owned output before its sessions and owner; shared abuse hashes retain no user link.
+        await tx.anchorCreationOption.deleteMany({
+          where: { session: { owner: { userId: user.id } } },
+        });
+        await tx.anchorCreationSession.deleteMany({ where: { owner: { userId: user.id } } });
+        await tx.anchorCreationQuotaOwner.deleteMany({ where: { userId: user.id } });
         await tx.flaggedContent.deleteMany({
           where: buildFlaggedContentUserWhere(user),
         });

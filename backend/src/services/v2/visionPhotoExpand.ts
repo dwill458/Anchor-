@@ -1,4 +1,4 @@
-import sharp from 'sharp';
+import sharp, { type OutputInfo } from 'sharp';
 import { VISION_IMAGE_HEIGHT, VISION_IMAGE_WIDTH } from './visionScenePlanning';
 
 /**
@@ -91,7 +91,7 @@ export async function expandPhotoToVision(
   provider: ExpandProvider
 ): Promise<{ image: Buffer; width: number; height: number }> {
   let oriented: Buffer;
-  let info: sharp.OutputInfo;
+  let info: OutputInfo;
   try {
     ({ data: oriented, info } = await sharp(original)
       .rotate()

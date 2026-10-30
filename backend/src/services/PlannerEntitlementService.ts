@@ -2,10 +2,9 @@
  * Server-authoritative entitlement and quota for the AI Course Planner
  * (Phase 0 amendment F1).
  *
- * Entitlement is derived from the mechanism the product already treats as
- * authoritative — RevenueCat plus the persisted subscription columns and the
- * 7-day trial window frozen in `PracticeAccessService` — so the planner does
- * not invent a second notion of "paid". Nothing here trusts client input.
+ * Entitlement comes from RevenueCat's bounded verified cache or the same
+ * explicitly configured legacy-trial bridge used by monetization access.
+ * Persisted subscription status alone never proves current paid access.
  */
 
 import type { Prisma } from '@prisma/client';
@@ -16,9 +15,7 @@ import {
   type PlannerQuotaConfig,
 } from '../config/plannerPolicy';
 import { getRevenueCatAccess } from './RevenueCatEntitlementService';
-
-/** Same window as `PracticeAccessService.TRIAL_DURATION_MS`. */
-const TRIAL_DURATION_MS = 7 * 24 * 60 * 60 * 1000;
+import { hasLegacyMigrationAccess } from './MonetizationAccessService';
 
 export type PlannerDenialReason =
   | 'planner_disabled'
@@ -74,20 +71,22 @@ export async function resolvePlannerEntitlement(
   if (!user?.id) return null;
   if (user.isComped) return 'pro';
 
-  // Null means RevenueCat is unconfigured or temporarily unavailable; the
-  // persisted server-side status is then authoritative. Client input never is.
+  // The persisted subscription columns do not contain an expiry and cannot
+  // establish current access. RevenueCat's cache is bounded by the service.
   const liveAccess = await getRevenueCatAccess(user.id, now);
-  const paidFromServer = liveAccess
-    ? liveAccess.isActive
-    : user.subscriptionStatus === 'pro' || user.subscriptionStatus === 'pro_annual';
-  if (paidFromServer) return 'pro';
+  const expiry = liveAccess?.expiresAt ? new Date(liveAccess.expiresAt) : null;
+  if (liveAccess?.isActive && (!expiry || (Number.isFinite(expiry.getTime()) && expiry > now))) {
+    return liveAccess.isTrialPeriod ? 'trial' : 'pro';
+  }
+
+  if (hasLegacyMigrationAccess(user, now)) return 'trial';
 
   const trialStartedAt = user.trialStartedAt;
   if (!(trialStartedAt instanceof Date) || Number.isNaN(trialStartedAt.getTime())) {
     // No resolvable trial anchor: fail closed instead of assuming a fresh trial.
     return null;
   }
-  return now.getTime() < trialStartedAt.getTime() + TRIAL_DURATION_MS ? 'trial' : 'expired';
+  return 'expired';
 }
 
 /**

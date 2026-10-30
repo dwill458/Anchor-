@@ -252,7 +252,9 @@ const ProgressSchema = z
   );
 
 const ArchiveDeleteSchema = z.object({ expectedCourseVersion: CourseVersion.optional() }).strict();
-const CompleteWaypointSchema = z.object({ idempotencyKey: IdempotencyKey, expectedCourseVersion: CourseVersion }).strict();
+const CompleteWaypointSchema = z
+  .object({ idempotencyKey: IdempotencyKey, expectedCourseVersion: CourseVersion })
+  .strict();
 
 function validate<T>(schema: z.ZodType<T>, value: unknown): T {
   const result = schema.safeParse(value);
@@ -421,7 +423,9 @@ router.post(
     const { courseId, waypointId } = req.params;
     const completion = await courseService.completeWaypoint(userId, courseId, waypointId, body);
     void milestoneService.evaluateQuietly(userId, completion.course.anchorId, {
-      kind: 'chart', sourceEntityId: courseId, eventId: waypointId,
+      kind: 'chart',
+      sourceEntityId: courseId,
+      eventId: waypointId,
     });
     const chart = await courseService.getCourse(userId, courseId);
     res.json({ success: true, data: { ...completion, chart } });

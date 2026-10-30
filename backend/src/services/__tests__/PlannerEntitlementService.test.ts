@@ -106,6 +106,7 @@ describe('planner quota configuration', () => {
 describe('planner entitlement resolution', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    process.env.MONETIZATION_MODEL_ACTIVATED_AT = '2026-08-04T00:00:00.000Z';
     mockGetRevenueCatAccess.mockResolvedValue(null);
   });
 
@@ -119,11 +120,25 @@ describe('planner entitlement resolution', () => {
     await expect(resolvePlannerEntitlement(user(), NOW)).resolves.toBe('pro');
   });
 
-  it('falls back to the persisted server status when the store is unavailable', async () => {
+  it('does not trust an old persisted Pro status when the store is unavailable', async () => {
     mockGetRevenueCatAccess.mockResolvedValue(null);
     await expect(
-      resolvePlannerEntitlement(user({ subscriptionStatus: 'pro_annual' }), NOW)
-    ).resolves.toBe('pro');
+      resolvePlannerEntitlement(user({ subscriptionStatus: 'pro_annual', trialStartedAt: null }), NOW)
+    ).resolves.toBeNull();
+  });
+
+  it('uses the trial cap for a verified store trial and rejects an expired cached entitlement', async () => {
+    mockGetRevenueCatAccess.mockResolvedValueOnce({ isActive: true, isTrialPeriod: true, expiresAt: '2026-08-04T00:00:00Z' });
+    await expect(resolvePlannerEntitlement(user(), NOW)).resolves.toBe('trial');
+    mockGetRevenueCatAccess.mockResolvedValueOnce({ isActive: true, expiresAt: '2026-08-02T00:00:00Z', isStale: true });
+    await expect(resolvePlannerEntitlement(user({ trialStartedAt: null }), NOW)).resolves.toBeNull();
+  });
+
+  it('accepts an unexpired verified stale snapshot and denies an inactive store entitlement', async () => {
+    mockGetRevenueCatAccess.mockResolvedValueOnce({ isActive: true, isStale: true, expiresAt: '2026-08-04T00:00:00Z' });
+    await expect(resolvePlannerEntitlement(user({ trialStartedAt: null }), NOW)).resolves.toBe('pro');
+    mockGetRevenueCatAccess.mockResolvedValueOnce({ isActive: false, expiresAt: '2026-08-04T00:00:00Z' });
+    await expect(resolvePlannerEntitlement(user({ trialStartedAt: null, subscriptionStatus: 'pro' }), NOW)).resolves.toBeNull();
   });
 
   it('does not treat an inactive live entitlement as Pro even when the row says pro', async () => {
@@ -156,6 +171,7 @@ describe('planner entitlement resolution', () => {
 describe('planner quota evaluation', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    process.env.MONETIZATION_MODEL_ACTIVATED_AT = '2026-08-04T00:00:00.000Z';
     for (const key of QUOTA_ENV_KEYS) delete process.env[key];
     mockGetRevenueCatAccess.mockResolvedValue(null);
   });

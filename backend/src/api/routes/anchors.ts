@@ -8,8 +8,14 @@ import { Router, Response, NextFunction } from 'express';
 import { GoogleGenAI } from '@google/genai';
 import { z } from 'zod';
 import { Prisma } from '@prisma/client';
+import { randomUUID } from 'crypto';
 import { AuthRequest, authMiddleware } from '../middleware/auth';
 import { AppError } from '../middleware/errorHandler';
+import { creationPolicy } from '../../services/AnchorCreationService';
+import {
+  countHistoricalCreationBaseline,
+  countCreationUsage,
+} from '../../services/AnchorCreationQuotaPolicy';
 import { prisma } from '../../lib/prisma';
 import { BackendAnalyticsService } from '../../services/AnalyticsService';
 import { resolveMonetizationAccess } from '../../services/MonetizationAccessService';
@@ -74,7 +80,6 @@ const ANCHOR_LIST_SELECT: Prisma.AnchorSelect = {
 };
 
 const router = Router();
-const PAID_PRO_DAILY_ANCHOR_LIMIT = 10;
 
 // --- Zod schemas ---
 
@@ -101,6 +106,9 @@ const AnchorExpressionEnum = z.enum([
 ]);
 
 const CreateAnchorSchema = z.object({
+  creationSessionId: z.string().uuid().optional(),
+  selectedOptionId: z.string().uuid().optional(),
+  keepOriginal: z.boolean().optional(),
   intentionText: z.string().min(1).max(500),
   category: z.string().min(1),
   distilledLetters: z.array(z.string()).min(1),
@@ -155,6 +163,8 @@ const CreateAnchorSchema = z.object({
 });
 
 const UpdateAnchorSchema = z.object({
+  creationSessionId: z.string().uuid().optional(),
+  selectedOptionId: z.string().uuid().optional(),
   intentionText: z.string().min(1).max(500).optional(),
   category: z.string().min(1).max(100).optional(),
   structureVariant: StructureVariantEnum.optional(),
@@ -389,18 +399,6 @@ async function resolveAnchorCollectionArtworkUrls<T extends { enhancedImageUrl?:
   return Promise.all(anchors.map(resolveAnchorArtworkUrls));
 }
 
-function addDays(date: Date, days: number): Date {
-  const next = new Date(date);
-  next.setUTCDate(next.getUTCDate() + days);
-  return next;
-}
-
-function getUtcDayRange(now: Date): { start: Date; end: Date } {
-  const start = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
-  const end = addDays(start, 1);
-  return { start, end };
-}
-
 async function assertCanCreateAnchor(tx: Prisma.TransactionClient, userId: string): Promise<void> {
   // Serialize count + create for this user so concurrent requests cannot both
   // observe the same count and exceed the configured cap.
@@ -422,29 +420,11 @@ async function assertCanCreateAnchor(tx: Prisma.TransactionClient, userId: strin
     throw new AppError('User not found', 404, 'USER_NOT_FOUND');
   }
 
-  const now = new Date();
   const access = await resolveMonetizationAccess(user);
-  const paidPro = access.hasProAccess;
-
-  if (paidPro) {
-    const { start, end } = getUtcDayRange(now);
-    const createdToday = await tx.anchor.count({
-      where: {
-        userId,
-        createdAt: {
-          gte: start,
-          lt: end,
-        },
-      },
-    });
-
-    if (createdToday >= PAID_PRO_DAILY_ANCHOR_LIMIT) {
-      throw new AppError('Daily creation limit reached', 429, 'PRO_DAILY_ANCHOR_CAP_REACHED');
-    }
-    return;
-  }
-
-  if (user.totalAnchorsCreated >= 1) {
+  if (
+    !access.hasProAccess &&
+    (user.totalAnchorsCreated >= 1 || (await tx.anchor.count({ where: { userId } })) > 0)
+  ) {
     throw new AppError('Create more anchors with Pro', 403, 'CREATE_ANCHOR_FREE_LOCKED');
   }
 }
@@ -489,6 +469,7 @@ router.use(async (req: AuthRequest, res: Response, next: NextFunction) => {
       where: { authUid: req.user.uid },
       select: {
         id: true,
+        authProvider: true,
         subscriptionStatus: true,
         isComped: true,
         trialStartedAt: true,
@@ -498,6 +479,10 @@ router.use(async (req: AuthRequest, res: Response, next: NextFunction) => {
     });
     if (!user) {
       next(new AppError('User not found', 404, 'USER_NOT_FOUND'));
+      return;
+    }
+    if (user.authProvider.startsWith('merged_guest:')) {
+      next(new AppError('Guest identity was linked.', 403, 'GUEST_ALREADY_LINKED'));
       return;
     }
     req.dbUser = user;
@@ -658,10 +643,13 @@ router.post('/', async (req: AuthRequest, res: Response, next: NextFunction) => 
       mantraPronunciation,
       mantraAudioUrl,
       idempotencyKey,
+      creationSessionId,
+      selectedOptionId,
+      keepOriginal,
     } = validate(CreateAnchorExtendedSchema, req.body);
 
     const userId = req.dbUser!.id;
-    const variationReservation = extractVariationReservation(enhancementMetadata);
+    let variationReservation: ReturnType<typeof extractVariationReservation> = null;
 
     if (idempotencyKey) {
       const existing = await prisma.anchor.findUnique({ where: { idempotencyKey } });
@@ -686,8 +674,107 @@ router.post('/', async (req: AuthRequest, res: Response, next: NextFunction) => 
 
     await syncRevenueCatSubscription(req.dbUser!);
 
+    let replayed = false;
     const createdAnchor = await prisma.$transaction(async tx => {
+      await tx.$queryRaw`SELECT id FROM users WHERE id = ${userId} FOR UPDATE`;
+      if (idempotencyKey) {
+        const existing = await tx.anchor.findUnique({ where: { idempotencyKey } });
+        if (existing) {
+          if (existing.userId !== userId)
+            throw new AppError(
+              'Idempotency key belongs to another account.',
+              409,
+              'IDEMPOTENCY_KEY_CONFLICT'
+            );
+          replayed = true;
+          return existing;
+        }
+      }
+      // A session is a one-time save authority. Lock before checking its saved record.
+      let sessionId = creationSessionId;
+      let selectedImageUrl = enhancedImageUrl;
+      if (sessionId) {
+        await tx.$queryRaw`SELECT id FROM anchor_creation_sessions WHERE id = ${sessionId} FOR UPDATE`;
+        const session = await tx.anchorCreationSession.findFirst({
+          where: { id: sessionId, owner: { userId } },
+          include: { options: true },
+        });
+        if (!session || session.status !== 'completed') {
+          throw new AppError('Creation session not found.', 403, 'INVALID_CREATION_SESSION');
+        }
+        const option = keepOriginal
+          ? session.options[0]
+          : session.options.find(option => option.id === selectedOptionId);
+        if (!option)
+          throw new AppError(
+            'Select an option from your creation session.',
+            403,
+            'INVALID_CREATION_OPTION'
+          );
+        const payload = option.payload as {
+          imageUrl?: string;
+          creationInput?: { sigilSvg: string; intentionText: string };
+        };
+        if (
+          !payload.imageUrl ||
+          !payload.creationInput ||
+          payload.creationInput.sigilSvg !== (reinforcedSigilSvg || baseSigilSvg) ||
+          payload.creationInput.intentionText !== intentionText
+        ) {
+          throw new AppError(
+            'Selected output does not match this Anchor.',
+            403,
+            'INVALID_CREATION_OPTION'
+          );
+        }
+        if (session.savedAnchorId) {
+          const saved = await tx.anchor.findFirst({ where: { id: session.savedAnchorId, userId } });
+          if (!saved)
+            throw new AppError('This creation was already saved.', 409, 'CREATION_ALREADY_SAVED');
+          replayed = true;
+          return saved;
+        }
+        selectedImageUrl = keepOriginal ? undefined : payload.imageUrl;
+        variationReservation = keepOriginal ? null : extractVariationReservation(option.payload);
+      } else if (enhancedImageUrl || selectedOptionId || keepOriginal) {
+        throw new AppError(
+          'Update Anchor to save generated artwork.',
+          426,
+          'ANCHOR_CREATION_UPGRADE_REQUIRED'
+        );
+      }
       await assertCanCreateAnchor(tx, userId);
+
+      if (!sessionId) {
+        // Keeping the original SVG creates usable output too; it cannot evade the trial cap.
+        const owner = await tx.anchorCreationQuotaOwner.upsert({
+          where: { userId },
+          create: { userId },
+          update: {},
+        });
+        await tx.$queryRaw`SELECT id FROM anchor_creation_quota_owners WHERE id = ${owner.id} FOR UPDATE`;
+        const policy = await creationPolicy(req.dbUser!);
+        await tx.anchorCreationSession.updateMany({
+          where: { ownerId: owner.id, status: 'reserved', expiresAt: { lte: new Date() } },
+          data: { status: 'expired' },
+        });
+        const used = await countCreationUsage(tx, owner.id, policy.scope, policy.baselineSince);
+        const historical = await countHistoricalCreationBaseline(tx, userId, policy.baselineSince);
+        if (used + historical >= policy.limit)
+          throw new AppError('Creation limit reached.', 429, 'ANCHOR_CREATION_QUOTA_EXCEEDED');
+        const original = await tx.anchorCreationSession.create({
+          data: {
+            ownerId: owner.id,
+            idempotencyKey: `save:${idempotencyKey || randomUUID()}`,
+            requestHash: 'original',
+            quotaScope: policy.scope,
+            status: 'completed',
+            completedAt: new Date(),
+            expiresAt: new Date(),
+          },
+        });
+        sessionId = original.id;
+      }
 
       // Create anchor with new architecture fields
       const createdAnchor = await tx.anchor.create({
@@ -704,7 +791,7 @@ router.post('/', async (req: AuthRequest, res: Response, next: NextFunction) => 
           // Structure lineage
           baseSigilSvg,
           reinforcedSigilSvg: reinforcedSigilSvg || null,
-          enhancedImageUrl: enhancedImageUrl || null,
+          enhancedImageUrl: selectedImageUrl || null,
 
           // Creation path metadata
           structureVariant: structureVariant || 'balanced',
@@ -719,6 +806,11 @@ router.post('/', async (req: AuthRequest, res: Response, next: NextFunction) => 
           // Legacy fields (for backward compatibility)
           generationMethod: reinforcedSigilSvg ? 'manual' : 'automated',
         },
+      });
+
+      await tx.anchorCreationSession.update({
+        where: { id: sessionId },
+        data: { savedAnchorId: createdAnchor.id },
       });
 
       // Update user stats
@@ -790,7 +882,7 @@ router.post('/', async (req: AuthRequest, res: Response, next: NextFunction) => 
       backend_confirmed: true,
     });
 
-    res.status(201).json({
+    res.status(replayed ? 200 : 201).json({
       success: true,
       data: anchor,
     });
@@ -1113,6 +1205,8 @@ router.put('/:id', async (req: AuthRequest, res: Response, next: NextFunction) =
       isShared,
       sharedAt,
       expression,
+      creationSessionId,
+      selectedOptionId,
     } = validate(UpdateAnchorSchema, req.body);
 
     // Build update object with only the allowed fields that were provided
@@ -1181,8 +1275,58 @@ router.put('/:id', async (req: AuthRequest, res: Response, next: NextFunction) =
     // Archiving is an Anchor-owned lifecycle operation, but closing Chart
     // links must commit atomically with it. Other edits retain the existing
     // single-statement path.
-    const result =
-      allowedUpdates.isArchived === true
+    const result = enhancedImageUrl
+      ? await prisma.$transaction(async tx => {
+          await tx.$queryRaw`SELECT id FROM users WHERE id = ${userId} FOR UPDATE`;
+          const current = await tx.anchor.findFirst({ where: { id, userId } });
+          if (!current) throw new AppError('Anchor not found.', 404, 'ANCHOR_NOT_FOUND');
+          const sameAsset =
+            current.enhancedImageUrl &&
+            new URL(current.enhancedImageUrl).origin === new URL(enhancedImageUrl).origin &&
+            new URL(current.enhancedImageUrl).pathname === new URL(enhancedImageUrl).pathname;
+          if (sameAsset) allowedUpdates.enhancedImageUrl = current.enhancedImageUrl;
+          else {
+            if (!creationSessionId || !selectedOptionId)
+              throw new AppError(
+                'Select authorized artwork.',
+                426,
+                'ANCHOR_CREATION_UPGRADE_REQUIRED'
+              );
+            await tx.$queryRaw`SELECT id FROM anchor_creation_sessions WHERE id = ${creationSessionId} FOR UPDATE`;
+            const session = await tx.anchorCreationSession.findFirst({
+              where: { id: creationSessionId, owner: { userId }, status: 'completed' },
+              include: { options: true },
+            });
+            const option = session?.options.find(option => option.id === selectedOptionId);
+            const payload = option?.payload as { imageUrl?: string } | undefined;
+            if (
+              !session ||
+              !payload?.imageUrl ||
+              (session.savedAnchorId && session.savedAnchorId !== id)
+            ) {
+              throw new AppError(
+                'Artwork is not authorized for this Anchor.',
+                403,
+                'INVALID_CREATION_OPTION'
+              );
+            }
+            if (!(await resolveMonetizationAccess(req.dbUser!)).hasProAccess)
+              throw new AppError('An active subscription is required.', 403, 'PREMIUM_REQUIRED');
+            allowedUpdates.enhancedImageUrl = payload.imageUrl;
+            await tx.anchorCreationSession.update({
+              where: { id: session.id },
+              data: { savedAnchorId: id },
+            });
+          }
+          const updated = await tx.anchor.updateMany({
+            where: { id, userId },
+            data: allowedUpdates,
+          });
+          if (updated.count && allowedUpdates.isArchived === true)
+            await courseService.closeLinksForUnavailableAnchor(tx, userId, id, 'ANCHOR_RELEASED');
+          return updated;
+        })
+      : allowedUpdates.isArchived === true
         ? await prisma.$transaction(
             async tx => {
               const updated = await tx.anchor.updateMany({

@@ -19,6 +19,7 @@ import {
 import {
   globalAiCeilingLimiter,
   anchorEnhanceLimiter,
+  guestAnchorPreviewLimiter,
   anchorEnhanceConcurrencyGuard,
   aiPlanningLimiter,
   isAiDeveloper,
@@ -45,6 +46,15 @@ import {
   getAvailableVoicePresets,
 } from '../../services/TTSService';
 import { logger } from '../../utils/logger';
+import { AppError } from '../middleware/errorHandler';
+import {
+  creationHash,
+  reserveCreation,
+  claimCreation,
+  persistCreationOptions,
+  releaseCreation,
+  consumeGuestCreationBudget,
+} from '../../services/AnchorCreationService';
 
 const router = express.Router();
 // Anchor 2.0 styles are fully generatable but not released: the route only accepts them when this
@@ -58,6 +68,7 @@ const RESERVATION_TTL_MINUTES = 30;
 // --- Zod schemas ---
 
 const EnhanceSchema = z.object({
+  creationSessionId: z.string().uuid().optional(),
   devImageModel: z.enum(DEV_IMAGE_MODEL_IDS).optional(),
   sigilSvg: z.string().min(1),
   styleChoice: z.preprocess(
@@ -143,6 +154,8 @@ function buildReservationExpiry(): Date {
 }
 
 type ClientVariation = {
+  optionId?: string;
+  creationSessionId?: string;
   variationId: string;
   imageUrl: string;
   structureMatchScore: number;
@@ -209,6 +222,7 @@ const AI_GENERATION_TIMEOUT_MS = 3 * 60 * 1000;
 
 // Handler shared by /enhance and legacy /enhance-controlnet alias
 async function handleEnhance(req: AuthRequest, res: Response): Promise<void> {
+  let execution: Awaited<ReturnType<typeof claimCreation>> | undefined;
   try {
     const parsed = validateOrRespond(EnhanceSchema, req.body, res);
     if (!parsed) return;
@@ -217,14 +231,53 @@ async function handleEnhance(req: AuthRequest, res: Response): Promise<void> {
       return;
     }
 
-    // Onboarding flow generates a "temp-*" anchor before the user has an
-    // account. Those requests are permitted without auth (still IP rate
-    // limited above). Every other path must be authenticated.
+    // A caller-controlled temporary ID does not establish guest ownership.
+    if (!req.user?.uid) {
+      res.status(426).json({
+        error: {
+          code: 'ANCHOR_CREATION_UPGRADE_REQUIRED',
+          message: 'Update Anchor to continue creating artwork.',
+        },
+      });
+      return;
+    }
     if (getStyleGenerationVersion(parsed.styleChoice) === 'anchor2' && !isAnchor2StylesEnabled()) {
       res.status(400).json({ error: 'Validation error: styleChoice: Invalid enum value' });
       return;
     }
 
+    if (!parsed.creationSessionId) {
+      res.status(426).json({
+        error: {
+          code: 'ANCHOR_CREATION_UPGRADE_REQUIRED',
+          message: 'Update Anchor to continue creating artwork.',
+        },
+      });
+      return;
+    }
+    execution = await claimCreation(req.user.uid, parsed.creationSessionId, creationHash(parsed));
+    if (!execution.token) {
+      const variations = await resolveClientVariationUrls(
+        execution.session.options.map(option => ({
+          ...(option.payload as object),
+          optionId: option.id,
+          creationSessionId: execution!.session.id,
+        })) as unknown as ClientVariation[]
+      );
+      res.json({
+        success: true,
+        creationSessionId: execution.session.id,
+        variations,
+        variationUrls: variations.map(v => v.imageUrl),
+      });
+      return;
+    }
+    if (
+      req.user.signInProvider === 'anonymous' ||
+      execution.session.quotaScope === 'free:lifetime'
+    ) {
+      await consumeGuestCreationBudget(req.ip ?? '');
+    }
     const isTempAnchor = parsed.anchorId.startsWith('temp-');
     if (!isTempAnchor && !req.user?.uid) {
       res.status(401).json({
@@ -247,7 +300,10 @@ async function handleEnhance(req: AuthRequest, res: Response): Promise<void> {
       generationAttempt, // Optional: int starting at 1; pro users upgrade to pro model at attempt 3+
       variationCount,
     } = parsed;
-    const requestedVariations = variationCount ?? TOTAL_VARIATION_OPTIONS;
+    const requestedVariations = Math.min(
+      variationCount ?? TOTAL_VARIATION_OPTIONS,
+      2 - execution.session.options.length
+    );
 
     // Support both field names for maximum compatibility
     const intentionText = bodyIntentionText || bodyIntention;
@@ -643,10 +699,25 @@ async function handleEnhance(req: AuthRequest, res: Response): Promise<void> {
       }
     }
 
-    const responseVariations = await resolveClientVariationUrls([
-      ...reservedPoolVariations,
-      ...pooledGeneratedVariations,
-    ]);
+    const durableVariations = [...reservedPoolVariations, ...pooledGeneratedVariations].filter(
+      v => v.structurePreserved && v.imageUrl
+    );
+    const recorded = await persistCreationOptions(
+      execution.session.id,
+      execution.token!,
+      durableVariations.map(v => ({
+        ...v,
+        reuseRequestId,
+        creationInput: { sigilSvg, intentionText: intentionText ?? '', styleChoice },
+      }))
+    );
+    const responseVariations = await resolveClientVariationUrls(
+      recorded.map(option => ({
+        ...(option.payload as object),
+        optionId: option.id,
+        creationSessionId: execution!.session.id,
+      })) as unknown as ClientVariation[]
+    );
 
     if (responseVariations.length === 0) {
       logger.error('[AI Enhance] All variation uploads failed', { anchorId, style: styleChoice });
@@ -667,6 +738,7 @@ async function handleEnhance(req: AuthRequest, res: Response): Promise<void> {
 
     res.json({
       success: true,
+      creationSessionId: execution.session.id,
       // New format with structure scores
       variations: responseVariations,
       // Legacy format for backward compatibility
@@ -688,13 +760,77 @@ async function handleEnhance(req: AuthRequest, res: Response): Promise<void> {
       allPreserved: passingCount === responseVariations.length,
     });
   } catch (error) {
+    if (error instanceof AppError) {
+      res.status(error.statusCode).json({ error: { code: error.code, message: error.message } });
+      return;
+    }
     logger.error('[AI Enhance] Unexpected enhancement error', error);
     res.status(500).json({
       error: 'Internal server error',
       message: 'An unexpected error occurred during AI enhancement.',
     });
+  } finally {
+    if (execution?.token)
+      await releaseCreation(execution.session.id, execution.token).catch(error => {
+        logger.error('[AI Enhance] Lease release failed', error);
+      });
   }
 }
+
+router.post(
+  '/creation-sessions',
+  authMiddleware,
+  globalAiCeilingLimiter,
+  guestAnchorPreviewLimiter,
+  async (req: AuthRequest, res: Response) => {
+    try {
+      const parsed = validateOrRespond(EnhanceSchema, req.body, res);
+      if (!parsed) return;
+      const key = req.get('Idempotency-Key');
+      if (!key || key.length > 200) {
+        res.status(400).json({ error: 'Idempotency-Key required' });
+        return;
+      }
+      const session = await reserveCreation(req.user!.uid, key, creationHash(parsed));
+      res.json({ success: true, creationSessionId: session.id, status: session.status });
+    } catch (error) {
+      if (error instanceof AppError) {
+        res.status(error.statusCode).json({ error: { code: error.code, message: error.message } });
+      } else {
+        logger.error('[Creation] Reservation failed', error);
+        res.status(503).json({ error: 'Creation temporarily unavailable' });
+      }
+    }
+  }
+);
+
+// Read-only recovery never spends provider work, even after a partial session expires.
+router.get('/creation-sessions/:id', authMiddleware, async (req: AuthRequest, res: Response) => {
+  try {
+    const session = await prisma.anchorCreationSession.findFirst({
+      where: {
+        id: req.params.id,
+        owner: { user: { authUid: req.user!.uid } },
+      },
+      include: { options: { orderBy: { position: 'asc' } } },
+    });
+    if (!session) {
+      res.status(404).json({ error: { code: 'CREATION_SESSION_NOT_FOUND' } });
+      return;
+    }
+    const variations = await resolveClientVariationUrls(
+      session.options.map(option => ({
+        ...(option.payload as object),
+        optionId: option.id,
+        creationSessionId: session.id,
+      })) as unknown as ClientVariation[]
+    );
+    res.json({ success: true, creationSessionId: session.id, variations, status: session.status });
+  } catch (error) {
+    logger.error('[Creation] Recovery lookup failed', error);
+    res.status(503).json({ error: 'Creation temporarily unavailable' });
+  }
+});
 
 // Primary route
 router.post(
@@ -702,6 +838,7 @@ router.post(
   optionalAuthMiddleware,
   globalAiCeilingLimiter,
   anchorEnhanceLimiter,
+  guestAnchorPreviewLimiter,
   anchorEnhanceConcurrencyGuard,
   handleEnhance
 );
@@ -711,6 +848,7 @@ router.post(
   optionalAuthMiddleware,
   globalAiCeilingLimiter,
   anchorEnhanceLimiter,
+  guestAnchorPreviewLimiter,
   anchorEnhanceConcurrencyGuard,
   handleEnhance
 );

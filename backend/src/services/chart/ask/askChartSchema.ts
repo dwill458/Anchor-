@@ -58,7 +58,17 @@ export const ASK_TURN_JSON_SCHEMA = {
     action: {
       type: ['object', 'null'],
       additionalProperties: false,
-      required: ['type', 'scope', 'waypointId', 'moves', 'moveEdit', 'reason', 'routeReason', 'detail', 'summary'],
+      required: [
+        'type',
+        'scope',
+        'waypointId',
+        'moves',
+        'moveEdit',
+        'reason',
+        'routeReason',
+        'detail',
+        'summary',
+      ],
       properties: {
         type: { type: 'string', enum: ['ADD_MOVES', 'REVISE_ROUTE'] },
         scope: { type: 'string', enum: [...ASK_SCOPES] },
@@ -109,7 +119,16 @@ const RawTurn = z.object({
       type: z.enum(['ADD_MOVES', 'REVISE_ROUTE']),
       scope: z.enum(ASK_SCOPES).nullish(),
       waypointId: z.string().nullish(),
-      moves: z.array(z.object({ title: text(120), detail: text(280).nullish(), rationale: text(280).nullish() })).max(5).default([]),
+      moves: z
+        .array(
+          z.object({
+            title: text(120),
+            detail: text(280).nullish(),
+            rationale: text(280).nullish(),
+          })
+        )
+        .max(5)
+        .default([]),
       reason: z.enum(REVISE_REASONS).nullish(),
       routeReason: text(160).nullish(),
       moveEdit: z.object({ title: text(120), detail: text(280).nullish() }).nullish(),
@@ -157,7 +176,10 @@ const NOT_SURE = /(not sure|unsure|don'?t know|no idea)/i;
 const NOT_SURE_REPLY = 'Not sure yet';
 
 /** A move edit can only be MOVE; a route revision is never MOVE. Missing scope means the widest level that type allows. */
-export function normalizeScope(type: 'ADD_MOVES' | 'REVISE_ROUTE', scope: AskScope | null | undefined): AskScope {
+export function normalizeScope(
+  type: 'ADD_MOVES' | 'REVISE_ROUTE',
+  scope: AskScope | null | undefined
+): AskScope {
   if (type === 'ADD_MOVES') return 'MOVE';
   return scope === 'WAYPOINT' ? 'WAYPOINT' : 'ROUTE';
 }
@@ -190,10 +212,16 @@ export function normalizeAskTurn(raw: unknown): AskTurn {
         waypointId: turn.action.waypointId?.trim() || null,
         moves: turn.action.moves
           .filter(move => move.title)
-          .map(move => ({ title: move.title, rationale: move.detail ?? move.rationale ?? null, ...(move.detail !== undefined ? { detail: move.detail ?? null } : {}) })),
+          .map(move => ({
+            title: move.title,
+            rationale: move.detail ?? move.rationale ?? null,
+            ...(move.detail !== undefined ? { detail: move.detail ?? null } : {}),
+          })),
         reason: turn.action.reason ?? null,
         routeReason: turn.action.routeReason || null,
-        moveEdit: turn.action.moveEdit?.title ? { title: turn.action.moveEdit.title, detail: turn.action.moveEdit.detail || null } : null,
+        moveEdit: turn.action.moveEdit?.title
+          ? { title: turn.action.moveEdit.title, detail: turn.action.moveEdit.detail || null }
+          : null,
         detail: turn.action.detail || null,
         summary: turn.action.summary,
       }

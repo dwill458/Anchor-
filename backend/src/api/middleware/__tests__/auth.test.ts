@@ -95,6 +95,14 @@ describe('authMiddleware', () => {
     expect(mockReq.user).toEqual({ uid: 'firebase-uid', email: 'user@example.com' });
   });
 
+  it('uses only verified token claims for anonymous identity and email verification', async () => {
+    (getFirebaseAdmin as jest.Mock).mockReturnValue({ auth: () => ({ verifyIdToken: jest.fn().mockResolvedValue({ uid: 'guest-uid', firebase: { sign_in_provider: 'anonymous' }, email_verified: false }) }) });
+    mockReq.headers = { authorization: 'Bearer verified-guest-token' };
+    await authMiddleware(mockReq as AuthRequest, mockRes as Response, mockNext);
+    expect(mockReq.user).toEqual({ uid: 'guest-uid', email: undefined, signInProvider: 'anonymous', emailVerified: false });
+    expect(mockNext).toHaveBeenCalled();
+  });
+
   it('should return 401 with TOKEN_EXPIRED for expired tokens', async () => {
     const expiredError = { code: 'auth/id-token-expired', message: 'Token expired' };
     (getFirebaseAdmin as jest.Mock).mockReturnValue({

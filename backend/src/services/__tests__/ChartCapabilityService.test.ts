@@ -13,10 +13,11 @@ const mockPrisma = {
 };
 jest.mock('../../lib/prisma', () => ({ prisma: mockPrisma }));
 
-// These cases exercise persisted entitlements with RevenueCat unavailable.
-// Never let a developer's configured key turn them into live billing lookups.
+// External verified entitlement fixtures; persisted subscription flags never grant access.
 jest.mock('../RevenueCatEntitlementService', () => ({
-  getRevenueCatAccess: jest.fn().mockResolvedValue(null),
+  getRevenueCatAccess: jest.fn(async (userId: string) => userId === 'account-pro' || userId === 'account-trial'
+    ? { isActive: true, isTrialPeriod: userId === 'account-trial', productIdentifier: 'verified-product', expiresAt: new Date(Date.now() + 86400000).toISOString() }
+    : { isActive: false, productIdentifier: null }),
 }));
 
 // Provider configuration is read through these resolvers. Driving them directly
@@ -109,7 +110,7 @@ describe('ChartCapabilityService (Workstream G)', () => {
       expect(capabilities.plannerQuota.remaining).toBe(3);
     });
 
-    it('gives Pro accounts ten per rolling day', async () => {
+    it('gives Pro accounts ten per UTC day', async () => {
       const capabilities = await capabilitiesFor('pro');
       expect(capabilities.canGenerateChartPlan).toBe(true);
       expect(capabilities.plannerQuota.limit).toBe(10);

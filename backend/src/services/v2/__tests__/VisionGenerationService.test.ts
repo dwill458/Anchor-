@@ -113,7 +113,7 @@ describe('VisionGenerationService', () => {
 
   it('persists eight distinct planned candidates and completes only after storage succeeds', async () => {
     const plan = Array.from({ length: 8 }, (_, index) => ({ role: `Role ${index}`, scene: `Different scene ${index}` }));
-    const onePixelPng = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jRuoAAAAASUVORK5CYII=', 'base64');
+    const onePixelPng = await sharp({ create: { width: 1, height: 1, channels: 3, background: 'white' } }).png().toBuffer();
     mockPlanVisionScenes.mockResolvedValue(plan);
     mockGenerateVisionScene.mockResolvedValue(onePixelPng);
     mockPrisma.visionGeneration.findUnique.mockImplementation(async (query: { select?: unknown }) =>
@@ -329,7 +329,7 @@ describe('VisionGenerationService', () => {
     });
 
     it('shoots each candidate in the context of the Vision and what is already on the board', async () => {
-      const onePixelPng = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jRuoAAAAASUVORK5CYII=', 'base64');
+      const onePixelPng = await sharp({ create: { width: 1, height: 1, channels: 3, background: 'white' } }).png().toBuffer();
       mockGenerateVisionScene.mockResolvedValue(onePixelPng);
       const plan = [
         { role: 'The moment itself', scene: sceneText, framing: 'medium' },

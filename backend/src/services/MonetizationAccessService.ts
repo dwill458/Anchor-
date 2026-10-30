@@ -13,6 +13,7 @@ export interface MonetizationAccess {
   /** True when the result came from a verified store lookup or an explicit server policy. */
   entitlementVerified: boolean;
   isTrialPeriod: boolean;
+  trialPeriodId?: string | null;
   isComped: boolean;
   legacyMigrationAccess: boolean;
   source: MonetizationAccessSource;
@@ -82,6 +83,7 @@ export async function resolveMonetizationAccess(
       hasProAccess: true,
       entitlementVerified: true,
       isTrialPeriod: revenueCatAccess.isTrialPeriod === true,
+      trialPeriodId: revenueCatAccess.trialStartedAt ?? null,
       isComped: false,
       legacyMigrationAccess: false,
       source: revenueCatAccess.isStale ? 'revenuecat_cache' : 'revenuecat',
@@ -96,6 +98,7 @@ export async function resolveMonetizationAccess(
       hasProAccess: true,
       entitlementVerified: true,
       isTrialPeriod: true,
+      trialPeriodId: user.trialStartedAt!.toISOString(),
       isComped: false,
       legacyMigrationAccess: true,
       source: 'legacy_migration',

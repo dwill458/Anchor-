@@ -42,11 +42,11 @@ export function getAiDevAllowlist(): Set<string> {
  */
 export function isAiDeveloper(req: Request): boolean {
   const authReq = req as AuthRequest;
-  if (authReq.user?.uid === DEV_MASTER_UID) {
+  if (process.env.NODE_ENV !== 'production' && authReq.user?.uid === DEV_MASTER_UID) {
     return true;
   }
   const email = authReq.user?.email?.toLowerCase().trim();
-  if (!email) {
+  if (!email || authReq.user?.emailVerified !== true) {
     return false;
   }
   return getAiDevAllowlist().has(email);
@@ -59,6 +59,7 @@ export interface AiLimiterOptions {
   devLimit: number;
   keyPrefix: string;
   message: string;
+  guestOnly?: boolean;
 }
 
 export function createAiRateLimiter(options: AiLimiterOptions): RateLimitRequestHandler {
@@ -80,11 +81,16 @@ export function createAiRateLimiter(options: AiLimiterOptions): RateLimitRequest
     standardHeaders: true,
     legacyHeaders: false,
     store,
+    skip: req =>
+      options.guestOnly === true &&
+      Boolean((req as AuthRequest).user?.uid) &&
+      (req as AuthRequest).user?.signInProvider !== 'anonymous',
     max: (req: Request) => {
       return isAiDeveloper(req) ? devLimit : prodLimit;
     },
     keyGenerator: (req: Request) => {
       const authReq = req as AuthRequest;
+      if (options.guestOnly) return `${keyPrefix}ip:${ipKeyGenerator(req.ip ?? '')}`;
       const userId = authReq.user?.uid || authReq.dbUser?.id;
       if (userId) {
         return `${keyPrefix}${userId}`;
@@ -202,6 +208,19 @@ export const anchorEnhanceLimiter = createAiRateLimiter({
   devLimit: 120,
   keyPrefix: 'rl:ai:anchor:',
   message: 'Anchor AI enhancement limit reached. Please try again shortly.',
+});
+
+// Separate cost ceiling for anonymous onboarding. IP addresses are not a
+// durable identity: shared networks may share this allowance and an attacker
+// can rotate addresses. Account quotas require the creation-session ledger.
+export const guestAnchorPreviewLimiter = createAiRateLimiter({
+  feature: 'anchor',
+  windowMs: 24 * 60 * 60 * 1000,
+  prodLimit: 20,
+  devLimit: 20,
+  keyPrefix: 'rl:ai:anchor:guest-daily:',
+  message: 'Guest preview limit reached. Please try again later.',
+  guestOnly: true,
 });
 
 // 6. Lightweight AI planning / text / scene planning:

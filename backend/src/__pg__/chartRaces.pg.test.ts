@@ -13,9 +13,8 @@
  * and lifecycle-conflict races are new: they exercise the H-002/H-003 fix and
  * the conflict paths H recorded as NOT EXECUTED.
  *
- * No provider key is configured here, so the planner's deterministic fallback
- * is persisted — per amendment F1 that consumes exactly one quota unit, which
- * is the accounting under test.
+ * The store and AI provider are mocked, so no external calls are made; the
+ * planner's deterministic fallback persists against the real database.
  */
 
 import { randomUUID } from 'crypto';
@@ -24,6 +23,25 @@ const PG_URL = process.env.CHART_PG_DATABASE_URL;
 const describePg = PG_URL ? describe : describe.skip;
 
 if (PG_URL) process.env.DATABASE_URL = PG_URL;
+
+// The database is real and isolated; store responses are deterministic fixtures.
+jest.mock('../services/RevenueCatEntitlementService', () => ({
+  getRevenueCatAccess: async (userId: string) => ({
+    isActive: true,
+    isTrialPeriod: userId.startsWith('pg-trial-'),
+    productIdentifier: 'test-product',
+    expiresAt: new Date(Date.now() + 86_400_000).toISOString(),
+  }),
+}));
+jest.mock('../config/plannerPolicy', () => ({
+  ...jest.requireActual('../config/plannerPolicy'),
+  resolvePlannerApiKey: () => 'isolated-fixture',
+}));
+jest.mock('@google/genai', () => ({
+  GoogleGenAI: class {
+    constructor() { throw new Error('isolated provider fixture'); }
+  },
+}));
 
 import { PrismaClient } from '@prisma/client';
 import { coursePlannerService } from '../services/CoursePlannerService';

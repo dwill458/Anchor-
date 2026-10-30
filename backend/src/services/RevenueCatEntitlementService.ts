@@ -14,6 +14,7 @@ interface RevenueCatEntitlement {
 interface RevenueCatSubscriberResponse {
   subscriber?: {
     entitlements?: Record<string, RevenueCatEntitlement>;
+    subscriptions?: Record<string, { period_type?: string | null; purchase_date?: string | null }>;
   };
 }
 
@@ -21,6 +22,7 @@ export interface RevenueCatAccessSnapshot {
   isActive: boolean;
   productIdentifier: string | null;
   isTrialPeriod?: boolean;
+  trialStartedAt?: string | null;
   expiresAt?: string | null;
   isStale?: boolean;
 }
@@ -77,10 +79,17 @@ export async function getRevenueCatAccess(
       }
     );
     const entitlement = response.data.subscriber?.entitlements?.[entitlementId];
+    const subscription = entitlement?.product_identifier
+      ? response.data.subscriber?.subscriptions?.[entitlement.product_identifier]
+      : undefined;
     const value = {
       isActive: isEntitlementActive(entitlement, now),
       productIdentifier: entitlement?.product_identifier ?? null,
-      isTrialPeriod: entitlement?.period_type?.toLowerCase() === 'trial',
+      isTrialPeriod:
+        (subscription?.period_type ?? entitlement?.period_type)?.toLowerCase() === 'trial',
+      ...(subscription?.purchase_date && Number.isFinite(Date.parse(subscription.purchase_date))
+        ? { trialStartedAt: new Date(subscription.purchase_date).toISOString() }
+        : {}),
       expiresAt: entitlement?.expires_date ?? null,
     };
 

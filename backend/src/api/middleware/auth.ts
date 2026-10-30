@@ -33,6 +33,9 @@ export interface AuthRequest extends Request {
   user?: {
     uid: string;
     email?: string;
+    /** Verified Firebase sign-in provider, never supplied by the request body. */
+    signInProvider?: string;
+    emailVerified?: boolean;
   };
   /** DB-resolved user record — populated by the resolveDbUser middleware in routers */
   dbUser?: {
@@ -109,6 +112,10 @@ export const authMiddleware = async (
     req.user = {
       uid: decoded.uid,
       email: decoded.email,
+      ...(decoded.firebase?.sign_in_provider && {
+        signInProvider: decoded.firebase.sign_in_provider,
+      }),
+      ...(decoded.email_verified !== undefined && { emailVerified: decoded.email_verified }),
     };
     Sentry.setUser({ id: decoded.uid });
 
@@ -184,6 +191,10 @@ export const optionalAuthMiddleware = async (
     req.user = {
       uid: decoded.uid,
       email: decoded.email,
+      ...(decoded.firebase?.sign_in_provider && {
+        signInProvider: decoded.firebase.sign_in_provider,
+      }),
+      ...(decoded.email_verified !== undefined && { emailVerified: decoded.email_verified }),
     };
     Sentry.setUser({ id: decoded.uid });
 

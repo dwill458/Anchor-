@@ -127,7 +127,8 @@ beforeEach(() => {
   jest.clearAllMocks();
   for (const key of QUOTA_ENV_KEYS) delete process.env[key];
   mockEnv.GOOGLE_API_KEY = 'test-key';
-  mockGetRevenueCatAccess.mockResolvedValue(null);
+  mockGetRevenueCatAccess.mockResolvedValue({ isActive: true, isTrialPeriod: true,
+    productIdentifier: 'verified-trial', expiresAt: new Date(NOW.getTime() + DAY_MS).toISOString() });
   mockPrisma.anchor.findMany.mockResolvedValue([]);
   mockPrisma.reflection.findMany.mockResolvedValue([]);
   mockPrisma.aIPlanProposal.findUnique.mockResolvedValue(null);
@@ -154,6 +155,7 @@ describe('generation gate — fail closed', () => {
   });
 
   it('denies generation and skips the provider when entitlement is unresolvable', async () => {
+    mockGetRevenueCatAccess.mockResolvedValue(null);
     await expect(
       service.generate(user({ trialStartedAt: null }), INPUT, NOW)
     ).rejects.toMatchObject({
@@ -165,6 +167,7 @@ describe('generation gate — fail closed', () => {
   });
 
   it('denies an expired account and skips the provider', async () => {
+    mockGetRevenueCatAccess.mockResolvedValue({ isActive: false, isTrialPeriod: false, productIdentifier: null });
     await expect(service.generate(expiredUser(), INPUT, NOW)).rejects.toMatchObject({
       code: 'PLANNER_NOT_ENTITLED',
       meta: { reason: 'entitlement_expired' },
@@ -174,6 +177,8 @@ describe('generation gate — fail closed', () => {
   });
 
   it('denies an exhausted trial and skips the provider', async () => {
+    mockGetRevenueCatAccess.mockResolvedValue({ isActive: true, isTrialPeriod: true,
+      productIdentifier: 'verified-trial', expiresAt: new Date(NOW.getTime() + DAY_MS).toISOString() });
     mockPrisma.aIPlanProposal.count.mockResolvedValue(3);
 
     await expect(service.generate(user(), INPUT, NOW)).rejects.toMatchObject({

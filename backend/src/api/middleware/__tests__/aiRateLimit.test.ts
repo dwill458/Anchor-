@@ -26,16 +26,19 @@ describe('aiRateLimit middleware', () => {
   });
 
   describe('isAiDeveloper identity verification', () => {
+    it('rejects an allowlisted but unverified Firebase email', () => {
+      expect(isAiDeveloper({ user: { uid: 'unverified', email: 'deontrezwilliams@gmail.com', emailVerified: false } } as unknown as Request)).toBe(false);
+    });
     it('identifies deontrezwilliams@gmail.com by default from verified auth email', () => {
       const req = {
-        user: { uid: 'user-123', email: 'deontrezwilliams@gmail.com' },
+        user: { uid: 'user-123', email: 'deontrezwilliams@gmail.com', emailVerified: true },
       } as unknown as Request;
       expect(isAiDeveloper(req)).toBe(true);
     });
 
     it('matches developer email case-insensitively with whitespace trimmed', () => {
       const req = {
-        user: { uid: 'user-123', email: '  DeontreZWilliams@Gmail.Com  ' },
+        user: { uid: 'user-123', email: '  DeontreZWilliams@Gmail.Com  ', emailVerified: true },
       } as unknown as Request;
       expect(isAiDeveloper(req)).toBe(true);
     });
@@ -89,7 +92,7 @@ describe('aiRateLimit middleware', () => {
       expect(allowlist.has('deontrezwilliams@gmail.com')).toBe(true);
 
       const req = {
-        user: { uid: 'u1', email: 'testdev@anchor.app' },
+        user: { uid: 'u1', email: 'testdev@anchor.app', emailVerified: true },
       } as unknown as Request;
       expect(isAiDeveloper(req)).toBe(true);
     });
@@ -104,6 +107,29 @@ describe('aiRateLimit middleware', () => {
       });
       return app;
     }
+
+    it('limits repeated anonymous requests by IP even if the body claims an account', async () => {
+      const limiter = createAiRateLimiter({
+        feature: 'anchor', windowMs: 60_000, prodLimit: 2, devLimit: 2,
+        keyPrefix: 'test:guest-daily:', message: 'Guest preview limit reached', guestOnly: true,
+      });
+      const app = createTestApp(limiter);
+      expect((await request(app).post('/test').send({ userId: 'one' })).status).toBe(200);
+      expect((await request(app).post('/test').send({ userId: 'two' })).status).toBe(200);
+      expect((await request(app).post('/test').send({ userId: 'three' })).status).toBe(429);
+    });
+
+    it('does not consume the guest IP allowance for an authenticated user', async () => {
+      const limiter = createAiRateLimiter({
+        feature: 'anchor', windowMs: 60_000, prodLimit: 1, devLimit: 1,
+        keyPrefix: 'test:guest-skip:', message: 'Guest preview limit reached', guestOnly: true,
+      });
+      const app = express();
+      app.use((req, _res, next) => { (req as AuthRequest).user = { uid: 'verified-user' }; next(); });
+      app.post('/test', limiter, (_req, res) => res.sendStatus(200));
+      expect((await request(app).post('/test')).status).toBe(200);
+      expect((await request(app).post('/test')).status).toBe(200);
+    });
 
     it('allows a normal user within their feature limit and returns RateLimit headers', async () => {
       const testLimiter = createAiRateLimiter({
@@ -187,7 +213,7 @@ describe('aiRateLimit middleware', () => {
       const app = express();
       app.use(express.json());
       app.use((req, _res, next) => {
-        (req as AuthRequest).user = { uid: 'dev-uid-1', email: 'deontrezwilliams@gmail.com' };
+        (req as AuthRequest).user = { uid: 'dev-uid-1', email: 'deontrezwilliams@gmail.com', emailVerified: true };
         next();
       });
       app.post('/api/chart/plan', testLimiter, (_req, res) => res.json({ success: true }));

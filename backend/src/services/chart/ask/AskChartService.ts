@@ -294,7 +294,13 @@ export class AskChartService {
         ? this.resolveMoveAction(
             chart,
             null,
-            [{ title: proposed.moveEdit.title, rationale: proposed.moveEdit.detail, detail: proposed.moveEdit.detail }],
+            [
+              {
+                title: proposed.moveEdit.title,
+                rationale: proposed.moveEdit.detail,
+                detail: proposed.moveEdit.detail,
+              },
+            ],
             proposed.summary
           )
         : null;
@@ -317,7 +323,9 @@ export class AskChartService {
       // Waypoints already reached are history and never part of a proposal. A proposal that matches what
       // the route already has (same titles, same order) is not a change, so no card is offered for it.
       const reachedTitles = new Set(
-        chart.waypoints.filter(item => item.state === 'REACHED').map(item => normalizeTitle(item.title))
+        chart.waypoints
+          .filter(item => item.state === 'REACHED')
+          .map(item => normalizeTitle(item.title))
       );
       const proposedTitles = proposal.waypoints
         .map(waypoint => waypoint.title)
@@ -325,7 +333,8 @@ export class AskChartService {
       const currentTitles = chart.waypoints
         .filter(item => item.state !== 'REACHED')
         .map(item => item.title);
-      if (routeTitlesMatch(currentTitles, proposedTitles)) return moveFallback() ?? { action: null, unavailable: false };
+      if (routeTitlesMatch(currentTitles, proposedTitles))
+        return moveFallback() ?? { action: null, unavailable: false };
       // Every route change card states why. Without a reason it is not shown.
       const routeReason = proposed.routeReason || proposed.detail;
       if (!routeReason) return moveFallback() ?? { action: null, unavailable: true };
@@ -695,7 +704,11 @@ export class AskChartService {
     return chartService.applyAskProposal(userId, courseId, messageId);
   }
 
-  async undoProposal(userId: string, courseId: string, batchId: string): Promise<{ chart: CourseDetail }> {
+  async undoProposal(
+    userId: string,
+    courseId: string,
+    batchId: string
+  ): Promise<{ chart: CourseDetail }> {
     return { chart: await chartService.undoAskProposal(userId, courseId, batchId) };
   }
 
@@ -706,10 +719,20 @@ export class AskChartService {
         select: { id: true, structured: true },
       });
       const structured = row?.structured as { action?: { status: string } } | null;
-      if (!row || !structured?.action) throw new AppError('Proposal not found', 404, 'PROPOSAL_NOT_FOUND');
-      if (structured.action.status === 'APPLIED') throw new AppError('Proposal was already applied', 409, 'SYNC_CONFLICT');
+      if (!row || !structured?.action)
+        throw new AppError('Proposal not found', 404, 'PROPOSAL_NOT_FOUND');
+      if (structured.action.status === 'APPLIED')
+        throw new AppError('Proposal was already applied', 409, 'SYNC_CONFLICT');
       if (structured.action.status === 'DISMISSED') return;
-      await tx.chartMessage.update({ where: { id: row.id }, data: { structured: { ...structured, action: { ...structured.action, status: 'DISMISSED' } } as Prisma.InputJsonValue } });
+      await tx.chartMessage.update({
+        where: { id: row.id },
+        data: {
+          structured: {
+            ...structured,
+            action: { ...structured.action, status: 'DISMISSED' },
+          } as Prisma.InputJsonValue,
+        },
+      });
     });
   }
 
