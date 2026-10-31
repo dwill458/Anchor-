@@ -600,6 +600,21 @@ export const DeveloperToolsSection: React.FC<DeveloperToolsSectionProps> = ({
                   </Text>
                 </View>
                 <SettingsRow
+                  title="Force Paywall"
+                  subtitle="Open the Anchor Pro paywall now"
+                  type="none"
+                  onPress={() => navigation?.navigate('V2Paywall', {
+                    context: 'GENERAL_UPGRADE',
+                    resumeIntent: { type: 'none' },
+                  })}
+                  isDev
+                  rightElement={
+                    <View style={styles.actionBadge}>
+                      <Text style={styles.actionBadgeText}>Open</Text>
+                    </View>
+                  }
+                />
+                <SettingsRow
                   title="Clear Subscription Overrides"
                   subtitle="Restore live RevenueCat state"
                   type="none"

@@ -26,7 +26,7 @@
       "supportsTablet": false,
       "usesAppleSignIn": true,
       "bundleIdentifier": "com.anchorintentions.app",
-      "buildNumber": "21",
+      "buildNumber": "22",
       "googleServicesFile": "./GoogleService-Info.plist",
       "infoPlist": {
         "NSCameraUsageDescription": "Anchor uses your camera so you can take a profile photo or add a photo to your Vision.",
@@ -111,7 +111,7 @@
         "monochromeImage": "./assets/anchor-monochrome-v2.png"
       },
       "package": "com.anchorintentions.app",
-      "versionCode": 44,
+      "versionCode": 48,
       "googleServicesFile": "./google-services.json",
       "blockedPermissions": [
         "android.permission.READ_EXTERNAL_STORAGE",
