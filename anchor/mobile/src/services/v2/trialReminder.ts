@@ -18,12 +18,13 @@ export function trialEndReminderFireDate(trialStartedAt: Date): Date {
   return new Date(trialStartedAt.getTime() + TRIAL_END_REMINDER_DAY * DAY_MS);
 }
 
+/** `renewalPriceLabel` is the full renewal, e.g. "$59.99/year" or "$7.99/month". */
 export function trialEndReminderCopy(renewalPriceLabel: string | null): { title: string; body: string } {
   return {
     title: 'Your Anchor Pro trial ends in 2 days',
     body: renewalPriceLabel
-      ? `You'll be billed ${renewalPriceLabel} for a year unless you cancel in your store settings before then.`
-      : 'Your annual plan begins unless you cancel in your store settings before then.',
+      ? `You'll be billed ${renewalPriceLabel} unless you cancel in your store settings before then.`
+      : 'Your Anchor Pro subscription begins unless you cancel in your store settings before then.',
   };
 }
 

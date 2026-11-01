@@ -142,13 +142,13 @@ describe('V2PaywallScreen step 2 — the plans', () => {
     await openPlans();
     expect(mockTrack).toHaveBeenCalledWith('paywall_step2_viewed', { source: 'GENERAL_UPGRADE', context: 'GENERAL_UPGRADE' });
     expect(screen.getByTestId('v2-paywall-plan-annual').props.accessibilityState.checked).toBe(true);
-    expect(screen.getByText('7 days free')).toBeTruthy();
     // 1 - 59.99 / (1.99 * 52) = 42%
-    expect(screen.getByText('Save 42% vs weekly, then $59.99/year.')).toBeTruthy();
-    expect(screen.getByTestId('v2-paywall-cta-label').props.children).toBe('Start my free trial');
-    expect(screen.getByTestId('v2-paywall-cta-sub').props.children).toBe('No charge today');
+    expect(screen.getByText('7 days free · Save 42% vs weekly')).toBeTruthy();
+    expect(screen.getByText('7 days free, then $59.99/year. Cancel anytime.')).toBeTruthy();
+    expect(screen.getByTestId('v2-paywall-cta-label').props.children).toBe('Start my 7-day free trial');
+    expect(screen.getByTestId('v2-paywall-cta-sub').props.children).toBe('No charge today · Cancel anytime');
     expect(screen.getByTestId('v2-paywall-trial-timeline')).toBeTruthy();
-    expect(screen.getByText('Billed $59.99')).toBeTruthy();
+    expect(screen.getByText('Billed $59.99/year')).toBeTruthy();
   });
 
   it('switches to Weekly: Continue, billed-today line, no timeline', async () => {
@@ -172,6 +172,8 @@ describe('V2PaywallScreen step 2 — the plans', () => {
     await openPlans();
     expect(screen.getByTestId('v2-paywall-cta-label').props.children).toBe('Continue');
     expect(screen.getByTestId('v2-paywall-cta-sub').props.children).toBe('$59.99 billed today, then yearly');
+    expect(screen.getByText('Save 42% vs weekly. Billed yearly.')).toBeTruthy();
+    expect(screen.getByTestId('v2-paywall-billing-note').props.children).toBe('You’re billed $59.99 today, then every year.');
     expect(screen.queryByTestId('v2-paywall-trial-timeline', HIDDEN)).toBeNull();
     expect(screen.queryAllByText(/trial|days free|no charge/i, HIDDEN)).toHaveLength(0);
     fireEvent.press(screen.getByTestId('v2-paywall-plan-weekly'));
@@ -186,12 +188,45 @@ describe('V2PaywallScreen step 2 — the plans', () => {
     fireEvent.press(screen.getByTestId('v2-paywall-cta'));
     await waitFor(() => expect(onEntitled).toHaveBeenCalledWith(expect.objectContaining({ outcome: 'trial_started', plan: 'annual' })));
     expect(mockPurchase).toHaveBeenCalledWith('$rc_annual', { syncStatus: false });
-    expect(mockScheduleReminder).toHaveBeenCalledWith('$59.99');
+    expect(mockScheduleReminder).toHaveBeenCalledWith('$59.99/year');
     const funnel = { source: 'GENERAL_UPGRADE', context: 'GENERAL_UPGRADE', plan: 'annual', productId: '$rc_annual' };
     expect(mockTrack).toHaveBeenCalledWith('paywall_cta_tapped', funnel);
     expect(mockTrack).toHaveBeenCalledWith('paywall_converted', { ...funnel, outcome: 'trial_started' });
     expect(mockTrack).toHaveBeenCalledWith('trial_started', { ...funnel, outcome: 'trial_started' });
     expect(mockTrack).not.toHaveBeenCalledWith('trial_converted', expect.anything());
+  });
+
+  it('offers the 7-day trial on Monthly when the store confirms it, and starts it from the Monthly CTA', async () => {
+    mockGetOfferingDisplayMetadata.mockResolvedValue({ ...METADATA, monthly: plan('monthly', 7.99, true) });
+    const onEntitled = jest.fn();
+    render(<V2PaywallScreen context="GENERAL_UPGRADE" onDismiss={noop} onEntitled={onEntitled} />);
+    await openPlans();
+    fireEvent.press(screen.getByTestId('v2-paywall-view-plans'));
+    expect(await screen.findByLabelText('Monthly plan, $7.99. 7 days free · Then $7.99/month')).toBeTruthy();
+    fireEvent.press(screen.getByTestId('v2-paywall-plan-monthly'));
+
+    await waitFor(() => expect(screen.getByTestId('v2-paywall-cta-label').props.children).toBe('Start my 7-day free trial'));
+    expect(screen.getByText('7 days free, then $7.99/month. Cancel anytime.')).toBeTruthy();
+    expect(screen.getByTestId('v2-paywall-cta-sub').props.children).toBe('No charge today · Cancel anytime');
+    expect(screen.getByTestId('v2-paywall-trial-timeline')).toBeTruthy();
+
+    fireEvent.press(screen.getByTestId('v2-paywall-cta'));
+    await waitFor(() => expect(onEntitled).toHaveBeenCalledWith(expect.objectContaining({ outcome: 'trial_started', plan: 'monthly' })));
+    expect(mockPurchase).toHaveBeenCalledWith('$rc_monthly', { syncStatus: false });
+    expect(mockScheduleReminder).toHaveBeenCalledWith('$7.99/month');
+  });
+
+  it('shows the normal Monthly description and no trial when the store does not confirm it', async () => {
+    render(<V2PaywallScreen context="GENERAL_UPGRADE" onDismiss={noop} onEntitled={noop} />);
+    await openPlans();
+    fireEvent.press(screen.getByTestId('v2-paywall-view-plans'));
+    expect(await screen.findByLabelText('Monthly plan, $7.99. Cancel anytime')).toBeTruthy();
+    fireEvent.press(screen.getByTestId('v2-paywall-plan-monthly'));
+    await waitFor(() => expect(screen.getByTestId('v2-paywall-cta-label').props.children).toBe('Continue'));
+    expect(screen.getByTestId('v2-paywall-cta-sub').props.children).toBe('$7.99 billed today, then monthly');
+    // The Annual card keeps its own trial line; Monthly itself must carry none.
+    expect(screen.getByTestId('v2-paywall-billing-note').props.children).toBe('You’re billed $7.99 today, then every month.');
+    expect(screen.queryByText(/7 days free, then \$7\.99/)).toBeNull();
   });
 
   it('fires paywall_cta_tapped but no conversion when the store sheet is cancelled', async () => {

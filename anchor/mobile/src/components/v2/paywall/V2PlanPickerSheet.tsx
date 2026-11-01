@@ -9,7 +9,8 @@ import type { V2PaywallPlanId } from '@/constants/v2/paywall';
 type Props = {
   visible: boolean;
   pricing: V2PaywallPricing;
-  offersTrial: boolean;
+  /** Whether the store confirms the 7-day trial for this plan right now. */
+  offersTrialFor: (planId: V2PaywallPlanId) => boolean;
   selected: V2PaywallPlanId;
   onSelect: (plan: V2PaywallPlanId) => void;
   onClose: () => void;
@@ -26,31 +27,40 @@ const PLAN_LABELS: Record<V2PaywallPlanId, string> = {
   lifetime: 'Lifetime',
 };
 
-function planDetail(planId: V2PaywallPlanId, offersTrial: boolean, perMonth: string | null): string {
+const PLAN_UNITS: Record<V2PaywallPlanId, string> = {
+  annual: 'year',
+  monthly: 'month',
+  weekly: 'week',
+  lifetime: 'lifetime',
+};
+
+/** Trial language only when the store confirms it; otherwise the normal description. */
+function planDetail(planId: V2PaywallPlanId, trial: boolean, price: string | null, perMonth: string | null): string {
   if (planId === 'annual') {
-    return `${offersTrial ? '7 days free' : 'Cancel anytime'}${perMonth ? ` · ${perMonth} equivalent` : ''}`;
+    return `${trial ? '7 days free' : 'Cancel anytime'}${perMonth ? ` · ${perMonth} equivalent` : ''}`;
   }
   if (planId === 'lifetime') return 'One-time purchase';
-  return offersTrial ? 'No free trial' : 'Cancel anytime';
+  if (planId === 'monthly' && trial && price) return `7 days free · Then ${price}/${PLAN_UNITS.monthly}`;
+  return 'Cancel anytime';
 }
 
 function PlanRow({
   pricing,
   planId,
-  offersTrial,
+  trial,
   selected,
   onPress,
 }: {
   pricing: V2PaywallPricing;
   planId: V2PaywallPlanId;
-  offersTrial: boolean;
+  trial: boolean;
   selected: boolean;
   onPress: () => void;
 }) {
   const plan = planForId(pricing, planId);
   const price = plan.priceLabel ?? 'Unavailable';
   const perMonth = planPerMonthLabel(plan);
-  const detail = planDetail(planId, offersTrial, perMonth);
+  const detail = planDetail(planId, trial, plan.priceLabel, perMonth);
   return (
     <Pressable
       accessibilityRole="radio"
@@ -65,7 +75,7 @@ function PlanRow({
         <View style={styles.rowHeadline}>
           <Text style={styles.rowTitle}>{PLAN_LABELS[planId]}</Text>
           <Text style={styles.rowPrice}>{price}</Text>
-          {planId === 'annual' && offersTrial ? (
+          {planId === 'annual' && trial ? (
             <View style={styles.badge}><Text style={styles.badgeText}>BEST VALUE</Text></View>
           ) : null}
         </View>
@@ -79,7 +89,7 @@ function PlanRow({
 }
 
 /** Restrained plan chooser. No dark glass, no pricing-card grid. */
-export function V2PlanPickerSheet({ visible, pricing, offersTrial, selected, onSelect, onClose, planIds = DEFAULT_PLAN_IDS }: Props) {
+export function V2PlanPickerSheet({ visible, pricing, offersTrialFor, selected, onSelect, onClose, planIds = DEFAULT_PLAN_IDS }: Props) {
   return (
     <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
       <Pressable style={styles.scrim} accessibilityLabel="Close plan options" onPress={onClose} />
@@ -92,7 +102,7 @@ export function V2PlanPickerSheet({ visible, pricing, offersTrial, selected, onS
               key={planId}
               pricing={pricing}
               planId={planId}
-              offersTrial={offersTrial}
+              trial={offersTrialFor(planId)}
               selected={selected === planId}
               onPress={() => {
                 onSelect(planId);

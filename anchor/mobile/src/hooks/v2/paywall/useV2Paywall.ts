@@ -14,6 +14,7 @@ import {
 import {
   V2_PAYWALL_COPY,
   V2_TRIAL_PLAN_ID,
+  V2_TRIAL_PLAN_IDS,
   contextAllowsTrial,
   type V2PaywallContext,
   type V2PaywallPlanId,
@@ -44,8 +45,10 @@ export type V2PaywallController = {
   selectedPlan: V2PaywallPlanId;
   setSelectedPlan: (plan: V2PaywallPlanId) => void;
 
-  /** The primary CTA should present the trial rather than a direct purchase. */
+  /** Annual trial offered right now. Kept for the annual-only surfaces; plan-aware code uses `offersTrialFor`. */
   offersTrial: boolean;
+  /** The primary CTA should present the trial for this plan rather than a direct purchase. */
+  offersTrialFor: (planId: V2PaywallPlanId) => boolean;
   isActiveSubscriber: boolean;
   trialState: ReturnType<typeof useV2TrialState>['trialState'];
   daysRemaining: number;
@@ -56,8 +59,8 @@ export type V2PaywallController = {
   busy: boolean;
   errorMessage: string | null;
 
-  /** Explicit "Start 7-Day Free Trial". No-op if the trial is spent. */
-  startTrial: () => Promise<void>;
+  /** Explicit "Start my free trial" for a trial-eligible plan (defaults to annual). No-op if the trial is spent. */
+  startTrial: (planId?: V2PaywallPlanId) => Promise<void>;
   /** Direct paid purchase of the selected plan (no free days). */
   purchaseSelectedPlan: () => Promise<void>;
   /** The context-correct primary action. */
@@ -88,8 +91,16 @@ export function useV2Paywall({ context, onEntitled }: UseV2PaywallOptions): V2Pa
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const inFlight = useRef(false);
 
-  const offersTrial =
-    contextAllowsTrial(context) && trial.canStartTrial && planForId(pricing, V2_TRIAL_PLAN_ID).trialEligible;
+  // Only trial-capable plans can ever offer the trial, and only when the store confirms eligibility.
+  const offersTrialFor = useCallback(
+    (planId: V2PaywallPlanId) =>
+      V2_TRIAL_PLAN_IDS.includes(planId) &&
+      contextAllowsTrial(context) &&
+      trial.canStartTrial &&
+      planForId(pricing, planId).trialEligible,
+    [context, pricing, trial.canStartTrial],
+  );
+  const offersTrial = offersTrialFor(V2_TRIAL_PLAN_ID);
 
   const busy = purchaseState === 'submitting' || restoreState === 'restoring';
 
@@ -150,21 +161,21 @@ export function useV2Paywall({ context, onEntitled }: UseV2PaywallOptions): V2Pa
   }, []);
 
   const startTrial = useCallback(
-    () =>
+    (planId: V2PaywallPlanId = V2_TRIAL_PLAN_ID) =>
       runExclusive(async () => {
-        if (!contextAllowsTrial(context) || !trial.canStartTrial || trial.isActiveSubscriber) return;
+        if (!offersTrialFor(planId) || trial.isActiveSubscriber) return;
         setErrorMessage(null);
         setPurchaseState('submitting');
-        const packageId = packageIdForPlan(pricing, V2_TRIAL_PLAN_ID);
-        trackFunnel(AnalyticsEvents.PAYWALL_CTA_TAPPED, V2_TRIAL_PLAN_ID, packageId);
-        trackFunnel(AnalyticsEvents.PURCHASE_STARTED, V2_TRIAL_PLAN_ID, packageId, { is_trial: true });
+        const packageId = packageIdForPlan(pricing, planId);
+        trackFunnel(AnalyticsEvents.PAYWALL_CTA_TAPPED, planId, packageId);
+        trackFunnel(AnalyticsEvents.PURCHASE_STARTED, planId, packageId, { is_trial: true });
         try {
           const { status, dismissed } = await revenueCatService.purchasePackageByIdentifier(packageId, {
             syncStatus: false,
           });
           if (dismissed) {
             setPurchaseState('cancelled');
-            trackFunnel(AnalyticsEvents.PURCHASE_CANCELLED, V2_TRIAL_PLAN_ID, packageId, { is_trial: true });
+            trackFunnel(AnalyticsEvents.PURCHASE_CANCELLED, planId, packageId, { is_trial: true });
             return;
           }
           // The server stamps `trialStartedAt`; the client never fabricates it.
@@ -175,7 +186,7 @@ export function useV2Paywall({ context, onEntitled }: UseV2PaywallOptions): V2Pa
           if (!status.hasActiveEntitlement && activation.status !== 'activated') {
             setPurchaseState('error');
             setErrorMessage('Your trial is still being confirmed. Your receipt is safe.');
-            trackFunnel(AnalyticsEvents.PURCHASE_FAILED, V2_TRIAL_PLAN_ID, packageId, {
+            trackFunnel(AnalyticsEvents.PURCHASE_FAILED, planId, packageId, {
               is_trial: true,
               error_code: 'entitlement_not_confirmed',
             });
@@ -183,24 +194,26 @@ export function useV2Paywall({ context, onEntitled }: UseV2PaywallOptions): V2Pa
           }
           setPurchaseState('success');
           playCreationSound('paywallSuccess');
-          // Keeps the paywall timeline's "Day 5 · We'll remind you" promise.
-          void scheduleTrialEndReminder(planForId(pricing, V2_TRIAL_PLAN_ID).priceLabel);
-          trackConverted(V2_TRIAL_PLAN_ID, packageId, 'trial_started', {
+          // Keeps the paywall timeline's "Day 5 · We'll remind you" promise, quoting this plan's renewal.
+          const plan = planForId(pricing, planId);
+          const renewal = plan.priceLabel ? `${plan.priceLabel}/${planId === 'annual' ? 'year' : 'month'}` : null;
+          void scheduleTrialEndReminder(renewal);
+          trackConverted(planId, packageId, 'trial_started', {
             isSandbox: status.isSandbox,
             store: status.store,
           });
-          finishEntitled('trial_started', V2_TRIAL_PLAN_ID);
+          finishEntitled('trial_started', planId);
         } catch (error) {
           logger.error('[v2/paywall] startTrial failed', error);
           setPurchaseState('error');
           setErrorMessage('We could not start your trial. Please try again.');
-          trackFunnel(AnalyticsEvents.PURCHASE_FAILED, V2_TRIAL_PLAN_ID, packageId, {
+          trackFunnel(AnalyticsEvents.PURCHASE_FAILED, planId, packageId, {
             is_trial: true,
             error_code: 'store_purchase_error',
           });
         }
       }),
-    [context, finishEntitled, pricing, runExclusive, trackConverted, trackFunnel, trial.canStartTrial, trial.isActiveSubscriber],
+    [finishEntitled, offersTrialFor, pricing, runExclusive, trackConverted, trackFunnel, trial.isActiveSubscriber],
   );
 
   const purchaseSelectedPlan = useCallback(
@@ -251,8 +264,8 @@ export function useV2Paywall({ context, onEntitled }: UseV2PaywallOptions): V2Pa
   );
 
   const submitPrimary = useCallback(
-    () => (offersTrial && selectedPlan === V2_TRIAL_PLAN_ID ? startTrial() : purchaseSelectedPlan()),
-    [offersTrial, purchaseSelectedPlan, selectedPlan, startTrial],
+    () => (offersTrialFor(selectedPlan) ? startTrial(selectedPlan) : purchaseSelectedPlan()),
+    [offersTrialFor, purchaseSelectedPlan, selectedPlan, startTrial],
   );
 
   const restore = useCallback(
@@ -294,6 +307,7 @@ export function useV2Paywall({ context, onEntitled }: UseV2PaywallOptions): V2Pa
       selectedPlan,
       setSelectedPlan,
       offersTrial,
+      offersTrialFor,
       isActiveSubscriber: trial.isActiveSubscriber,
       trialState: trial.trialState,
       daysRemaining: trial.daysRemaining,
@@ -315,6 +329,7 @@ export function useV2Paywall({ context, onEntitled }: UseV2PaywallOptions): V2Pa
       copy,
       errorMessage,
       offersTrial,
+      offersTrialFor,
       pricing,
       pricingStatus,
       purchaseSelectedPlan,

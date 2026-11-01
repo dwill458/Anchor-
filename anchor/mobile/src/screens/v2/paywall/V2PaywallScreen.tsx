@@ -70,9 +70,9 @@ const COPY = {
     trialLine: '7 days free',
     weeklyDetail: 'Shortest commitment. Billed weekly.',
     otherPlans: 'Other plans',
-    trialCta: 'Start my free trial',
+    trialCta: 'Start my 7-day free trial',
     paidCta: 'Continue',
-    noChargeToday: 'No charge today',
+    noChargeToday: 'No charge today · Cancel anytime',
     timeline: (price: string) =>
       [
         { title: 'Today', sub: 'Start free trial' },
@@ -97,12 +97,13 @@ const OTHER_PLAN_IDS: readonly V2PaywallPlanId[] = ['monthly', 'lifetime'];
 
 /** CTA label, the line under it, and the note that stands in for the timeline. */
 function selectionCopy(controller: V2PaywallController) {
-  const { selectedPlan, offersTrial, pricing, pricingStatus } = controller;
+  const { selectedPlan, offersTrialFor, pricing, pricingStatus } = controller;
   const price = planForId(pricing, selectedPlan).priceLabel;
-  if (selectedPlan === 'annual' && offersTrial) {
-    return { cta: COPY.step2.trialCta, below: COPY.step2.noChargeToday, note: null };
-  }
   const period = PERIOD[selectedPlan];
+  if (offersTrialFor(selectedPlan)) {
+    const disclosure = price ? `7 days free, then ${price}/${period.unit}. Cancel anytime.` : null;
+    return { cta: COPY.step2.trialCta, below: COPY.step2.noChargeToday, note: disclosure };
+  }
   if (!price) {
     const pending = pricingStatus === 'loading' ? V2_PAYWALL_PRICING_FALLBACK.loading : V2_PAYWALL_PRICING_FALLBACK.unavailable;
     return { cta: COPY.step2.paidCta, below: pending, note: null };
@@ -110,8 +111,9 @@ function selectionCopy(controller: V2PaywallController) {
   if (selectedPlan === 'lifetime') {
     return { cta: COPY.step2.paidCta, below: `${price} billed today, one time`, note: `Lifetime is a single payment of ${price}. No subscription.` };
   }
-  // Only a trial-eligible user is told a plan has no free trial; otherwise no trial language at all.
-  const noTrial = offersTrial ? `${period.name} has no free trial. ` : '';
+  // Only Weekly is told it has no free trial, and only while a trial is on offer for another plan; otherwise no trial language at all.
+  const anyTrial = offersTrialFor('annual') || offersTrialFor('monthly');
+  const noTrial = selectedPlan === 'weekly' && anyTrial ? `${period.name} has no free trial. ` : '';
   return {
     cta: COPY.step2.paidCta,
     below: `${price} billed today, then ${period.adverb}`,
@@ -125,10 +127,12 @@ function priceLine(controller: V2PaywallController, planId: V2PaywallPlanId): st
   return controller.pricingStatus === 'loading' ? COPY.step2.loadingPrice : COPY.step2.unavailablePrice;
 }
 
+/** Annual's secondary line. Trial language appears only when the store confirms eligibility. */
 function annualDetail(controller: V2PaywallController, savings: number | null): string {
-  const price = controller.pricing.annual.priceLabel;
   const save = savings ? `Save ${savings}% vs weekly` : null;
-  if (controller.offersTrial && price) return save ? `${save}, then ${price}/year.` : `Then ${price}/year.`;
+  if (controller.offersTrial && controller.pricing.annual.priceLabel) {
+    return save ? `7 days free · ${save}` : '7 days free';
+  }
   return save ? `${save}. Billed yearly.` : 'Billed yearly.';
 }
 
@@ -239,7 +243,7 @@ export function V2PaywallScreen({ context, onDismiss, onEntitled, onSignIn }: V2
       <V2PlanPickerSheet
         visible={planPickerOpen}
         pricing={controller.pricing}
-        offersTrial={controller.offersTrial}
+        offersTrialFor={controller.offersTrialFor}
         selected={controller.selectedPlan}
         onSelect={controller.setSelectedPlan}
         onClose={closePlanPicker}
@@ -377,9 +381,12 @@ function TwoStepPaywall({
   const selectedPurchasable = planForId(controller.pricing, controller.selectedPlan).purchasable;
   const purchasing = controller.purchaseState === 'submitting';
   const otherPlansAvailable = OTHER_PLAN_IDS.some((id) => planForId(controller.pricing, id).purchasable);
-  const annualPrice = controller.pricing.annual.priceLabel;
-  const trialOnOffer = controller.offersTrial && Boolean(annualPrice);
-  const showTimeline = step === 2 && controller.selectedPlan === 'annual' && trialOnOffer;
+  // The timeline follows the selected plan's own trial. Its fade-out keeps the trial-capable plans in view.
+  const selectedPriceLabel = planForId(controller.pricing, controller.selectedPlan).priceLabel;
+  const selectedTrial = controller.offersTrialFor(controller.selectedPlan) && Boolean(selectedPriceLabel);
+  const anyTrialOnOffer = controller.offersTrialFor('annual') || controller.offersTrialFor('monthly');
+  const showTimeline = step === 2 && selectedTrial;
+  const timelinePrice = selectedPriceLabel ? `${selectedPriceLabel}/${PERIOD[controller.selectedPlan].unit}` : '';
   const annualDetailLine = annualDetail(controller, savings);
   const step1 = step === 1;
   const step2 = step === 2;
@@ -490,13 +497,13 @@ function TwoStepPaywall({
                 W={W}
                 title={COPY.step2.annual}
                 priceLine={priceLine(controller, 'annual')}
-                trialLine={trialOnOffer ? COPY.step2.trialLine : null}
+                trialLine={null}
                 detailLines={[annualDetailLine]}
                 badge={COPY.step2.bestValue}
                 badgeDimmed={controller.selectedPlan !== 'annual'}
                 selected={controller.selectedPlan === 'annual'}
                 disabled={controller.pricingStatus === 'ready' && !controller.pricing.annual.purchasable}
-                accessibilityLabel={`Annual plan, ${priceLine(controller, 'annual')}.${trialOnOffer ? ` ${COPY.step2.trialLine}.` : ''} ${annualDetailLine} Best value.`}
+                accessibilityLabel={`Annual plan, ${priceLine(controller, 'annual')}. ${annualDetailLine} Best value.`}
                 onPress={() => selectPlan('annual')}
                 reduceMotion={reduceMotion}
                 testID="v2-paywall-plan-annual"
@@ -527,7 +534,7 @@ function TwoStepPaywall({
           ) : null}
 
           <PaywallRise active={step2} order={5} distance={rise} reduceMotion={reduceMotion} style={{ marginTop: W * 0.035 }}>
-            <TimelineSlot W={W} showTimeline={showTimeline} offersTrial={trialOnOffer} timelinePrice={annualPrice ?? ''} note={selection.note} reduceMotion={reduceMotion} />
+            <TimelineSlot W={W} showTimeline={showTimeline} offersTrial={anyTrialOnOffer} timelinePrice={timelinePrice} note={selection.note} reduceMotion={reduceMotion} />
           </PaywallRise>
 
           <PaywallRise active={step2} order={6} distance={rise} reduceMotion={reduceMotion} style={{ marginTop: W * 0.06 }}>
@@ -627,16 +634,13 @@ function TimelineSlot({
   note: string | null;
   reduceMotion: boolean;
 }) {
-  // Hold the last note while it fades out behind the timeline.
-  const lastNote = useRef(note);
-  if (note) lastNote.current = note;
   const shown = useSharedValue(showTimeline ? 1 : 0);
   useEffect(() => {
     shown.value = withTiming(showTimeline ? 1 : 0, { duration: reduceMotion ? 0 : PAYWALL_TIMING.planSelectMs, easing: PAYWALL_EASE_OUT });
   }, [reduceMotion, showTimeline, shown]);
   const timelineStyle = useAnimatedStyle(() => ({ opacity: shown.value }));
-  const noteStyle = useAnimatedStyle(() => ({ opacity: 1 - shown.value }));
 
+  // The billing disclosure is always rendered for the selected plan, so it never goes stale when switching.
   return (
     <View>
       {offersTrial ? (
@@ -649,14 +653,8 @@ function TimelineSlot({
           <TrialTimeline W={W} stops={COPY.step2.timeline(timelinePrice)} play={showTimeline} reduceMotion={reduceMotion} />
         </Animated.View>
       ) : null}
-      {lastNote.current ? (
-        <Animated.View
-          style={[showTimeline && styles.overlay, noteStyle]}
-          accessibilityElementsHidden={showTimeline}
-          importantForAccessibility={showTimeline ? 'no-hide-descendants' : 'auto'}
-        >
-          <Text style={paywallType.note(W)} testID="v2-paywall-billing-note">{lastNote.current}</Text>
-        </Animated.View>
+      {note ? (
+        <Text style={paywallType.note(W)} testID="v2-paywall-billing-note">{note}</Text>
       ) : null}
     </View>
   );

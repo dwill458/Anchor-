@@ -53,7 +53,10 @@ export const V2_PAYWALL_PLAN_PACKAGE_IDS: Record<V2PaywallPlanId, string> = {
   lifetime: REVENUECAT_LIFETIME_PACKAGE_ID,
 };
 
-/** Only the annual package carries the 7-day introductory trial. */
+/** Plans that can carry the 7-day introductory trial. Weekly and Lifetime never do. */
+export const V2_TRIAL_PLAN_IDS: readonly V2PaywallPlanId[] = ['annual', 'monthly'];
+
+/** Default plan selected on open, and the plan the offer step's trial is quoted against. */
 export const V2_TRIAL_PLAN_ID: V2PaywallPlanId = 'annual';
 
 /** The artifact rendered near the top of the sheet — never fabricated. */
