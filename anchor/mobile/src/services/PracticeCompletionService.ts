@@ -103,7 +103,16 @@ async function writeNextActionQueue(
 }
 
 function serverPayload(session: PracticeSessionRecord) {
-  const { accountId: _accountId, syncState: _syncState, ...payload } = session;
+  // These values are local previews; the strict API schema excludes them and the
+  // server recalculates the authoritative movement from the completed session.
+  const {
+    accountId: _accountId,
+    syncState: _syncState,
+    threadStrengthBefore: _threadStrengthBefore,
+    threadStrengthAfter: _threadStrengthAfter,
+    threadStrengthDelta: _threadStrengthDelta,
+    ...payload
+  } = session;
   return payload;
 }
 
