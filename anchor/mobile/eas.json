@@ -118,11 +118,13 @@
       },
       "android": {
         "buildType": "app-bundle",
-        "autoIncrement": true
+        "autoIncrement": true,
+        "resourceClass": "large"
       },
       "ios": {
         "autoIncrement": true,
-        "prebuildCommand": "npx expo prebuild --platform ios --no-install"
+        "prebuildCommand": "npx expo prebuild --platform ios --no-install",
+        "image": "macos-tahoe-26.5-xcode-26.6"
       }
     },
     "preview-debug": {
