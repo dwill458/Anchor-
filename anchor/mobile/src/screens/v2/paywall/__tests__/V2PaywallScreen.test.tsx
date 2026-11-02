@@ -143,7 +143,8 @@ describe('V2PaywallScreen step 2 — the plans', () => {
     expect(mockTrack).toHaveBeenCalledWith('paywall_step2_viewed', { source: 'GENERAL_UPGRADE', context: 'GENERAL_UPGRADE' });
     expect(screen.getByTestId('v2-paywall-plan-annual').props.accessibilityState.checked).toBe(true);
     // 1 - 59.99 / (1.99 * 52) = 42%
-    expect(screen.getByText('7 days free · Save 42% vs weekly')).toBeTruthy();
+    expect(screen.getByText('7 days free')).toBeTruthy();
+    expect(screen.getByText('Save 42% vs weekly. Billed yearly.')).toBeTruthy();
     expect(screen.getByText('7 days free, then $59.99/year. Cancel anytime.')).toBeTruthy();
     expect(screen.getByTestId('v2-paywall-cta-label').props.children).toBe('Start my 7-day free trial');
     expect(screen.getByTestId('v2-paywall-cta-sub').props.children).toBe('No charge today · Cancel anytime');
@@ -187,7 +188,7 @@ describe('V2PaywallScreen step 2 — the plans', () => {
     await openPlans();
     fireEvent.press(screen.getByTestId('v2-paywall-cta'));
     await waitFor(() => expect(onEntitled).toHaveBeenCalledWith(expect.objectContaining({ outcome: 'trial_started', plan: 'annual' })));
-    expect(mockPurchase).toHaveBeenCalledWith('$rc_annual', { syncStatus: false });
+    expect(mockPurchase).toHaveBeenCalledWith('$rc_annual', { syncStatus: false, useTrialOffer: true });
     expect(mockScheduleReminder).toHaveBeenCalledWith('$59.99/year');
     const funnel = { source: 'GENERAL_UPGRADE', context: 'GENERAL_UPGRADE', plan: 'annual', productId: '$rc_annual' };
     expect(mockTrack).toHaveBeenCalledWith('paywall_cta_tapped', funnel);
@@ -212,7 +213,7 @@ describe('V2PaywallScreen step 2 — the plans', () => {
 
     fireEvent.press(screen.getByTestId('v2-paywall-cta'));
     await waitFor(() => expect(onEntitled).toHaveBeenCalledWith(expect.objectContaining({ outcome: 'trial_started', plan: 'monthly' })));
-    expect(mockPurchase).toHaveBeenCalledWith('$rc_monthly', { syncStatus: false });
+    expect(mockPurchase).toHaveBeenCalledWith('$rc_monthly', { syncStatus: false, useTrialOffer: true });
     expect(mockScheduleReminder).toHaveBeenCalledWith('$7.99/month');
   });
 

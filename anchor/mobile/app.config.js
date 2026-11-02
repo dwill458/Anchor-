@@ -6,9 +6,17 @@ module.exports = ({ config = staticConfig } = {}) => {
                              process.env.EXPO_PUBLIC_APP_ENV === 'production' ||
                              process.env.EAS_BUILD_PROFILE === 'production';
   // Allow landscape in development and QA cohorts; keep portrait strictly locked in production.
+  // SQLCipher is compiled into every build, on both iOS and Android.
+  // Non-production builds of the regular package also run the owner-pilot encrypted store and migration.
   const base = {
     ...config,
     orientation: isProductionCohort ? 'portrait' : 'default',
+    plugins: [...config.plugins, ['expo-sqlite', { useSQLCipher: true, enableFTS: false }]],
+    extra: {
+      ...config.extra,
+      sqlCipherOwnerPilot: !isProductionCohort,
+      sqlCipherOwnerPilotMigrationEnabled: !isProductionCohort,
+    },
   };
   if (process.env.ANCHOR_SQLCIPHER_APP_PREVIEW === '1') {
     return {
@@ -17,7 +25,7 @@ module.exports = ({ config = staticConfig } = {}) => {
       updates: { ...base.updates, enabled: true },
       android: { ...base.android, allowBackup: false },
       extra: { ...base.extra, sqlCipherOwnerPilot: true, sqlCipherOwnerPilotMigrationEnabled: true },
-      plugins: [...base.plugins, ['expo-sqlite', { useSQLCipher: true, enableFTS: false }]],
+      plugins: base.plugins,
     };
   }
   // SDK 58 QA uses its own package/runtime and compiles SQLCipher. This test
@@ -39,7 +47,7 @@ module.exports = ({ config = staticConfig } = {}) => {
         sqlCipherOwnerPilot: false,
         sqlCipherOwnerPilotMigrationEnabled: false,
       },
-      plugins: [...base.plugins, ['expo-sqlite', { useSQLCipher: true, enableFTS: false }]],
+      plugins: base.plugins,
     };
   }
   // Standalone real-account development app. It uses a separate Android package
@@ -68,7 +76,7 @@ module.exports = ({ config = staticConfig } = {}) => {
         sqlCipherOwnerPilot: false,
         sqlCipherOwnerPilotMigrationEnabled: false,
       },
-      plugins: [...base.plugins, ['expo-sqlite', { useSQLCipher: true, enableFTS: false }]],
+      plugins: base.plugins,
     };
   }
   // Owner-only native pilot. The package/Firebase/API remain production identities,
@@ -85,7 +93,7 @@ module.exports = ({ config = staticConfig } = {}) => {
         sqlCipherOwnerPilot: true,
         sqlCipherOwnerPilotMigrationEnabled: process.env.ANCHOR_SQLCIPHER_OWNER_PILOT_ACTIVATE === '1',
       },
-      plugins: [...base.plugins, ['expo-sqlite', { useSQLCipher: true, enableFTS: false }]],
+      plugins: base.plugins,
     };
   }
   // Standalone isolated QA preview: its own package, runtime and scheme; no OTA; no backup; SQLCipher compiled in.
@@ -104,7 +112,7 @@ module.exports = ({ config = staticConfig } = {}) => {
       android: { ...base.android, package: preview, allowBackup: false },
       ios: { ...base.ios, bundleIdentifier: preview },
       extra: { ...base.extra, sqlCipherLab: false, sqlCipherPreview: true, sqlCipherOwnerPilot: true, sqlCipherOwnerPilotMigrationEnabled: migrationEnabled },
-      plugins: [...base.plugins, ['expo-sqlite', { useSQLCipher: true, enableFTS: false }]],
+      plugins: base.plugins,
     };
   }
   if (process.env.ANCHOR_SQLCIPHER_LAB !== '1') return base;

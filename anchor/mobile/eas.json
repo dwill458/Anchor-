@@ -50,6 +50,7 @@
       "android": {},
       "ios": {
         "simulator": false,
+        "image": "macos-tahoe-26.5-xcode-26.6",
         "prebuildCommand": "npx expo prebuild --platform ios --no-install"
       }
     },

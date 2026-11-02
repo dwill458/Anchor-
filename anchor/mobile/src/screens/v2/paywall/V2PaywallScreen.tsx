@@ -127,12 +127,9 @@ function priceLine(controller: V2PaywallController, planId: V2PaywallPlanId): st
   return controller.pricingStatus === 'loading' ? COPY.step2.loadingPrice : COPY.step2.unavailablePrice;
 }
 
-/** Annual's secondary line. Trial language appears only when the store confirms eligibility. */
-function annualDetail(controller: V2PaywallController, savings: number | null): string {
+/** Annual's secondary line. The trial itself is shown on the trial line, so this stays about savings and billing. */
+function annualDetail(savings: number | null): string {
   const save = savings ? `Save ${savings}% vs weekly` : null;
-  if (controller.offersTrial && controller.pricing.annual.priceLabel) {
-    return save ? `7 days free · ${save}` : '7 days free';
-  }
   return save ? `${save}. Billed yearly.` : 'Billed yearly.';
 }
 
@@ -387,7 +384,9 @@ function TwoStepPaywall({
   const anyTrialOnOffer = controller.offersTrialFor('annual') || controller.offersTrialFor('monthly');
   const showTimeline = step === 2 && selectedTrial;
   const timelinePrice = selectedPriceLabel ? `${selectedPriceLabel}/${PERIOD[controller.selectedPlan].unit}` : '';
-  const annualDetailLine = annualDetail(controller, savings);
+  const annualDetailLine = annualDetail(savings);
+  // The annual card shows the trial whenever the store confirms it for annual, same as the sheet does for monthly.
+  const annualTrialLine = controller.offersTrialFor('annual') && Boolean(controller.pricing.annual.priceLabel) ? COPY.step2.trialLine : null;
   const step1 = step === 1;
   const step2 = step === 2;
 
@@ -497,13 +496,13 @@ function TwoStepPaywall({
                 W={W}
                 title={COPY.step2.annual}
                 priceLine={priceLine(controller, 'annual')}
-                trialLine={null}
+                trialLine={annualTrialLine}
                 detailLines={[annualDetailLine]}
                 badge={COPY.step2.bestValue}
                 badgeDimmed={controller.selectedPlan !== 'annual'}
                 selected={controller.selectedPlan === 'annual'}
                 disabled={controller.pricingStatus === 'ready' && !controller.pricing.annual.purchasable}
-                accessibilityLabel={`Annual plan, ${priceLine(controller, 'annual')}. ${annualDetailLine} Best value.`}
+                accessibilityLabel={`Annual plan, ${priceLine(controller, 'annual')}.${annualTrialLine ? ` ${annualTrialLine}.` : ''} ${annualDetailLine} Best value.`}
                 onPress={() => selectPlan('annual')}
                 reduceMotion={reduceMotion}
                 testID="v2-paywall-plan-annual"

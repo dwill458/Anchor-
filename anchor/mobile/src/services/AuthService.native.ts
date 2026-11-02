@@ -139,6 +139,14 @@ function messageFromApiError(payload: ApiResponse<User> | { error?: unknown } | 
   return null;
 }
 
+function codeFromApiError(payload: unknown): string | null {
+  if (!payload || typeof payload !== 'object') return null;
+  const error = (payload as { error?: unknown }).error;
+  if (!error || typeof error !== 'object') return null;
+  const code = (error as { code?: unknown }).code;
+  return typeof code === 'string' ? code : null;
+}
+
 function mapAuthError(error: unknown): Error {
   const code = typeof error === 'object' && error && 'code' in error
     ? String((error as { code?: unknown }).code)
@@ -241,7 +249,10 @@ async function syncUserWithBackend(
 
   if (!response.ok || !payload?.success || !payload.data) {
     const apiMessage = messageFromApiError(payload);
-    throw new Error(apiMessage ?? 'Failed to sync your account with the server.');
+    const error = new Error(apiMessage ?? 'Failed to sync your account with the server.');
+    const code = codeFromApiError(payload);
+    if (code) Object.assign(error, { code });
+    throw error;
   }
 
   return normalizeUser(payload.data);
@@ -285,10 +296,35 @@ async function preserveGuestTransfer(): Promise<void> {
   if (!guest?.isAnonymous) return;
   const existing = await readSecureValue(GUEST_TRANSFER_KEY);
   if (existing && (JSON.parse(existing) as { guestUid: string }).guestUid === guest.uid) return;
-  const response = await fetch(`${API_URL}/api/auth/guest-transfer-token`, {
-    method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${await guest.getIdToken()}` }, body: '{}',
-  });
-  const payload = await response.json();
+
+  const requestTransferToken = (idToken: string) =>
+    fetch(`${API_URL}/api/auth/guest-transfer-token`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${idToken}` },
+      body: '{}',
+    });
+
+  let idToken = await guest.getIdToken();
+  let response = await requestTransferToken(idToken);
+  let payload = await response.json();
+
+  const errorCode = codeFromApiError(payload);
+  if (!response.ok && errorCode === 'GUEST_ACCOUNT_ALREADY_LINKED') {
+    // A persisted Firebase guest can reach sign-in before its backend row exists.
+    // Sync only on this conflict, then retry minting the one-time transfer proof.
+    idToken = await guest.getIdToken(true);
+    try {
+      await syncUserWithBackend(guest, idToken);
+    } catch (error) {
+      // A merged guest is already safely attached to its registered account. Let
+      // sign-in continue so that account can be restored without another transfer.
+      if ((error as { code?: unknown })?.code === 'GUEST_ACCOUNT_ALREADY_LINKED') return;
+      throw error;
+    }
+    response = await requestTransferToken(idToken);
+    payload = await response.json();
+  }
+
   if (!response.ok || !payload?.data?.transferToken) throw new Error('Reconnect before signing in so your guest Anchor can be preserved.');
   await writeSecureValue(GUEST_TRANSFER_KEY, JSON.stringify(payload.data));
 }

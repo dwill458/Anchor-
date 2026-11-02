@@ -85,7 +85,7 @@ describe('useV2Paywall — trial start', () => {
     });
 
     expect(mockPurchase).toHaveBeenCalledTimes(1);
-    expect(mockPurchase).toHaveBeenCalledWith('$rc_annual', { syncStatus: false });
+    expect(mockPurchase).toHaveBeenCalledWith('$rc_annual', { syncStatus: false, useTrialOffer: true });
     expect(mockActivateV2Trial).toHaveBeenCalledTimes(1);
   });
 

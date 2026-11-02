@@ -9,6 +9,7 @@ import {
 } from '@/config';
 import { useSubscriptionStore } from '@/stores/subscriptionStore';
 import { AnalyticsService } from '@/services/AnalyticsService';
+import { ErrorTrackingService } from '@/services/ErrorTrackingService';
 import { logger } from '@/utils/logger';
 
 export interface TrialStatusSnapshot {
@@ -64,14 +65,31 @@ interface RevenueCatStoreProduct {
     cycles?: number;
     period?: string;
   } | null;
-  defaultOption?: {
-    freePhase?: {
-      price?: number | { amountMicros?: number };
-      period?: { iso8601?: string };
-      billingPeriod?: { iso8601?: string };
-    } | null;
-    pricingPhases?: Array<{ price?: { amountMicros?: number }; billingPeriod?: { iso8601?: string } }>;
+  defaultOption?: RevenueCatSubscriptionOption | null;
+  subscriptionOptions?: RevenueCatSubscriptionOption[] | null;
+}
+
+interface RevenueCatSubscriptionOption {
+  freePhase?: {
+    price?: number | { amountMicros?: number };
+    period?: { iso8601?: string };
+    billingPeriod?: { iso8601?: string };
   } | null;
+  pricingPhases?: Array<{ price?: { amountMicros?: number }; billingPeriod?: { iso8601?: string } }>;
+}
+
+/**
+ * Google Play keeps a free trial on its own offer, so the default option often has none.
+ * Look across every option for the first one that carries a free phase.
+ */
+function findAndroidTrialOption(product: RevenueCatStoreProduct | undefined): RevenueCatSubscriptionOption | null {
+  const options = [product?.defaultOption, ...(product?.subscriptionOptions ?? [])];
+  return options.find((option) => option?.freePhase) ?? null;
+}
+
+/** The SDK exposes a package's store product as `product`; `storeProduct` is only a legacy fallback. */
+function packageProduct(pkg: RevenueCatPackage | undefined): RevenueCatStoreProduct | undefined {
+  return (pkg?.product ?? pkg?.storeProduct) as RevenueCatStoreProduct | undefined;
 }
 
 interface RevenueCatPackage {
@@ -117,6 +135,7 @@ interface RevenueCatPurchases {
   getCustomerInfo?: () => Promise<CustomerInfo>;
   getOfferings?: () => Promise<RevenueCatOfferings>;
   purchasePackage?: (pkg: RevenueCatPackage) => Promise<RevenueCatPurchaseResult | CustomerInfo>;
+  purchaseSubscriptionOption?: (option: RevenueCatSubscriptionOption) => Promise<RevenueCatPurchaseResult | CustomerInfo>;
   restorePurchases?: () => Promise<CustomerInfo>;
   checkTrialOrIntroductoryPriceEligibility?: (productIDs: string[]) => Promise<Record<string, { status?: number }>>;
   trackCustomPaywallImpression?: (params?: { paywallId?: string | null; offeringId?: string | null }) => Promise<void>;
@@ -162,6 +181,8 @@ export interface RevenueCatOfferingDisplayMetadata {
  */
 interface RevenueCatStatusSyncOptions {
   syncStatus?: boolean;
+  /** Android: buy the Play offer that carries the free trial instead of the default option. */
+  useTrialOffer?: boolean;
 }
 
 const DEFAULT_TRIAL_STATUS: TrialStatusSnapshot = {
@@ -295,7 +316,7 @@ function buildPlanMetadata(
   pkg: RevenueCatPackage | undefined
 ): RevenueCatPlanDisplayMetadata | undefined {
   if (!pkg) return undefined;
-  const product = pkg.product ?? pkg.storeProduct;
+  const product = packageProduct(pkg);
 
   return {
     planId,
@@ -495,7 +516,17 @@ class RevenueCatService {
       const availablePackages = currentOffering.availablePackages ?? [];
       const selectedPackage = this.findPackageByIdentifier(availablePackages, productId);
 
-      const response = await purchases.purchasePackage(selectedPackage);
+      let response: RevenueCatPurchaseResult | CustomerInfo;
+      if (options.useTrialOffer && Platform.OS === 'android') {
+        // Play only applies the trial when its offer is purchased; the default option would charge today.
+        const trialOption = findAndroidTrialOption(packageProduct(selectedPackage));
+        if (!trialOption || !purchases.purchaseSubscriptionOption) {
+          throw new Error('[RevenueCat] The free trial offer is not available for this plan on Google Play.');
+        }
+        response = await purchases.purchaseSubscriptionOption(trialOption);
+      } else {
+        response = await purchases.purchasePackage(selectedPackage);
+      }
       const status = deriveTrialStatus(extractCustomerInfo(response));
       return { status: applyStatusWhenEnabled(status, options), dismissed: false };
     } catch (error) {
@@ -510,6 +541,13 @@ class RevenueCatService {
   async getOfferingDisplayMetadata(): Promise<RevenueCatOfferingDisplayMetadata> {
     const purchases = getPurchasesModule();
     if (!purchases?.getOfferings) {
+      ErrorTrackingService.captureException(new Error('[RevenueCat] Purchases module unavailable for offerings'), {
+        action: 'paywall_pricing',
+        type: 'revenuecat_module_unavailable',
+        platform: Platform.OS,
+        hasApiKey: Boolean(REVENUECAT_API_KEY),
+        hasModule: Boolean(purchases),
+      });
       return {};
     }
 
@@ -544,7 +582,7 @@ class RevenueCatService {
       if (lifetimeMetadata) metadata.lifetime = lifetimeMetadata;
 
       const packageProducts = [monthlyPackage, annualPackage]
-        .map((pkg) => pkg?.storeProduct)
+        .map((pkg) => packageProduct(pkg))
         .filter((product): product is RevenueCatStoreProduct => Boolean(product));
       const purchasesWithEligibility = purchases as RevenueCatPurchases & {
         checkTrialOrIntroductoryPriceEligibility?: (productIDs: string[]) => Promise<Record<string, { status?: number }>>;
@@ -554,18 +592,34 @@ class RevenueCatService {
           .map((product) => (product as RevenueCatStoreProduct & { identifier?: string }).identifier)
           .filter((id): id is string => Boolean(id));
         if (productIds.length > 0) {
-          const eligibility = await purchasesWithEligibility.checkTrialOrIntroductoryPriceEligibility(productIds);
-          for (const [planId, pkg] of [['monthly', monthlyPackage], ['annual', annualPackage] ] as const) {
-            const productId = (pkg?.storeProduct as (RevenueCatStoreProduct & { identifier?: string }) | undefined)?.identifier;
-            if (productId && metadata[planId]) {
-              metadata[planId] = { ...metadata[planId]!, trialEligible: eligibility[productId]?.status === 2 };
+          // Eligibility is best-effort: a rejected check must not wipe out the store prices above.
+          // Without an answer the plan is simply not trial-eligible, so no trial copy is shown.
+          try {
+            const eligibility = await purchasesWithEligibility.checkTrialOrIntroductoryPriceEligibility(productIds);
+            for (const [planId, pkg] of [['monthly', monthlyPackage], ['annual', annualPackage] ] as const) {
+              const productId = (packageProduct(pkg) as (RevenueCatStoreProduct & { identifier?: string }) | undefined)?.identifier;
+              if (productId && metadata[planId]) {
+                metadata[planId] = { ...metadata[planId]!, trialEligible: eligibility[productId]?.status === 2 };
+              }
             }
+          } catch (error) {
+            logger.warn('[RevenueCatService] Trial eligibility check failed; pricing kept', error);
           }
         }
       } else if (Platform.OS === 'android') {
         for (const [planId, pkg] of [['monthly', monthlyPackage], ['annual', annualPackage] ] as const) {
-          const product = pkg?.storeProduct;
-          const freePhase = product?.defaultOption?.freePhase;
+          const product = packageProduct(pkg);
+          const freePhase = findAndroidTrialOption(product)?.freePhase;
+          // TEMP diagnostic: remove once Android trial eligibility is confirmed on device.
+          logger.info(`[RevenueCat][trial-debug] ${planId}`, {
+            productId: product?.identifier ?? null,
+            options: (product?.subscriptionOptions ?? []).map((option) => ({
+              id: (option as { id?: string }).id ?? null,
+              isBasePlan: (option as { isBasePlan?: boolean }).isBasePlan ?? null,
+              tags: (option as { tags?: string[] }).tags ?? null,
+              hasFreePhase: Boolean(option?.freePhase),
+            })),
+          });
           const amountMicros =
             typeof freePhase?.price === 'object'
               ? freePhase.price?.amountMicros
@@ -578,9 +632,32 @@ class RevenueCatService {
         }
       }
 
+      const pricedPlans = [metadata.annual, metadata.monthly, metadata.weekly, metadata.lifetime].filter(
+        (plan) => plan?.priceString || plan?.price != null
+      );
+      if (pricedPlans.length === 0) {
+        ErrorTrackingService.captureException(new Error('[RevenueCat] Offering loaded with no priced packages'), {
+          action: 'paywall_pricing',
+          type: 'revenuecat_no_priced_packages',
+          offeringId: offering?.identifier ?? null,
+          packageIds: availablePackages.map((pkg) => pkg.identifier).join(',') || null,
+          pricedFlags: availablePackages
+            .map((pkg) => `${pkg.identifier}:${Boolean(packageProduct(pkg)?.priceString)}`)
+            .join(',') || null,
+          platform: Platform.OS,
+          hasApiKey: Boolean(REVENUECAT_API_KEY),
+        });
+      }
+
       return metadata;
     } catch (error) {
       logger.warn('[RevenueCatService] Failed to load offering display metadata', error);
+      ErrorTrackingService.captureException(error, {
+        action: 'paywall_pricing',
+        type: 'revenuecat_offerings_failed',
+        platform: Platform.OS,
+        hasApiKey: Boolean(REVENUECAT_API_KEY),
+      });
       return {};
     }
   }
@@ -617,13 +694,13 @@ class RevenueCatService {
       accumulator[productId] = {
         identifier: productId,
         packageType: selectedPackage.packageType ?? null,
-        priceString: selectedPackage.storeProduct?.priceString ?? null,
-        pricePerMonthString: selectedPackage.storeProduct?.pricePerMonthString ?? null,
-        pricePerYearString: selectedPackage.storeProduct?.pricePerYearString ?? null,
-        subscriptionPeriod: selectedPackage.storeProduct?.subscriptionPeriod ?? null,
-        introPriceString: selectedPackage.storeProduct?.introPrice?.priceString ?? null,
-        introPriceCycles: selectedPackage.storeProduct?.introPrice?.cycles ?? null,
-        introPricePeriod: selectedPackage.storeProduct?.introPrice?.period ?? null,
+        priceString: packageProduct(selectedPackage)?.priceString ?? null,
+        pricePerMonthString: packageProduct(selectedPackage)?.pricePerMonthString ?? null,
+        pricePerYearString: packageProduct(selectedPackage)?.pricePerYearString ?? null,
+        subscriptionPeriod: packageProduct(selectedPackage)?.subscriptionPeriod ?? null,
+        introPriceString: packageProduct(selectedPackage)?.introPrice?.priceString ?? null,
+        introPriceCycles: packageProduct(selectedPackage)?.introPrice?.cycles ?? null,
+        introPricePeriod: packageProduct(selectedPackage)?.introPrice?.period ?? null,
       };
       return accumulator;
     }, {});

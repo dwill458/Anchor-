@@ -153,6 +153,7 @@
         }
       ],
       "./plugins/withFirebaseFrameworkFix",
+      "./plugins/withFirebaseDefaultAppConfigure",
       "./plugins/withAndroidSplashIconBackground",
       "@react-native-firebase/app",
       "expo-apple-authentication",

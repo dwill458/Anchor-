@@ -33,7 +33,17 @@ export function recordDatabase(): EncryptedRecordDatabase {
       return false;
     },
     readKey: () => SecureStore.getItemAsync(KEY_NAME),
-    wasCreated: async () => await SecureStore.getItemAsync(CREATED_MARKER) === '1',
+    wasCreated: async () => {
+      // Development builds only: the lifecycle marker is keychain-backed on iOS and survives
+      // reinstalls. The caller reaches this only after confirming the database file is gone,
+      // so a stale marker is cleared here and a fresh encrypted database can be created.
+      // Key material is left untouched. Production keeps the guard.
+      if (__DEV__) {
+        await SecureStore.deleteItemAsync(CREATED_MARKER);
+        return false;
+      }
+      return await SecureStore.getItemAsync(CREATED_MARKER) === '1';
+    },
     markCreated: async () => {
       if (await SecureStore.getItemAsync(CREATED_MARKER) === '1') return;
       await SecureStore.setItemAsync(CREATED_MARKER, '1', { keychainAccessible: SecureStore.WHEN_UNLOCKED_THIS_DEVICE_ONLY });

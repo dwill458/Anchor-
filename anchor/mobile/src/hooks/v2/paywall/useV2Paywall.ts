@@ -172,6 +172,7 @@ export function useV2Paywall({ context, onEntitled }: UseV2PaywallOptions): V2Pa
         try {
           const { status, dismissed } = await revenueCatService.purchasePackageByIdentifier(packageId, {
             syncStatus: false,
+            useTrialOffer: true,
           });
           if (dismissed) {
             setPurchaseState('cancelled');

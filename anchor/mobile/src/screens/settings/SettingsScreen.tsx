@@ -305,12 +305,13 @@ export const SettingsScreen: React.FC = () => {
     setConfirmSignOutOpen(false);
     try {
       AnalyticsService.track(AnalyticsEvents.SIGN_OUT, { source: 'settings' });
+      // Disable development auth restoration before Firebase emits its signed-out callback.
+      forceEntranceAfterSignOut();
       await AuthService.signOut();
       const { writeSecureValue } = require('@/stores/encryptedPersistStorage');
       await writeSecureValue('anchor-sync-retry-queue', '[]');
       await signOut();
       setHasCompletedOnboarding(false);
-      forceEntranceAfterSignOut();
     } catch (error) {
       logger.warn('[SettingsScreen] Failed to sign out cleanly', error);
       Alert.alert('Sign Out Failed', 'We could not sign you out right now.');
