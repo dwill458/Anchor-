@@ -76,6 +76,17 @@ it('does not return late generation output after a token/account revision change
   await expect(generateAuthorizedAnchor(body, 'late-flow')).rejects.toThrow('Authentication context changed');
   expect(mockGet).not.toHaveBeenCalled();
 });
+it('keeps a finished generation when only the same account\'s session token refreshes', async () => {
+  mockAuth = { accountRevision: 1, user: { id: 'account-a' }, token: 'token-a', isAuthenticated: true };
+  mockEnsureGuest.mockResolvedValueOnce({ user: { id: 'account-a' }, token: 'token-a', isAnonymous: false });
+  mockPost.mockImplementation(async (url: string) => {
+    if (url.endsWith('creation-sessions')) return { data: { creationSessionId: 'session' } };
+    mockAuth.token = 'token-a-refreshed';
+    return { data: { variations: [{ imageUrl: 'https://cdn.test/kept', optionId: 'one' }] } };
+  });
+  const result = await generateAuthorizedAnchor(body, 'token-refresh-flow');
+  expect(result.variations?.[0].imageUrl).toBe('https://cdn.test/kept');
+});
 it('does not borrow a Firebase identity that switched before authStore finished updating', async () => {
   mockAuth = { accountRevision: 1, user: { id: 'account-a' }, token: 'token-a', isAuthenticated: true };
   mockEnsureGuest.mockResolvedValueOnce({ user: { id: 'account-b' }, token: 'token-b' });

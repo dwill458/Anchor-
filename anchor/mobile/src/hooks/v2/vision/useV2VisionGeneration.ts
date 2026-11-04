@@ -6,6 +6,7 @@ import { AppState } from 'react-native';
 import { apiClient, ApiClientError } from '@/services/ApiClient';
 import { isProFeatureLocked } from '@/utils/premiumAccess';
 import { visionApiData } from './visionApi';
+import { dropStaleProfileConsent } from './useVisionAppearanceReference';
 
 export interface VisionGenerationCandidate {
   id: string;
@@ -36,6 +37,11 @@ export function generationMessage(cause: unknown): string {
     if (cause.code === 'VISION_GENERATION_LIMIT') return 'You have used all three generated image sets for this Vision.';
     if (cause.code === 'VISION_RETRY_LIMIT') return 'This image set cannot be retried again.';
     if (cause.code === 'VISION_GENERATION_IN_PROGRESS') return 'Your images are still being created.';
+    if (cause.code === 'VISION_REFERENCE_NOT_CONSENTED') {
+      dropStaleProfileConsent();
+      return 'Your profile photo is not enabled for Vision. Turn "Use my profile photo" back on, or add your own photos.';
+    }
+    if (cause.code === 'INVALID_VISION_REFERENCE') return 'That reference photo is no longer available. Add it again, or continue without it.';
   }
   return 'Image creation is unavailable right now. You can still add your own images.';
 }

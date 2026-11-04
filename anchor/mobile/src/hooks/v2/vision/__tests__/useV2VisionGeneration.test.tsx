@@ -1,5 +1,6 @@
 import { act, renderHook, waitFor } from '@testing-library/react-native';
 import { apiClient, ApiClientError } from '@/services/ApiClient';
+import { useAuthStore } from '@/stores/authStore';
 import { useV2VisionGeneration } from '../useV2VisionGeneration';
 
 jest.mock('@/services/ApiClient', () => ({
@@ -99,6 +100,17 @@ describe('useV2VisionGeneration', () => {
     } finally {
       jest.useRealTimers();
     }
+  });
+
+  it('explains a rejected profile-photo reference and drops the stale local consent', async () => {
+    (apiClient.post as jest.Mock).mockRejectedValue(new ApiClientError('Profile photo use is not enabled for Vision', 'VISION_REFERENCE_NOT_CONSENTED', 403));
+    useAuthStore.setState({ user: { id: 'u-1', settings: { useProfilePhotoForVision: true } } as never });
+    const { result } = renderHook(() => useV2VisionGeneration('anchor-1'));
+    await waitFor(() => expect(result.current.loading).toBe(false));
+    await act(async () => { expect(await result.current.start('A future with time.', 'ref-1')).toBe(false); });
+    expect(result.current.error).toMatch(/profile photo/i);
+    expect(result.current.error).not.toMatch(/unavailable right now/i);
+    expect(useAuthStore.getState().user?.settings?.useProfilePhotoForVision).toBe(false);
   });
 
   it('shows a safe error when the deployed endpoint is unavailable', async () => {

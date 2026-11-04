@@ -38,6 +38,30 @@ export function referenceFailureMessage(cause: unknown): string {
   return 'The photo could not be uploaded. Check your connection and try again.';
 }
 
+/**
+ * The server is the authority on profile-photo consent. When it refuses a profile reference,
+ * the locally persisted "use my profile photo" setting is stale, so drop it (and the cached
+ * reference) and let the toggle show the truth instead of failing the same way again.
+ */
+export function dropStaleProfileConsent(): void {
+  cachedReference = null;
+  lastFetchTime = 0;
+  const auth = useAuthStore.getState();
+  if (auth.profileData?.user) {
+    useAuthStore.setState({
+      profileData: {
+        ...auth.profileData,
+        user: { ...auth.profileData.user, settings: { ...auth.profileData.user.settings, useProfilePhotoForVision: false } as UserSettings },
+      },
+    });
+  }
+  if (auth.user) {
+    useAuthStore.setState({
+      user: { ...auth.user, settings: { ...auth.user.settings, useProfilePhotoForVision: false } as UserSettings },
+    });
+  }
+}
+
 function fingerprint(value: string): string {
   let hash = 2166136261;
   for (let index = 0; index < value.length; index += 1) hash = Math.imul(hash ^ value.charCodeAt(index), 16777619);

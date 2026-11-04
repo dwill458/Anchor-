@@ -575,7 +575,9 @@ export const useAuthStore = create<AuthState>()(
               isComped: user.isComped === true,
             },
             token,
-            accountRevision: state.accountRevision + (previousUserId !== user.id || state.token !== token ? 1 : 0),
+            // A token refresh for the same account is not an account change; in-flight work that
+            // cares about the token compares it explicitly.
+            accountRevision: state.accountRevision + (previousUserId !== user.id ? 1 : 0),
             isAuthenticated: true,
             hasCompletedOnboarding,
             isLoading: false,
