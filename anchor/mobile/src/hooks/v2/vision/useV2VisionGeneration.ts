@@ -32,6 +32,12 @@ export interface VisionGenerationJob {
   candidates: VisionGenerationCandidate[];
 }
 
+/** The server refused only the optional appearance reference, not the generation itself. */
+export function isReferenceRefusal(cause: unknown): boolean {
+  return cause instanceof ApiClientError
+    && (cause.code === 'VISION_REFERENCE_NOT_CONSENTED' || cause.code === 'INVALID_VISION_REFERENCE');
+}
+
 export function generationMessage(cause: unknown): string {
   if (cause instanceof ApiClientError) {
     if (cause.code === 'VISION_GENERATION_LIMIT') return 'You have used all three generated image sets for this Vision.';
@@ -101,9 +107,18 @@ export function useV2VisionGeneration(anchorId: string, onPremiumRequired?: () =
     pendingKey.current = key;
     setError(null);
     try {
-      const response = await apiClient.post<VisionGenerationJob>(path, { description, idempotencyKey: key,
+      const send = (referenceId: string | null | undefined, idempotencyKey: string) => apiClient.post<VisionGenerationJob>(path, { description, idempotencyKey,
         ...(devImageModel ? { devImageModel } : {}),
-        ...(appearanceReferenceId ? { appearanceReferenceId } : {}) });
+        ...(referenceId ? { appearanceReferenceId: referenceId } : {}) });
+      let response;
+      try {
+        response = await send(appearanceReferenceId, key);
+      } catch (cause) {
+        // A likeness is optional: a refused reference must never block the scene itself.
+        if (!appearanceReferenceId || !isReferenceRefusal(cause)) throw cause;
+        if (cause instanceof ApiClientError && cause.code === 'VISION_REFERENCE_NOT_CONSENTED') dropStaleProfileConsent();
+        response = await send(null, `${key}-noref`);
+      }
       if (mounted.current) setJob(visionApiData<VisionGenerationJob>(response));
       AnalyticsService.track('vision_image_generation_started', { anchor_id: anchorId, job_id: visionApiData<VisionGenerationJob>(response).id });
       return true;

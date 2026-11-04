@@ -49,6 +49,21 @@ describe('useV2VisionSceneGeneration', () => {
   });
   afterEach(() => { useDevImageModelStore.setState({ anchor: null, vision: null }); });
 
+  it('creates the scene without a likeness when the profile reference is refused', async () => {
+    (apiClient.post as jest.Mock)
+      .mockRejectedValueOnce(new ApiClientError('Profile photo use is not enabled for Vision', 'VISION_REFERENCE_NOT_CONSENTED', 403))
+      .mockResolvedValueOnce({ data: { success: true, data: running } });
+    const { result } = renderHook(() => useV2VisionSceneGeneration('anchor-1'));
+    let started = false;
+    await act(async () => { started = await result.current.start('I wake up so I control my time', 'appearance-1'); });
+    expect(started).toBe(true);
+    const calls = (apiClient.post as jest.Mock).mock.calls;
+    expect(calls).toHaveLength(2);
+    expect(calls[0][1]).toMatchObject({ appearanceReferenceId: 'appearance-1' });
+    expect(calls[1][1]).not.toHaveProperty('appearanceReferenceId');
+    expect(result.current.error).toBeNull();
+  });
+
   it('routes the selected Vision model along with its photo references', async () => {
     useDevImageModelStore.getState().select('vision', 'gemini-nano-banana-2.1');
     (apiClient.post as jest.Mock).mockResolvedValue({ data: { success: true, data: running } });

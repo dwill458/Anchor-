@@ -248,7 +248,11 @@ export function VisionMomentInput({
     if (!isValid || loading) return;
     fieldRef.current?.stopDictation();
     Keyboard.dismiss();
-    const refId = useAppearance ? (appearance.reference?.id ?? null) : null;
+    // A saved profile-photo reference is only usable while the user has opted in; without a
+    // profile photo or consent the scene is created without a likeness.
+    const usableReference = appearance.reference && (appearance.reference.source !== 'PROFILE' || appearance.enabledByPreference)
+      ? appearance.reference : null;
+    const refId = useAppearance ? (usableReference?.id ?? null) : null;
     const refsToSubmit = displayedReferences.filter(reference => !startPhoto || reference.uri !== startPhoto.uri);
     const hasReferencesArgument = hasControlledReferences || refsToSubmit.length > 0;
     const requestedDescription = hasReferencesArgument && !trimmed ? (anchorIntention.trim().length >= minChars ? anchorIntention.trim() : `A future moment: ${anchorIntention.trim()}`) : trimmed;

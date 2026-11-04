@@ -1,7 +1,7 @@
 import { act, renderHook, waitFor } from '@testing-library/react-native';
 import { apiClient, ApiClientError } from '@/services/ApiClient';
 import { useAuthStore } from '@/stores/authStore';
-import { useV2VisionGeneration } from '../useV2VisionGeneration';
+import { generationMessage, useV2VisionGeneration } from '../useV2VisionGeneration';
 
 jest.mock('@/services/ApiClient', () => ({
   apiClient: { get: jest.fn(), post: jest.fn() },
@@ -102,15 +102,25 @@ describe('useV2VisionGeneration', () => {
     }
   });
 
-  it('explains a rejected profile-photo reference and drops the stale local consent', async () => {
-    (apiClient.post as jest.Mock).mockRejectedValue(new ApiClientError('Profile photo use is not enabled for Vision', 'VISION_REFERENCE_NOT_CONSENTED', 403));
+  it('creates the scene without a likeness when the server refuses the profile reference', async () => {
+    (apiClient.post as jest.Mock)
+      .mockRejectedValueOnce(new ApiClientError('Profile photo use is not enabled for Vision', 'VISION_REFERENCE_NOT_CONSENTED', 403))
+      .mockResolvedValueOnce({ data: { success: true, data: job } });
     useAuthStore.setState({ user: { id: 'u-1', settings: { useProfilePhotoForVision: true } } as never });
     const { result } = renderHook(() => useV2VisionGeneration('anchor-1'));
     await waitFor(() => expect(result.current.loading).toBe(false));
-    await act(async () => { expect(await result.current.start('A future with time.', 'ref-1')).toBe(false); });
-    expect(result.current.error).toMatch(/profile photo/i);
-    expect(result.current.error).not.toMatch(/unavailable right now/i);
+    await act(async () => { expect(await result.current.start('A future with time.', 'ref-1')).toBe(true); });
+    const calls = (apiClient.post as jest.Mock).mock.calls;
+    expect(calls).toHaveLength(2);
+    expect(calls[0][1]).toMatchObject({ appearanceReferenceId: 'ref-1' });
+    expect(calls[1][1]).not.toHaveProperty('appearanceReferenceId');
+    expect(calls[1][1].idempotencyKey).not.toBe(calls[0][1].idempotencyKey);
+    expect(result.current.error).toBeNull();
     expect(useAuthStore.getState().user?.settings?.useProfilePhotoForVision).toBe(false);
+  });
+
+  it('explains a consent refusal in plain words', () => {
+    expect(generationMessage(new ApiClientError('x', 'VISION_REFERENCE_NOT_CONSENTED', 403))).toMatch(/profile photo/i);
   });
 
   it('shows a safe error when the deployed endpoint is unavailable', async () => {

@@ -6,7 +6,8 @@ import { AppState } from 'react-native';
 import { apiClient, ApiClientError } from '@/services/ApiClient';
 import { isProFeatureLocked } from '@/utils/premiumAccess';
 import { visionApiData } from './visionApi';
-import { generationMessage, type VisionGenerationJob } from './useV2VisionGeneration';
+import { generationMessage, isReferenceRefusal, type VisionGenerationJob } from './useV2VisionGeneration';
+import { dropStaleProfileConsent } from './useVisionAppearanceReference';
 import { useVisionConversation, VisionDraftWriteTimeout } from './useVisionConversation';
 import type { VisionSceneRequestOptions } from '@/types/visionConversation';
 
@@ -46,6 +47,7 @@ export function useV2VisionSceneGeneration(anchorId: string, onPremiumRequired?:
     if (mounted.current) { setErrorCode(code); setError(sceneMessage(cause)); }
   }, [conversation.isCurrent]);
   const starting = useRef(false);
+  const startRef = useRef<((description: string, referenceId?: string | null, startAssetId?: string | null, options?: VisionSceneRequestOptions) => Promise<boolean>) | null>(null);
   const retrying = useRef(false);
   const pendingRequest = useRef<{ fingerprint: string; key: string } | null>(null);
   useEffect(() => { setError(null); setErrorCode(null); lastCode.current = null; starting.current = false; retrying.current = false; pendingRequest.current = null; }, [conversation.owner]);
@@ -114,12 +116,20 @@ export function useV2VisionSceneGeneration(anchorId: string, onPremiumRequired?:
       return true;
     } catch (cause) {
       if (cause instanceof ApiClientError && cause.code === 'VISION_PREMIUM_REQUIRED') onPremiumRequired?.();
+      else if (appearanceReferenceId && isReferenceRefusal(cause)) {
+        // A likeness is optional: a refused reference must never block the scene itself.
+        if (cause instanceof ApiClientError && cause.code === 'VISION_REFERENCE_NOT_CONSENTED') dropStaleProfileConsent();
+        pendingRequest.current = null;
+        starting.current = false;
+        return await startRef.current!(sceneDescription, null, startAssetId, options);
+      }
       else fail(cause);
       return false;
     } finally {
       starting.current = false;
     }
   }, [base, onPremiumRequired, fail, conversation.ensureSession, conversation.prepareRequest, conversation.acceptedRequest, conversation.requestConfig, conversation.isCurrent]);
+  startRef.current = start;
 
   const retry = useCallback(async (): Promise<boolean> => {
     if (!job || job.status !== 'FAILED' || retrying.current) return false;
