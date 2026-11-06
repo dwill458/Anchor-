@@ -5,6 +5,7 @@ import { AuthService } from '@/services/AuthService';
 import PostAuthFlowService from '@/services/PostAuthFlowService';
 import { AnalyticsService } from '@/services/AnalyticsService';
 import { playCreationSound } from '@/services/CreationSounds';
+import * as AppleAuthentication from 'expo-apple-authentication';
 
 jest.mock('@/services/CreationSounds', () => ({ playCreationSound: jest.fn() }));
 
@@ -73,7 +74,15 @@ jest.mock('@/components/v2/anchor/CircularAnchorRenderer', () => ({
   },
 }));
 
-jest.mock('expo-apple-authentication', () => ({ isAvailableAsync: jest.fn().mockResolvedValue(true) }));
+jest.mock('expo-apple-authentication', () => ({
+  isAvailableAsync: jest.fn().mockResolvedValue(true),
+  AppleAuthenticationButtonType: { CONTINUE: 'CONTINUE' },
+  AppleAuthenticationButtonStyle: { BLACK: 'BLACK' },
+  AppleAuthenticationButton: (props: any) => {
+    const { Pressable, Text } = require('react-native');
+    return <Pressable {...props} testID="native-apple-button"><Text>Continue with Apple</Text></Pressable>;
+  },
+}));
 
 jest.mock('@/services/AuthService', () => ({
   AuthService: {
@@ -111,6 +120,25 @@ describe('V2SealedSaveScreen', () => {
     setup();
     expect(playCreationSound).toHaveBeenCalledTimes(1);
     expect(playCreationSound).toHaveBeenCalledWith('onboardingSealed');
+  });
+
+  it('uses the native Apple button and completes the account save', async () => {
+    (AuthService.signInWithApple as jest.Mock).mockResolvedValue({ user: { id: 'apple-user' }, token: 'token' });
+    const props = setup();
+    const button = await screen.findByTestId('native-apple-button');
+    expect(button.props.buttonType).toBe('CONTINUE');
+    expect(button.props.buttonStyle).toBe('BLACK');
+    fireEvent.press(button);
+    await waitFor(() => expect(props.onAccountReady).toHaveBeenCalledWith({ id: 'apple-user' }));
+    expect(AuthService.signInWithApple).toHaveBeenCalledWith({ allowBackendCreate: true });
+  });
+
+  it('keeps Google and email available when Apple is unsupported on Android', async () => {
+    (AppleAuthentication.isAvailableAsync as jest.Mock).mockResolvedValueOnce(false);
+    setup();
+    await waitFor(() => expect(screen.queryByLabelText('Continue with Apple')).toBeNull());
+    expect(screen.getByLabelText('Continue with Google')).toBeTruthy();
+    expect(screen.getByLabelText('Continue with email')).toBeTruthy();
   });
 
   it('shows the sealed Anchor, the line, and all three account options plus the skip', () => {

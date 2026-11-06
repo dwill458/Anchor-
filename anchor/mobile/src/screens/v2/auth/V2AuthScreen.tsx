@@ -40,7 +40,7 @@ import { useAuthStore } from '@/stores/authStore';
 import { useFirstRunStore } from '@/stores/v2/firstRunStore';
 import { colors, spacing, typography, AnchorMotion } from '@/theme/v2';
 import type { User } from '@/types';
-import { GoogleIcon, AppleIcon } from './components/AuthSocialIcons';
+import { GoogleIcon } from './components/AuthSocialIcons';
 import { AuthEngravedLinework } from './components/AuthEngravedLinework';
 import { OnboardingAnalytics, type AuthContext, type AuthMode, type AuthMethod, type ValidationCode } from '@/services/v2/onboardingAnalytics';
 
@@ -566,17 +566,17 @@ export function V2AuthScreen({ initialMode = 'signin', saveProgress = false, onB
               <Text style={styles.socialButtonText}>Google</Text>
             </TouchableOpacity>
 
-            <TouchableOpacity
-              accessibilityRole="button"
-              accessibilityLabel="Continue with Apple"
-              disabled={loading}
-              activeOpacity={0.75}
-              onPress={() => socialSignIn('apple')}
-              style={styles.socialButton}
-            >
-              <AppleIcon size={18} color="#FFFFFF" />
-              <Text style={styles.socialButtonText}>Apple</Text>
-            </TouchableOpacity>
+            {appleAvailable ? (
+              <AppleAuthentication.AppleAuthenticationButton
+                buttonType={AppleAuthentication.AppleAuthenticationButtonType.CONTINUE}
+                buttonStyle={AppleAuthentication.AppleAuthenticationButtonStyle.WHITE}
+                cornerRadius={12}
+                style={styles.appleButton}
+                accessibilityLabel="Continue with Apple"
+                pointerEvents={loading ? 'none' : 'auto'}
+                onPress={() => socialSignIn('apple')}
+              />
+            ) : null}
           </View>
 
           {/* Quiet Legal Copy */}
@@ -950,6 +950,10 @@ const styles = StyleSheet.create({
   socialRow: {
     flexDirection: 'row',
     gap: 12,
+  },
+  appleButton: {
+    flex: 1,
+    height: 46,
   },
   socialButton: {
     flex: 1,

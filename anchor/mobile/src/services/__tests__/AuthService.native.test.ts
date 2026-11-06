@@ -5,6 +5,11 @@ jest.mock('@react-native-firebase/auth', () => {
   return { __esModule: true, default: factory };
 });
 jest.mock('expo-apple-authentication', () => ({ isAvailableAsync: jest.fn().mockResolvedValue(true), signInAsync: jest.fn().mockResolvedValue({ identityToken: 'apple-token' }), AppleAuthenticationScope: { FULL_NAME: 0, EMAIL: 1 } }));
+jest.mock('expo-crypto', () => ({
+  getRandomBytesAsync: jest.fn(async (length: number) => new Uint8Array(require('crypto').randomBytes(length))),
+  digestStringAsync: jest.fn(async (_algorithm: string, value: string) => require('crypto').createHash('sha256').update(value).digest('hex')),
+  CryptoDigestAlgorithm: { SHA256: 'SHA-256' },
+}));
 jest.mock('@react-native-google-signin/google-signin', () => ({ GoogleSignin: { configure: jest.fn(), hasPlayServices: jest.fn().mockResolvedValue(true), signIn: jest.fn().mockResolvedValue({ type: 'success', data: { idToken: 'google-token' } }) } }));
 jest.mock('@/config', () => ({ API_URL: 'https://isolated.test', ENABLE_GOOGLE_SIGN_IN: true, GOOGLE_WEB_CLIENT_ID: 'fixture-client' }));
 jest.mock('@/stores/encryptedPersistStorage', () => ({ writeSecureValue: jest.fn().mockResolvedValue(undefined), readSecureValue: jest.fn(), encryptedPersistStorage: { removeItem: jest.fn() } }));
@@ -12,6 +17,7 @@ jest.mock('@/services/NotificationSessionService', () => ({ clearNotificationSes
 jest.mock('@/services/NotificationSyncService', () => ({ clearPushTokensFromServer: jest.fn() }));
 
 import auth from '@react-native-firebase/auth';
+import * as AppleAuthentication from 'expo-apple-authentication';
 import { AuthService } from '../AuthService.native';
 import { readSecureValue, writeSecureValue, encryptedPersistStorage } from '@/stores/encryptedPersistStorage';
 
@@ -20,8 +26,43 @@ const guest = () => ({ uid: 'persistent-guest', isAnonymous: true, email: null, 
 beforeEach(() => {
   jest.clearAllMocks();
   instance.currentUser = null;
+  instance.signOut.mockResolvedValue(undefined);
   (readSecureValue as jest.Mock).mockResolvedValue(null);
   global.fetch = jest.fn().mockResolvedValue({ ok: true, json: async () => ({ success: true, data: { id: 'same-db-user', email: 'persistent-guest@guest.anchor.invalid', totalAnchorsCreated: 1, createdAt: '2026-10-29' } }) });
+});
+
+it('sends Apple the SHA256 nonce and Firebase the matching raw nonce on every attempt', async () => {
+  const registered = { ...guest(), uid: 'apple-user', isAnonymous: false };
+  const rawNonces: string[] = [];
+  (auth.AppleAuthProvider.credential as jest.Mock).mockImplementation((token, rawNonce) => ({ providerId: 'apple.com', token, rawNonce }));
+  instance.signInWithCredential.mockImplementation(async (credential: any) => {
+    const request = (AppleAuthentication.signInAsync as jest.Mock).mock.calls.at(-1)[0];
+    const expectedHash = require('crypto').createHash('sha256').update(credential.rawNonce).digest('hex');
+    if (request.nonce !== expectedHash) throw new Error('Apple token nonce does not match SHA256 of raw nonce');
+    expect(credential.token).toBe('apple-token');
+    rawNonces.push(credential.rawNonce);
+    instance.currentUser = registered;
+    return { user: registered };
+  });
+  await expect(AuthService.signInWithApple()).resolves.toMatchObject({ user: { id: 'same-db-user' } });
+  instance.currentUser = null;
+  await expect(AuthService.signInWithApple()).resolves.toMatchObject({ user: { id: 'same-db-user' } });
+  expect(rawNonces[0]).not.toBe(rawNonces[1]);
+});
+
+it('does not invoke Apple or Firebase credential exchange when Apple is unavailable', async () => {
+  (AppleAuthentication.isAvailableAsync as jest.Mock).mockResolvedValueOnce(false);
+  await expect(AuthService.signInWithApple()).rejects.toThrow('not available');
+  expect(AppleAuthentication.signInAsync).not.toHaveBeenCalled();
+  expect(instance.signInWithCredential).not.toHaveBeenCalled();
+});
+
+it('authenticates Google with its ID token without entering the Apple nonce flow', async () => {
+  const registered = { ...guest(), uid: 'google-user', isAnonymous: false };
+  instance.signInWithCredential.mockResolvedValue({ user: registered });
+  await expect(AuthService.signInWithGoogle()).resolves.toMatchObject({ user: { id: 'same-db-user' } });
+  expect(auth.GoogleAuthProvider.credential).toHaveBeenCalledWith('google-token');
+  expect(AppleAuthentication.signInAsync).not.toHaveBeenCalled();
 });
 
 it('preserves durable guest proof before an existing-account sign-in and merges before returning', async () => {

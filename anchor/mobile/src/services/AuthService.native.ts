@@ -10,6 +10,7 @@ import {
   writeSecureValue,
 } from '@/stores/encryptedPersistStorage';
 import * as AppleAuthentication from 'expo-apple-authentication';
+import * as Crypto from 'expo-crypto';
 import { API_URL } from '@/config';
 import { ENABLE_GOOGLE_SIGN_IN, GOOGLE_IOS_CLIENT_ID, GOOGLE_WEB_CLIENT_ID } from '@/config';
 import { clearNotificationSession } from '@/services/NotificationSessionService';
@@ -101,20 +102,9 @@ function getAuthProvider(user: FirebaseAuthTypes.User): AuthProvider {
   return providerIdToAuthProvider(providerId);
 }
 
-function generateNonce(length = 32): string {
-  const charset = '0123456789ABCDEFGHIJKLMNOPQRSTUVXYZabcdefghijklmnopqrstuvwxyz-._';
-  const values = new Uint32Array(length);
-  const cryptoApi = globalThis.crypto?.getRandomValues?.bind(globalThis.crypto);
-
-  if (cryptoApi) {
-    cryptoApi(values);
-  } else {
-    for (let index = 0; index < length; index += 1) {
-      values[index] = Math.floor(Math.random() * 0xffffffff);
-    }
-  }
-
-  return Array.from(values, (value) => charset[value % charset.length]).join('');
+async function generateNonce(): Promise<string> {
+  const bytes = await Crypto.getRandomBytesAsync(32);
+  return Array.from(bytes, (value) => value.toString(16).padStart(2, '0')).join('');
 }
 
 function messageFromApiError(payload: ApiResponse<User> | { error?: unknown } | null | undefined): string | null {
@@ -456,9 +446,11 @@ export class AuthService {
         throw new Error('Apple sign-in is not available on this device.');
       }
 
-      const nonce = generateNonce();
+      const nonce = await generateNonce();
+      // Apple echoes this hash in its ID token; Firebase hashes the raw nonce below.
+      const hashedNonce = await Crypto.digestStringAsync(Crypto.CryptoDigestAlgorithm.SHA256, nonce);
       const appleCredential = await AppleAuthentication.signInAsync({
-        nonce,
+        nonce: hashedNonce,
         requestedScopes: [
           AppleAuthentication.AppleAuthenticationScope.FULL_NAME,
           AppleAuthentication.AppleAuthenticationScope.EMAIL,

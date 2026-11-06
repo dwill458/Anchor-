@@ -43,7 +43,7 @@ import { V2PaywallScreen, type V2PaywallEntitlementResult } from '@/screens/v2/p
 import { logger } from '@/utils/logger';
 import { colors, typography } from '@/theme/v2';
 import type { User } from '@/types';
-import { GoogleIcon, AppleIcon } from '@/screens/v2/auth/components/AuthSocialIcons';
+import { GoogleIcon } from '@/screens/v2/auth/components/AuthSocialIcons';
 import { OnboardingAnalytics, type AuthMode, type AuthMethod, type ValidationCode } from '@/services/v2/onboardingAnalytics';
 import { AnalyticsEvents, AnalyticsService } from '@/services/AnalyticsService';
 import { playCreationSound } from '@/services/CreationSounds';
@@ -568,17 +568,16 @@ export function V2SealedSaveScreen({ onAccountReady, onContinueWithout, onContin
                   <Text style={styles.lightText}>Continue with Google</Text>
                 </Pressable>
                 {appleAvailable ? (
-                  <Pressable
+                  <AppleAuthentication.AppleAuthenticationButton
                     testID="v2-sealed-save-apple"
-                    accessibilityRole="button"
                     accessibilityLabel="Continue with Apple"
-                    disabled={loading}
+                    buttonType={AppleAuthentication.AppleAuthenticationButtonType.CONTINUE}
+                    buttonStyle={AppleAuthentication.AppleAuthenticationButtonStyle.BLACK}
+                    cornerRadius={14}
+                    pointerEvents={loading ? 'none' : 'auto'}
                     onPress={() => social('apple')}
-                    style={({ pressed }) => [styles.button, styles.dark, pressed && styles.pressed]}
-                  >
-                    <AppleIcon size={20} color="#FFFFFF" />
-                    <Text style={styles.darkText}>Continue with Apple</Text>
-                  </Pressable>
+                    style={styles.appleButton}
+                  />
                 ) : null}
 
                 <View style={styles.or}>
@@ -792,6 +791,7 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   stack: { marginTop: 22, gap: 12 },
+  appleButton: { height: 52, width: '100%' },
   button: {
     height: 52,
     borderRadius: 14,

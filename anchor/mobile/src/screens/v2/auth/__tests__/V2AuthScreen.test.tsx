@@ -22,12 +22,12 @@ jest.mock('@/stores/authStore', () => {
 
 jest.mock('expo-apple-authentication', () => ({
   isAvailableAsync: jest.fn().mockResolvedValue(true),
-  AppleAuthenticationButton: ({ onPress }: { onPress: () => void }) => {
+  AppleAuthenticationButton: ({ onPress, accessibilityLabel }: { onPress: () => void; accessibilityLabel?: string }) => {
     const { Pressable, Text } = require('react-native');
-    return <Pressable onPress={onPress}><Text>Continue with Apple</Text></Pressable>;
+    return <Pressable testID="apple-authentication-button" accessibilityLabel={accessibilityLabel} onPress={onPress}><Text>Continue with Apple</Text></Pressable>;
   },
   AppleAuthenticationButtonType: { CONTINUE: 'CONTINUE' },
-  AppleAuthenticationButtonStyle: { BLACK: 'BLACK' },
+  AppleAuthenticationButtonStyle: { BLACK: 'BLACK', WHITE: 'WHITE' },
 }));
 
 jest.mock('@/services/AuthService', () => ({
@@ -234,6 +234,7 @@ describe('V2AuthScreen', () => {
     (AuthService.signInWithApple as jest.Mock).mockResolvedValue({ user: { id: 'apple-user' }, token: 'token' });
     render(<V2AuthScreen onBack={jest.fn()} />);
 
+    await waitFor(() => expect(screen.getByTestId('apple-authentication-button')).toBeTruthy());
     fireEvent.press(screen.getByLabelText('Continue with Apple'));
     await waitFor(() => expect(AuthService.signInWithApple).toHaveBeenCalledWith({ allowBackendCreate: false }));
     expect(PostAuthFlowService.run).toHaveBeenCalledWith(expect.objectContaining({ user: { id: 'apple-user' } }));
@@ -242,6 +243,7 @@ describe('V2AuthScreen', () => {
   it('reports provider cancellation without emitting auth_failed', async () => {
     (AuthService.signInWithApple as jest.Mock).mockRejectedValue(new Error('Apple sign in cancelled'));
     render(<V2AuthScreen onBack={jest.fn()} />);
+    await waitFor(() => expect(screen.getByTestId('apple-authentication-button')).toBeTruthy());
     fireEvent.press(screen.getByLabelText('Continue with Apple'));
     await waitFor(() => expect(AnalyticsService.track).toHaveBeenCalledWith('auth_cancelled', expect.objectContaining({ context: 'v2_auth', method: 'apple' })));
     expect(AnalyticsService.track).not.toHaveBeenCalledWith('auth_failed', expect.anything());
