@@ -210,15 +210,49 @@ function serializeUser(user: {
   };
 }
 
+async function resolveCompedAccess(
+  authUid: string,
+  identityEmail: string | undefined,
+  identityEmailVerified: boolean,
+  storedEmail?: string
+): Promise<boolean> {
+  const identityEmailAllowlisted = hasCompedAccess(identityEmail);
+  const storedEmailAllowlisted = hasCompedAccess(storedEmail);
+  if (identityEmailVerified && identityEmailAllowlisted) return true;
+  if (!identityEmailAllowlisted && !storedEmailAllowlisted) return false;
+
+  // Token email_verified claims can lag Firebase account changes. Use the
+  // current server-side record before syncing Pro for an allowlisted account.
+  try {
+    const firebaseUser = await getFirebaseAdmin().auth().getUser(authUid);
+    return firebaseUser.emailVerified === true && hasCompedAccess(firebaseUser.email);
+  } catch (error) {
+    logger.warn('[Auth] Could not refresh allowlisted Firebase identity for Pro sync', {
+      identityEmailAllowlisted,
+      identityEmailVerified,
+      storedEmailAllowlisted,
+      errorCode: (error as { code?: string })?.code || 'unknown',
+    });
+    return false;
+  }
+}
+
 async function syncCompedFlag(
   user: {
     id: string;
+    authUid: string;
     email: string;
     isComped: boolean;
   },
-  emailVerified: boolean
+  identityEmail: string | undefined,
+  identityEmailVerified: boolean
 ): Promise<boolean> {
-  const nextIsComped = emailVerified && hasCompedAccess(user.email);
+  const nextIsComped = await resolveCompedAccess(
+    user.authUid,
+    identityEmail,
+    identityEmailVerified,
+    user.email
+  );
   if (user.isComped === nextIsComped) {
     return nextIsComped;
   }
@@ -594,7 +628,11 @@ router.post(
         );
       }
 
-      const isComped = !isAnonymous && req.user.emailVerified === true && hasCompedAccess(email);
+      const isComped = !isAnonymous && await resolveCompedAccess(
+        authUid,
+        email,
+        req.user.emailVerified === true
+      );
       let provider: 'email' | 'google' | 'apple' | 'anonymous' | undefined = isAnonymous
         ? 'anonymous'
         : authProvider;
@@ -811,7 +849,11 @@ router.get('/me', authMiddleware, async (req: AuthRequest, res: Response, next: 
       throw new AppError('User not found', 404, 'USER_NOT_FOUND');
     }
 
-    const isComped = await syncCompedFlag(userRecord, req.user?.emailVerified === true);
+    const isComped = await syncCompedFlag(
+      userRecord,
+      req.user?.email,
+      req.user?.emailVerified === true
+    );
     const user = { ...userRecord, isComped };
     const chartCapabilities = await getChartCapabilities(user);
 
@@ -1101,7 +1143,11 @@ router.put(
         success: true,
         data: serializeUser({
           ...user,
-          isComped: await syncCompedFlag(user, req.user?.emailVerified === true),
+          isComped: await syncCompedFlag(
+            user,
+            req.user?.email,
+            req.user?.emailVerified === true
+          ),
         }),
       });
     } catch (error) {

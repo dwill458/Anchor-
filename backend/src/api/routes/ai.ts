@@ -257,7 +257,8 @@ async function handleEnhance(req: AuthRequest, res: Response): Promise<void> {
       const implicit = await reserveCreation(
         req.user.uid,
         legacyImplicitSessionKey(req.user.uid, creationHash(parsed)),
-        creationHash(parsed)
+        creationHash(parsed),
+        { email: req.user.email, emailVerified: req.user.emailVerified }
       );
       parsed.creationSessionId = implicit.id;
       logger.info('[LegacyCompat] metered legacy enhance request admitted', {
@@ -801,7 +802,10 @@ router.post(
         res.status(400).json({ error: 'Idempotency-Key required' });
         return;
       }
-      const session = await reserveCreation(req.user!.uid, key, creationHash(parsed));
+      const session = await reserveCreation(req.user!.uid, key, creationHash(parsed), {
+        email: req.user!.email,
+        emailVerified: req.user!.emailVerified,
+      });
       res.json({ success: true, creationSessionId: session.id, status: session.status });
     } catch (error) {
       if (error instanceof AppError) {

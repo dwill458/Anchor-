@@ -6,7 +6,11 @@ let initialized = false;
 export function getFirebaseAdmin(): admin.app.App {
   if (!initialized) {
     const projectId = process.env.FIREBASE_PROJECT_ID;
-    const privateKey = process.env.FIREBASE_PRIVATE_KEY?.replace(/\\n/g, '\n');
+    const configuredPrivateKey = process.env.FIREBASE_PRIVATE_KEY?.trim();
+    const unquotedPrivateKey = configuredPrivateKey
+      ?.replace(/^"([\s\S]*)"$/, '$1')
+      .replace(/^'([\s\S]*)'$/, '$1');
+    const privateKey = unquotedPrivateKey?.replace(/\\n/g, '\n');
     const clientEmail = process.env.FIREBASE_CLIENT_EMAIL;
 
     // Log which vars are missing to ops logs (never surfaces to clients).

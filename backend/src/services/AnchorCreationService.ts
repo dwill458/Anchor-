@@ -6,6 +6,9 @@ import { resolveMonetizationAccess } from './MonetizationAccessService';
 import { AnchorCreationLedger } from './AnchorCreationLedger';
 import { countCreationUsage, countHistoricalCreationBaseline } from './AnchorCreationQuotaPolicy';
 import { ipKeyGenerator } from 'express-rate-limit';
+import { getFirebaseAdmin } from '../config/firebase';
+import { hasCompedAccess } from '../utils/compedAccess';
+import { logger } from '../utils/logger';
 
 /** A shared cost ceiling survives Redis/process restarts and anonymous Firebase UID cycling. */
 export async function consumeGuestCreationBudget(ip: string) {
@@ -72,11 +75,58 @@ export function creationHash(input: {
     .digest('hex');
 }
 
-export async function creationOwner(authUid: string) {
-  const user = await prisma.user.findUnique({ where: { authUid } });
+export async function creationOwner(
+  authUid: string,
+  identity?: { email?: string; emailVerified?: boolean }
+) {
+  let user = await prisma.user.findUnique({ where: { authUid } });
   if (!user) throw new AppError('Sync your account before creating.', 404, 'USER_NOT_FOUND');
   if (user.authProvider.startsWith('merged_guest:'))
     throw new AppError('Guest identity was linked.', 403, 'GUEST_ALREADY_LINKED');
+
+  const identityEmailAllowlisted = hasCompedAccess(identity?.email);
+  const storedEmailAllowlisted = hasCompedAccess(user.email);
+  const identityEmailVerified = identity?.emailVerified === true;
+  let firebaseEmailVerified: boolean | undefined;
+  let firebaseEmailAllowlisted: boolean | undefined;
+  let hasVerifiedAllowlistedIdentity = identityEmailVerified && identityEmailAllowlisted;
+
+  // Firebase ID token claims can lag account changes. For an account whose
+  // token or stored email is on the server allowlist, verify the current record
+  // with Firebase Admin before applying the server-owned Pro grant.
+  if (!hasVerifiedAllowlistedIdentity && (identityEmailAllowlisted || storedEmailAllowlisted)) {
+    try {
+      const firebaseUser = await getFirebaseAdmin().auth().getUser(authUid);
+      firebaseEmailVerified = firebaseUser.emailVerified;
+      firebaseEmailAllowlisted = hasCompedAccess(firebaseUser.email);
+      hasVerifiedAllowlistedIdentity = firebaseEmailVerified && firebaseEmailAllowlisted;
+    } catch (error) {
+      logger.warn('[Creation] Could not refresh allowlisted Firebase identity', {
+        identityEmailAllowlisted,
+        storedEmailAllowlisted,
+        errorCode: (error as { code?: string })?.code || 'unknown',
+      });
+    }
+  }
+
+  // A verified allowlisted email is server-owned entitlement evidence. Refresh
+  // the persisted grant here as well as on auth sync/profile refresh so quota
+  // reservation cannot race a stale isComped flag. Never trust a client tier.
+  if (hasVerifiedAllowlistedIdentity && !user.isComped) {
+    user = await prisma.user.update({ where: { id: user.id }, data: { isComped: true } });
+  } else if (!user.isComped) {
+    // Keep entitlement diagnostics useful without putting email, Firebase UID,
+    // or other account identifiers in production logs.
+    logger.warn('[Creation] Allowlisted Pro access did not resolve', {
+      identityEmailPresent: Boolean(identity?.email),
+      identityEmailVerified,
+      identityEmailAllowlisted,
+      storedEmailAllowlisted,
+      firebaseEmailVerified,
+      firebaseEmailAllowlisted,
+    });
+  }
+
   const owner = await prisma.anchorCreationQuotaOwner
     .upsert({ where: { userId: user.id }, create: { userId: user.id }, update: {} })
     .catch(async error => {
@@ -88,8 +138,13 @@ export async function creationOwner(authUid: string) {
   return { user, owner };
 }
 
-export async function reserveCreation(authUid: string, key: string, hash: string) {
-  const { user, owner } = await creationOwner(authUid);
+export async function reserveCreation(
+  authUid: string,
+  key: string,
+  hash: string,
+  identity?: { email?: string; emailVerified?: boolean }
+) {
+  const { user, owner } = await creationOwner(authUid, identity);
   const { scope, limit, baselineSince } = await creationPolicy(user);
   // Verified store purchase date identifies the trial; absent boundaries use a conservative lifetime budget.
   try {
