@@ -111,7 +111,7 @@
         "monochromeImage": "./assets/anchor-monochrome-v2.png"
       },
       "package": "com.anchorintentions.app",
-      "versionCode": 50,
+      "versionCode": 51,
       "googleServicesFile": "./google-services.json",
       "blockedPermissions": [
         "android.permission.READ_EXTERNAL_STORAGE",

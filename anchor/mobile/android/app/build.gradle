@@ -117,7 +117,7 @@ android {
         }
         minSdkVersion rootProject.ext.minSdkVersion
     targetSdkVersion 36
-        versionCode 50
+        versionCode 51
         if (isExpo58Qa) {
             versionCode 1
         } else if (isSqlCipherProductionQa) {
