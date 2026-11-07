@@ -7,6 +7,10 @@ def googleServicesFile = googleServicesPath ? file(googleServicesPath) : file("g
 def isReleaseBuild = gradle.startParameter.taskNames.any { it.toLowerCase().contains("release") }
 def isSqlCipherProductionQa = System.getenv('ANCHOR_SQLCIPHER_PRODUCTION_QA') == '1'
 def isExpo58Qa = System.getenv('ANCHOR_EXPO58_QA') == '1'
+def hasStoreSqlCipherRuntime = System.getenv('EAS_BUILD_PROFILE') in ['production', 'playstore']
+if (hasStoreSqlCipherRuntime && findProperty('expo.sqlite.useSQLCipher') != 'true') {
+    throw new GradleException('The Android store runtime requires native SQLCipher.')
+}
 
 def projectRoot = rootDir.getAbsoluteFile().getParentFile().getAbsolutePath()
 
@@ -121,7 +125,15 @@ android {
         }
         versionName "2.0.0"
         resValue "string", "app_name", isExpo58Qa ? "Anchor Expo 58 QA" : (isSqlCipherProductionQa ? "Anchor 2.0 SQLCipher QA" : "Anchor: Visual Goal Setting")
-        resValue "string", "expo_runtime_version", isExpo58Qa ? "2.0-expo58-sqlcipher-qa" : (isSqlCipherProductionQa ? "2.0-sqlcipher-v2-realdata-qa" : "2.0")
+        def updateRuntime = "2.0"
+        if (isExpo58Qa) {
+            updateRuntime = "2.0-expo58-sqlcipher-qa"
+        } else if (isSqlCipherProductionQa) {
+            updateRuntime = "2.0-sqlcipher-v2-realdata-qa"
+        } else if (hasStoreSqlCipherRuntime) {
+            updateRuntime = "2.0-android-sqlcipher-v1"
+        }
+        resValue "string", "expo_runtime_version", updateRuntime
         resValue "bool", "expo_updates_enabled", System.getenv('ANCHOR_SQLCIPHER_APP_PREVIEW') == '1' ? "true" : "false"
         manifestPlaceholders = [
             appScheme: isExpo58Qa ? "anchor-expo58-qa" : (isSqlCipherProductionQa ? "anchor-sqlcipher-qa" : "anchor"),

@@ -1,5 +1,5 @@
-// SQLCipher is a native/runtime change. This cohort cannot receive runtime-2.0 OTAs.
 const staticConfig = require('./app.json').expo;
+const androidProductionRuntime = '2.0-android-sqlcipher-v1';
 module.exports = ({ config = staticConfig } = {}) => {
   const isProductionCohort = process.env.ANCHOR_SQLCIPHER_OWNER_PILOT === '1' ||
                              process.env.APP_ENV === 'production' ||
@@ -115,7 +115,11 @@ module.exports = ({ config = staticConfig } = {}) => {
       plugins: base.plugins,
     };
   }
-  if (process.env.ANCHOR_SQLCIPHER_LAB !== '1') return base;
+  if (process.env.ANCHOR_SQLCIPHER_LAB !== '1') {
+    return isProductionCohort
+      ? { ...base, android: { ...base.android, runtimeVersion: androidProductionRuntime } }
+      : base;
+  }
   return {
     ...base,
     name: 'Anchor SQLCipher Dev',

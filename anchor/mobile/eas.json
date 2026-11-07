@@ -97,6 +97,7 @@
       },
       "android": {
         "buildType": "app-bundle",
+        "gradleCommand": ":app:bundleRelease --project-prop expo.sqlite.useSQLCipher=true --project-prop expo.sqlite.enableFTS=false",
         "autoIncrement": true
       }
     },
@@ -118,6 +119,7 @@
       },
       "android": {
         "buildType": "app-bundle",
+        "gradleCommand": ":app:bundleRelease --project-prop expo.sqlite.useSQLCipher=true --project-prop expo.sqlite.enableFTS=false",
         "autoIncrement": true,
         "resourceClass": "large"
       },
