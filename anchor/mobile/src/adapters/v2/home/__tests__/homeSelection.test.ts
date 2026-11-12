@@ -1,8 +1,9 @@
-import { renderHook } from '@testing-library/react-native';
+import { act, renderHook } from '@testing-library/react-native';
 import { useV2HomeModel } from '../useV2HomeModel';
 import { useAnchorStore } from '@/stores/anchorStore';
 import { useAuthStore } from '@/stores/authStore';
 import { useCourseStore } from '@/stores/courseStore';
+import { useProfileStore } from '@/stores/profileStore';
 import { makeAnchor } from './fixtures';
 
 jest.mock('@/hooks/v2/vision', () => ({
@@ -43,6 +44,21 @@ describe('useV2HomeModel selection identity', () => {
     const { result } = renderHook(() => useV2HomeModel());
     expect(result.current.anchorList.filter((item) => item.isSelected)).toHaveLength(1);
     expect(result.current.selectedIndex).toBe(0);
+  });
+
+  it('shows the current account’s locally saved avatar and ignores it after an account switch', () => {
+    const localPhoto = 'file:///documents/profile-media/user-1.jpg';
+    const remotePhoto = 'https://example.test/avatar.jpg';
+    useProfileStore.setState({ ownerUserId: 'user-1', photo: localPhoto });
+    try {
+      const { result } = renderHook(() => useV2HomeModel());
+      expect(result.current.profilePictureUrl).toBe(localPhoto);
+
+      act(() => useAuthStore.setState({ user: { id: 'user-2', profilePictureUrl: remotePhoto } as never }));
+      expect(result.current.profilePictureUrl).toBe(remotePhoto);
+    } finally {
+      act(() => useProfileStore.getState().resetProfile());
+    }
   });
 
   it('tracks the shared store selection instead of freezing on the first Anchor', () => {

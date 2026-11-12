@@ -16,7 +16,6 @@ import Constants from 'expo-constants';
 import { StatusBar } from 'expo-status-bar';
 import { useNavigation, CommonActions } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import * as FileSystem from 'expo-file-system/legacy';
 
 import { T, settingsTypography } from '@/components/settings/settingsTheme';
 import {
@@ -65,11 +64,11 @@ import { DEV_MOCK_IDENTITY } from '@/utils/devMockIdentity';
 import { useAnchorStore } from '@/stores/anchorStore';
 import { useSettingsReveal } from '@/components/transitions/SettingsRevealProvider';
 import { useTrialStatus } from '@/hooks/useTrialStatus';
-import { apiClient } from '@/services/ApiClient';
+import { apiClient, type AccountBoundRequestConfig } from '@/services/ApiClient';
 import { AnalyticsEvents, AnalyticsService } from '@/services/AnalyticsService';
 import { AuthService } from '@/services/AuthService';
 import { forceEntranceAfterSignOut } from '@/services/forceEntranceAfterSignOut';
-import { persistProfilePhoto } from '@/services/ProfileMediaService';
+import { prepareProfilePhotoUpload } from '@/services/ProfileMediaService';
 import { useVisionAppearanceReference } from '@/hooks/v2/vision';
 import { useAuthStore } from '@/stores/authStore';
 import { useProfileStore } from '@/stores/profileStore';
@@ -264,39 +263,37 @@ export const SettingsScreen: React.FC = () => {
     photo: string | null;
     usePhotoInVision?: boolean;
   }) => {
-    const persistedPhoto =
-      user?.id != null
-        ? await persistProfilePhoto({ userId: user.id, photoUri: updates.photo, previousPhotoUri: photo })
-        : updates.photo;
-    const nextUpdates = { name: updates.name, photo: persistedPhoto };
-    updateProfile(nextUpdates);
-
-    if (updates.usePhotoInVision !== undefined) {
-      if (updates.usePhotoInVision && persistedPhoto) {
-        await visionAppearance.setProfilePreference(true, persistedPhoto);
-      } else {
-        await visionAppearance.setProfilePreference(false);
-      }
-    } else if (persistedPhoto !== photo && visionAppearance.enabledByPreference) {
-      // A changed profile image is not silently repurposed for generation.
-      // Keep the profile itself, but require a fresh Vision opt-in next time.
-      await visionAppearance.setProfilePreference(false);
+    if (!user) {
+      updateProfile({ name: updates.name, photo: updates.photo });
+      return;
     }
 
-    if (user) {
-      setUser({ ...user, displayName: nextUpdates.name });
-      try {
-        const body: Record<string, unknown> = { displayName: nextUpdates.name };
-        if (persistedPhoto) {
-          const photoData = await FileSystem.readAsStringAsync(persistedPhoto, { encoding: 'base64' });
-          const mimeType = persistedPhoto.endsWith('.png') ? 'image/png' : 'image/jpeg';
-          body.profilePictureBase64 = `data:${mimeType};base64,${photoData}`;
-          body.profilePictureMimeType = mimeType;
-        }
-        const response = await apiClient.patch<ApiResponse<User>>('/api/users/me', body);
-        if (response.data?.success && response.data.data) setUser(response.data.data);
-      } catch (error) {
-        logger.warn('[SettingsScreen] Failed to sync profile remotely', error);
+    const { accountRevision } = useAuthStore.getState();
+    const isCurrentAccount = () => {
+      const current = useAuthStore.getState();
+      return current.user?.id === user.id && current.accountRevision === accountRevision;
+    };
+    const config: AccountBoundRequestConfig = { anchorAuthGuard: isCurrentAccount };
+    const photoChanged = updates.photo !== profilePhotoUri;
+    const photoFields = photoChanged
+      ? updates.photo ? await prepareProfilePhotoUpload(updates.photo) : { profilePictureUrl: null }
+      : {};
+    const { data: result } = await apiClient.patch<ApiResponse<Pick<User, 'id' | 'profilePictureUrl'>>>(
+      '/api/users/me', { displayName: updates.name, ...photoFields }, config,
+    );
+    if (!result?.success || result.data?.id !== user.id) throw new Error('Profile save was not confirmed');
+    const currentUser = useAuthStore.getState().user;
+    if (!currentUser || !isCurrentAccount()) return;
+
+    const savedPhoto = result.data.profilePictureUrl ?? null;
+    updateProfile({ name: updates.name, ...(photoChanged ? { photo: null } : {}) });
+    setUser({ ...currentUser, displayName: updates.name, profilePictureUrl: savedPhoto });
+
+    const usePhotoInVision = Boolean(updates.usePhotoInVision && savedPhoto);
+    if (usePhotoInVision !== visionAppearance.enabledByPreference || (photoChanged && usePhotoInVision)) {
+      const updated = await visionAppearance.setProfilePreference(usePhotoInVision, savedPhoto);
+      if (!updated && isCurrentAccount()) {
+        Alert.alert('Vision photo', 'Your profile was saved. The Vision photo preference could not be updated.');
       }
     }
   };

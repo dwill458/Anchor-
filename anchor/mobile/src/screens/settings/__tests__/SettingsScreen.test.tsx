@@ -1,5 +1,5 @@
 import React from 'react';
-import { Alert, DeviceEventEmitter } from 'react-native';
+import { Alert, DeviceEventEmitter, Image } from 'react-native';
 import { fireEvent, render, waitFor } from '@testing-library/react-native';
 
 const mockUpdateSetting = jest.fn(() => Promise.resolve());
@@ -12,6 +12,8 @@ const mockSetSoundEffectsEnabled = jest.fn();
 const mockResetTeaching = jest.fn();
 const mockFullTeachingReset = jest.fn();
 const mockRestorePurchases = jest.fn();
+const mockPickProfilePhoto = jest.fn();
+const mockPrepareImage = jest.fn();
 const mockNavigate = jest.fn();
 const mockNavigation = {
   navigate: mockNavigate,
@@ -72,7 +74,7 @@ const mockSettingsStoreState = {
   setSessionAudioMode: jest.fn(),
 };
 const mockAuthStoreState = {
-  user: { id: 'user-1', email: 'member@anchor.test', displayName: 'Mara Vale' },
+  user: { id: 'user-1', email: 'member@anchor.test', displayName: 'Mara Vale', hasCompletedOnboarding: true, isComped: true },
   isAuthenticated: true,
   isGuest: false,
   profileData: null,
@@ -139,8 +141,8 @@ jest.mock('@/hooks/useNotificationController', () => ({
   }),
 }));
 jest.mock('@/stores/authStore', () => ({
-  useAuthStore: (selector?: (state: typeof mockAuthStoreState) => unknown) =>
-    selector ? selector(mockAuthStoreState) : mockAuthStoreState,
+  useAuthStore: Object.assign((selector?: (state: typeof mockAuthStoreState) => unknown) =>
+    selector ? selector(mockAuthStoreState) : mockAuthStoreState, { getState: () => mockAuthStoreState }),
 }));
 jest.mock('@/stores/teachingStore', () => ({
   useTeachingStore: { getState: () => ({ resetTeachingRecords: mockResetTeaching, reset: mockFullTeachingReset }) },
@@ -158,6 +160,17 @@ jest.mock('@/services/AnalyticsService', () => ({
   AnalyticsService: { track: jest.fn(), setEnabled: jest.fn() },
 }));
 jest.mock('@/services/ApiClient', () => ({ apiClient: { get: jest.fn(), patch: jest.fn() } }));
+jest.mock('@/hooks/v2/vision', () => ({ useVisionAppearanceReference: () => ({
+  enabledByPreference: false, saving: false, setProfilePreference: jest.fn(async () => true),
+}) }));
+jest.mock('@/components/EditProfileSheet', () => ({ getImagePickerModule: () => ({
+  requestMediaLibraryPermissionsAsync: jest.fn(async () => ({ status: 'granted' })),
+  launchImageLibraryAsync: mockPickProfilePhoto,
+}) }));
+jest.mock('expo-image-manipulator', () => ({
+  SaveFormat: { JPEG: 'jpeg' },
+  manipulateAsync: (...args: unknown[]) => mockPrepareImage(...args),
+}));
 jest.mock('@/services/reviewPromptService', () => ({ openStoreListing: jest.fn(() => Promise.resolve()) }));
 jest.mock('@/services/RevenueCatService', () => ({
   __esModule: true,
@@ -170,13 +183,51 @@ const { SettingsScreen } = require('../SettingsScreen');
 delete process.env.EXPO_PUBLIC_SFX_DEBUG;
 
 describe('SettingsScreen', () => {
+  it('keeps the selected photo after a failed upload and preserves account fields when retry succeeds', async () => {
+    const { apiClient } = require('@/services/ApiClient');
+    const savedUrl = 'https://example.test/avatar.jpg';
+    const selectedUri = 'file:///cache/new-photo.heic';
+    apiClient.patch.mockRejectedValueOnce(new Error('Upload failed')).mockResolvedValueOnce({
+      data: { success: true, data: { id: 'user-1', profilePictureUrl: savedUrl } },
+    });
+    mockPickProfilePhoto.mockResolvedValueOnce({ canceled: false, assets: [{ uri: selectedUri }] });
+    mockPrepareImage.mockResolvedValue({ uri: 'file:///cache/compressed.jpg', base64: 'AAAA' });
+    const getSize = jest.spyOn(Image, 'getSize').mockImplementation(async () => ({ width: 3000, height: 4000 }));
+    const alert = jest.spyOn(Alert, 'alert').mockImplementation(() => {});
+    try {
+      const view = render(<SettingsScreen />);
+      fireEvent.press(view.getByTestId('settings-row-Edit profile'));
+      fireEvent.press(view.getByTestId('edit-profile-change-photo'));
+      const photoActions = alert.mock.calls.find(([title]) => title === 'Profile photo')?.[2];
+      photoActions?.find(button => button.text === 'Choose from library')?.onPress?.();
+      await waitFor(() => expect(view.getByTestId('edit-profile-save').props.accessibilityState.disabled).toBe(false));
+      fireEvent.press(view.getByTestId('edit-profile-save'));
+      await waitFor(() => expect(alert).toHaveBeenCalledWith('Save failed', expect.any(String)));
+      expect(view.getByTestId('edit-profile-screen')).toBeTruthy();
+      expect(mockAuthStoreState.setUser).not.toHaveBeenCalled();
+      expect(mockPrepareImage).toHaveBeenCalledWith(selectedUri, [{ resize: { height: 768 } }], expect.objectContaining({ format: 'jpeg' }));
+
+      await waitFor(() => expect(view.getByTestId('edit-profile-save').props.accessibilityState.disabled).toBe(false));
+      fireEvent.press(view.getByTestId('edit-profile-save'));
+      await waitFor(() => expect(apiClient.patch).toHaveBeenCalledTimes(2));
+      expect(apiClient.patch).toHaveBeenLastCalledWith('/api/users/me', {
+        displayName: 'Mara Vale', profilePictureBase64: 'data:image/jpeg;base64,AAAA', profilePictureMimeType: 'image/jpeg',
+      }, expect.objectContaining({ anchorAuthGuard: expect.any(Function) }));
+      await waitFor(() => expect(mockAuthStoreState.setUser).toHaveBeenCalledWith({ ...mockAuthStoreState.user, profilePictureUrl: savedUrl }));
+      expect(view.queryByTestId('edit-profile-screen')).toBeNull();
+    } finally {
+      alert.mockRestore();
+      getSize.mockRestore();
+    }
+  });
+
   beforeEach(() => {
     jest.clearAllMocks();
     mockNotifState.notification_enabled = false;
     mockNotifState.weeklyRecapEnabled = false;
     mockNotifState.dailyPrimeTime = '21:00';
     mockTrialStatus = { isSubscribed: false, isTrialActive: true, daysRemaining: 4 };
-    mockAuthStoreState.user = { id: 'user-1', email: 'member@anchor.test', displayName: 'Mara Vale' };
+    mockAuthStoreState.user = { id: 'user-1', email: 'member@anchor.test', displayName: 'Mara Vale', hasCompletedOnboarding: true, isComped: true };
     mockAuthStoreState.isAuthenticated = true;
     mockAuthStoreState.isGuest = false;
     NotificationService.requestPermissions = mockRequestPermissions;

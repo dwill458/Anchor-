@@ -5,6 +5,7 @@
  */
 
 import { Router, Response, NextFunction } from 'express';
+import { randomUUID } from 'node:crypto';
 import { z } from 'zod';
 import { AuthRequest, authMiddleware } from '../middleware/auth';
 import { AppError } from '../middleware/errorHandler';
@@ -16,7 +17,7 @@ const router = Router();
 
 const UpdateProfileSchema = z.object({
   displayName: z.string().min(1).max(100).optional(),
-  profilePictureUrl: z.string().url().optional(),
+  profilePictureUrl: z.string().url().nullable().optional(),
   profilePictureBase64: z.string().optional(),
   profilePictureMimeType: z.enum(['image/jpeg', 'image/png']).optional(),
 });
@@ -62,7 +63,10 @@ router.patch('/me', authMiddleware, async (req: AuthRequest, res: Response, next
     if (profilePictureBase64) {
       const mimeType = profilePictureMimeType || 'image/jpeg';
       const uploadedUrl = await uploadProfilePicture(user.id, profilePictureBase64, mimeType);
-      updateData.profilePictureUrl = uploadedUrl;
+      // The storage object is overwritten, so each save needs a fresh image-cache key.
+      const versionedUrl = new URL(uploadedUrl);
+      versionedUrl.searchParams.set('v', randomUUID());
+      updateData.profilePictureUrl = versionedUrl.href;
     } else if (profilePictureUrl !== undefined) {
       updateData.profilePictureUrl = profilePictureUrl || null;
     }

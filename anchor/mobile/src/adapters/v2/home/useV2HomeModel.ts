@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
 import { useAnchorStore } from '@/stores/anchorStore';
 import { useAuthStore } from '@/stores/authStore';
+import { useProfileStore } from '@/stores/profileStore';
 import { useV2SelectedAnchor } from '@/hooks/v2/home/useV2SelectedAnchor';
 import { useV2Vision } from '@/hooks/v2/vision';
 import { resolveGreeting } from '@/constants/v2/home';
@@ -226,13 +227,14 @@ export function useV2HomeModel(): V2HomeModel {
   const recommendationRevision = useSyncExternalStore(subscribeV2RecommendationContext, getV2RecommendationCacheRevision, getV2RecommendationCacheRevision);
   const { selectedAnchor, activeAnchors, selectAnchor } = useV2SelectedAnchor();
   const lastProfiledAnchorId = useRef<string | null>(null);
+  const accountId = useAuthStore((s) => s.user?.id ?? null);
   const signedInDisplayName = useAuthStore((s) => s.user?.displayName ?? null);
   const signedInProfilePictureUrl = useAuthStore((s) => s.user?.profilePictureUrl ?? null);
+  const localProfilePhoto = useProfileStore((s) => accountId && s.ownerUserId === accountId ? s.photo : null);
   const devMockIdentity = useSettingsStore((s) => s.devMockIdentity);
   const mockIdentity = __DEV__ && devMockIdentity;
   const displayName = mockIdentity ? DEV_MOCK_IDENTITY.displayName : signedInDisplayName;
-  const profilePictureUrl = mockIdentity ? DEV_MOCK_IDENTITY.profilePictureUrl : signedInProfilePictureUrl;
-  const accountId = useAuthStore((s) => s.user?.id ?? null);
+  const profilePictureUrl = mockIdentity ? DEV_MOCK_IDENTITY.profilePictureUrl : localProfilePhoto ?? signedInProfilePictureUrl;
   const anchorLoading = useAnchorStore((s) => s.isLoading);
   const anchorError = useAnchorStore((s) => s.error);
   const anchorsPersistedHydrated = useAnchorStore((s) => s.persistedHydrated);

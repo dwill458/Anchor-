@@ -59,26 +59,36 @@ export const EditProfileSubscreen: React.FC<Props> = ({ name: savedName, photo: 
     }
   };
 
+  const selectPhoto = (uri: string | null) => {
+    setPhoto(uri);
+    setVisionOptIn(uri === savedPhoto && Boolean(visionAppearance.enabledByPreference));
+  };
+
   const pickFromLibrary = async () => {
     const ImagePicker = getImagePickerModule();
     if (!ImagePicker) {
       Alert.alert('Photos unavailable', 'Photo selection is not available in this version of Anchor.');
       return;
     }
-    if (Platform.OS === 'ios') {
-      const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
-      if (status !== 'granted') {
-        Alert.alert('Permission required', 'Please allow access to your photo library in Settings.');
-        return;
+    try {
+      if (Platform.OS === 'ios') {
+        const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+        if (status !== 'granted') {
+          Alert.alert('Permission required', 'Please allow access to your photo library in Settings.');
+          return;
+        }
       }
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ['images'],
+        allowsEditing: true,
+        aspect: [1, 1],
+        quality: 0.85,
+      });
+      if (!result.canceled && result.assets[0]) selectPhoto(result.assets[0].uri);
+    } catch (error) {
+      logger.warn('[EditProfileSubscreen] Could not select a photo', error);
+      Alert.alert('Photo unavailable', 'Could not open this photo. Please try another one.');
     }
-    const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
-      allowsEditing: true,
-      aspect: [1, 1],
-      quality: 0.85,
-    });
-    if (!result.canceled && result.assets[0]) setPhoto(result.assets[0].uri);
   };
 
   const takePhoto = async () => {
@@ -87,13 +97,18 @@ export const EditProfileSubscreen: React.FC<Props> = ({ name: savedName, photo: 
       Alert.alert('Camera unavailable', 'Camera is not available in this version of Anchor.');
       return;
     }
-    const { status } = await ImagePicker.requestCameraPermissionsAsync();
-    if (status !== 'granted') {
-      Alert.alert('Permission required', 'Please allow camera access in Settings.');
-      return;
+    try {
+      const { status } = await ImagePicker.requestCameraPermissionsAsync();
+      if (status !== 'granted') {
+        Alert.alert('Permission required', 'Please allow camera access in Settings.');
+        return;
+      }
+      const result = await ImagePicker.launchCameraAsync({ allowsEditing: true, aspect: [1, 1], quality: 0.85 });
+      if (!result.canceled && result.assets[0]) selectPhoto(result.assets[0].uri);
+    } catch (error) {
+      logger.warn('[EditProfileSubscreen] Could not take a photo', error);
+      Alert.alert('Camera unavailable', 'Could not take a photo. Please try again.');
     }
-    const result = await ImagePicker.launchCameraAsync({ allowsEditing: true, aspect: [1, 1], quality: 0.85 });
-    if (!result.canceled && result.assets[0]) setPhoto(result.assets[0].uri);
   };
 
   const handlePhotoPress = () => {
@@ -101,7 +116,7 @@ export const EditProfileSubscreen: React.FC<Props> = ({ name: savedName, photo: 
       { text: 'Choose from library', onPress: () => void pickFromLibrary() },
       { text: 'Take photo', onPress: () => void takePhoto() },
     ];
-    if (photo) buttons.push({ text: 'Remove photo', style: 'destructive', onPress: () => setPhoto(null) });
+    if (photo) buttons.push({ text: 'Remove photo', style: 'destructive', onPress: () => selectPhoto(null) });
     buttons.push({ text: 'Cancel', style: 'cancel' });
     Alert.alert('Profile photo', undefined, buttons);
   };
