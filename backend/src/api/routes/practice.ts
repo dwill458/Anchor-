@@ -32,6 +32,8 @@ import { milestoneService } from '../../services/v2/milestones/MilestoneService'
 const router = Router();
 const MS_PER_DAY = 24 * 60 * 60 * 1000;
 const NEXT_ACTION_MAX_LENGTH = 240;
+// The shipped V1 audio recordings include the guided return after the nominal duration.
+const GUIDED_VISUALIZE_V1_SECONDS = new Map([[60, 65], [180, 200], [600, 615]]);
 const COMPLETION_SOURCES = [
   'practice_screen',
   'anchor_detail',
@@ -271,7 +273,10 @@ function assertValidCompletedSession(input: NormalizedPracticeSessionInput): voi
       'VALIDATION_ERROR'
     );
   }
-  if (input.completedDurationSeconds > input.plannedDurationSeconds + 5) {
+  const reachedGuidedVisualizeBoundary = input.practiceMode === 'visualize' &&
+    input.metadata?.guided_visualize_version === 1 &&
+    input.completedDurationSeconds === GUIDED_VISUALIZE_V1_SECONDS.get(input.plannedDurationSeconds);
+  if (input.completedDurationSeconds > input.plannedDurationSeconds + 5 && !reachedGuidedVisualizeBoundary) {
     throw new AppError('Completed duration exceeds the planned session', 400, 'VALIDATION_ERROR');
   }
   const { localDateKey: expectedLocalDateKey, utcOffsetMinutes: expectedOffset } =
@@ -296,7 +301,7 @@ function assertValidCompletedSession(input: NormalizedPracticeSessionInput): voi
     ) {
       throw new AppError('Unsupported Visualize duration', 400, 'VALIDATION_ERROR');
     }
-    if (input.completedDurationSeconds !== input.plannedDurationSeconds) {
+    if (input.completedDurationSeconds !== input.plannedDurationSeconds && !reachedGuidedVisualizeBoundary) {
       throw new AppError('Visualize must reach its completion boundary', 400, 'VALIDATION_ERROR');
     }
     if (!validateVisualizationScene(input.sceneSnapshot)) {

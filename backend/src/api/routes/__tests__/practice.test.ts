@@ -331,6 +331,40 @@ describe('canonical practice sessions', () => {
     expect(res.status).toBe(201);
   });
 
+  it.each([[60, 65], [180, 200], [600, 615]])(
+    'credits the shipped guided Visualize recording for %is at its %is boundary',
+    async (planned, actual) => {
+      const movement = { beforeStrength: 0, afterStrength: 15, delta: 15, reason: 'practice_completed', idempotent: false };
+      mockThreadStrengthService.calculateForPracticeSession.mockResolvedValue(movement);
+      const payload = {
+        ...body,
+        plannedDurationSeconds: planned,
+        completedDurationSeconds: actual,
+        startedAt: new Date(Date.parse(body.completedAt) - actual * 1000).toISOString(),
+        metadata: { guided_visualize_version: 1 },
+      };
+      const created = await request(app).post('/api/practice/sessions').send(payload).expect(201);
+      expect(created.body.data).toMatchObject({ completedDurationSeconds: actual, threadStrengthMovement: movement });
+
+      mockPrisma.practiceSession.findUnique.mockResolvedValue({
+        ...payload, userId: MOCK_DB_USER.id, anchorServerIdSnapshot: payload.anchorServerId,
+        startedAt: new Date(payload.startedAt), completedAt: new Date(payload.completedAt),
+      });
+      const retry = await request(app).post('/api/practice/sessions').send(payload).expect(200);
+      expect(retry.body.idempotent).toBe(true);
+      expect(mockPrisma.practiceSession.create).toHaveBeenCalledTimes(1);
+    }
+  );
+
+  it.each([[199, 1], [201, 1], [200, undefined]])(
+    'rejects an unmatched guided Visualize duration of %is with version %s',
+    async (actual, version) => {
+      await request(app).post('/api/practice/sessions').send({
+        ...body, completedDurationSeconds: actual, metadata: { guided_visualize_version: version },
+      }).expect(400);
+    }
+  );
+
   it('rejects a Visualize length that has no guided track', async () => {
     const res = await request(app).post('/api/practice/sessions').send({
       ...body, id: 'client-session-90', plannedDurationSeconds: 90, completedDurationSeconds: 90,
