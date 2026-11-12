@@ -47,7 +47,7 @@ import { useTeachingQueue } from '@/hooks/v2/teaching/useTeachingQueue';
 import { useTeachingFocus } from '@/hooks/v2/teaching/useTeachingFocus';
 import { homeTeachingBeats } from '@/hooks/v2/teaching/homeTeaching';
 import { ScreenTeaching } from '@/components/v2/teaching/ScreenTeaching';
-import { measureTeachingTarget, scrollToTarget, waitForScrollSettle } from '@/components/v2/teaching/scrollToTarget';
+import { measureTeachingTarget, scrollToTarget } from '@/components/v2/teaching/scrollToTarget';
 import { VisionHomeReturnSkip, useVisionHomeReturn } from './visionHomeReturn';
 
 type Nav = NativeStackNavigationProp<V2DailyShellParamList, 'V2Home'>;
@@ -503,10 +503,10 @@ export function V2HomeScreen() {
     () => elasticScrollY.value < 450,
     (visible, previous) => { if (visible !== previous) runOnJS(setHeroOnscreen)(visible); },
   );
-  // Canonical Home idle gate: the teaching queue also waits for an idle slot after this clears.
-  const homeIsIdle = !celebrationActive && teachingFocus.isFocused && !teachingFocus.transitioning && !arrival.context.active && !arrival.arrival && !visionReturn.active &&
+  const homeTeachingAvailable = !celebrationActive && teachingFocus.isFocused && !arrival.context.active && !arrival.arrival && !visionReturn.active &&
     !veilSwapPending.current && !carouselMoving && !homeMotionActive && !focusTransition.active && !threadEvents.active &&
-    model.anchorState === 'ready' && Boolean(selectedId) && model.today.state !== 'loading' && !model.progressLoading &&
+    model.anchorState === 'ready' && Boolean(selectedId);
+  const homeIsIdle = homeTeachingAvailable && !teachingFocus.transitioning && model.today.state !== 'loading' && !model.progressLoading &&
     model.vision.state !== 'loading' && model.chart.state !== 'loading' && model.chart.state !== 'resolving';
   useEffect(() => { if (homeIsIdle && hasCompletedPractice) discoverGuidance(teachingAccountId ?? 'guest', 'today.recommended'); }, [homeIsIdle, hasCompletedPractice, teachingAccountId]);
   const requestedId = guidanceCoordinator.requested() ?? guidanceCoordinator.snapshot()?.id ?? null;
@@ -515,11 +515,17 @@ export function V2HomeScreen() {
     const def = GUIDANCE_REGISTRY.find(item => item.id === requestedId);
     return def?.beat ?? null;
   }, [requestedId]);
+  const eligibleTeaching = homeTeachingBeats({ hasAnchor: Boolean(selectedId), todayReady: todayForDisplay.state === 'ready',
+    doneToday: todayForDisplay.state === 'ready' && Boolean(todayForDisplay.doneToday),
+    mode: todayForDisplay.state === 'ready' ? todayForDisplay.mode : undefined, hasCompletedPractice,
+    hasVision, anchorCount: model.anchorList.length, requestedBeat });
+  const firstTodayTeachingReady = homeTeachingAvailable && teachingTargetRevision > 0 && !hasCompletedPractice &&
+    todayForDisplay.state === 'ready' && !todayForDisplay.doneToday && todayForDisplay.mode !== 'release';
   const teachingQueue = useTeachingQueue({ screenId: 'home', accountId: teachingAccountId, contextKey: selectedId ?? undefined, targetRevision: teachingTargetRevision,
-    eligible: homeTeachingBeats({ hasAnchor: Boolean(selectedId), todayReady: todayForDisplay.state === 'ready',
-      doneToday: todayForDisplay.state === 'ready' && Boolean(todayForDisplay.doneToday),
-      mode: todayForDisplay.state === 'ready' ? todayForDisplay.mode : undefined, hasCompletedPractice,
-      hasVision, anchorCount: model.anchorList.length, requestedBeat }), cap: 1, blocked: !homeIsIdle, isFocused: teachingFocus.isFocused });
+    eligible: homeIsIdle
+      ? eligibleTeaching.filter(beat => beat !== 'home.today' || teachingTargetRevision > 0)
+      : firstTodayTeachingReady ? ['home.today'] : [],
+    cap: 1, blocked: !homeIsIdle && !firstTodayTeachingReady, isFocused: teachingFocus.isFocused, presentWhenReady: true });
   const activeAnchorIds = useMemo(() => model.anchorList.map(item => item.anchor.id), [model.anchorList]);
   const recommendedDurationSeconds = todayForDisplay.state === 'ready'
     ? (todayForDisplay.doneToday?.durationSeconds ?? todayForDisplay.durationSeconds)
@@ -550,9 +556,7 @@ export function V2HomeScreen() {
     teachingScrollActive.value = true;
     try {
       const viewport = await measureTeachingTarget(scrollViewportRef.current);
-      await scrollToTarget(target, elastic.scrollRef, () => ({ y: elastic.scrollY.value, max: elastic.maxScroll.value, viewportTop: viewport?.y ?? 0 }), reduceMotion);
-      if (!reduceMotion) await waitForScrollSettle(elastic.scrollY);
-      return await measureTeachingTarget(target.current);
+      return await scrollToTarget(target, elastic.scrollRef, () => ({ y: elastic.scrollY.value, max: elastic.maxScroll.value, viewportTop: viewport?.y ?? 0 }), reduceMotion);
     } finally { teachingScrollActive.value = false; }
   }, [elastic.scrollRef, elastic.scrollY, elastic.maxScroll, reduceMotion, teachingScrollActive]);
 

@@ -5,8 +5,9 @@ import { bindGuidanceAccount, guidanceCoordinator } from '@/hooks/v2/guidance/gu
 import { useMilestoneCelebrationStore } from '@/stores/v2/milestoneCelebrationStore';
 import { useCelebrationStore } from '@/stores/v2/celebrationStore';
 import { useSettingsStore } from '@/stores/settingsStore';
+import { scheduleAfterInteractions } from '@/utils/scheduleAfterInteractions';
 jest.mock('@/stores/encryptedPersistStorage', () => ({ encryptedPersistStorage: { getItem: jest.fn(async () => null), setItem: jest.fn(), removeItem: jest.fn() } }));
-jest.mock('@/utils/scheduleAfterInteractions', () => ({ scheduleAfterInteractions: (action: () => void) => { action(); return { cancel: jest.fn() }; } }));
+jest.mock('@/utils/scheduleAfterInteractions', () => ({ scheduleAfterInteractions: jest.fn((action: () => void) => { action(); return { cancel: jest.fn() }; }) }));
 type Options = Parameters<typeof useTeachingQueue>[0];
 const initial: Options = { screenId: 'home', accountId: null, eligible: ['home.today'], cap: 2, blocked: false, isFocused: true };
 beforeEach(async () => {
@@ -32,6 +33,15 @@ it('waits for readiness and tears down without recording on blur', async () => {
  expect(hook.result.current.steps).toEqual([]); hook.rerender(initial);
  await waitFor(() => expect(hook.result.current.steps).toEqual(['home.today']));
  hook.rerender({ ...initial, isFocused: false }); expect(hook.result.current.steps).toEqual([]); expect(guidanceCoordinator.data().records).toEqual({});
+});
+it('offers first-arrival Home teaching as soon as the host becomes ready', async () => {
+ const schedule = jest.mocked(scheduleAfterInteractions);
+ schedule.mockClear();
+ const hook = renderHook(props => useTeachingQueue(props), { initialProps: { ...initial, blocked: true, presentWhenReady: true } });
+ expect(hook.result.current.ready).toBe(false);
+ hook.rerender({ ...initial, blocked: false, presentWhenReady: true });
+ await waitFor(() => expect(hook.result.current.steps).toEqual(['home.today']));
+ expect(schedule).not.toHaveBeenCalled();
 });
 it('does not restart an interrupted presentation during the same visit', async () => {
  const hook = renderHook(props => useTeachingQueue(props), { initialProps: initial });

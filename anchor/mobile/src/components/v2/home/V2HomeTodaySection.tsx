@@ -173,7 +173,8 @@ function V2HomeTodaySectionComponent({ today, visionCoverUri, visionCoverIsReuse
   const activeToday = today.state === 'ready' ? today : lastReadyRef.current;
   if (!activeToday) return null;
 
-  const doneToday = activeToday.doneToday;
+  // Keep the last recommendation during refresh, but only show completion from the current card.
+  const doneToday = today.state === 'ready' ? today.doneToday : undefined;
   const nextMode = doneToday?.nextMode;
   const displayMode = nextMode ?? activeToday.mode;
   const duration = durationLabel(doneToday ? doneToday.durationSeconds : activeToday.durationSeconds);
@@ -242,7 +243,6 @@ function V2HomeTodaySectionComponent({ today, visionCoverUri, visionCoverIsReuse
             <Polygon points="0,0 9,11 0,22" fill={doneToday ? completedTint : accent} />
           </Svg>
         </View>
-        {!doneToday && activeToday.completionSignal ? <Text style={styles.returned}>Returned today</Text> : null}
       </View>
 
       {/* // DEFERRED: The former completion headline showed the next mode instead of the mode just completed.
@@ -352,11 +352,6 @@ const styles = StyleSheet.create({
   doneRibbonContents: { flexDirection: 'row', alignItems: 'center', gap: 4 },
   ribbonTip: { position: 'absolute', right: -9, top: 0 },
   ribbonText: { fontFamily: typography.bodyBold, fontSize: 10, letterSpacing: 2.2, color: colors.graphite.text.primary },
-  returned: {
-    fontFamily: typography.bodyMedium,
-    fontSize: 11,
-    color: colors.graphite.text.secondary,
-  },
   headline: {
     fontFamily: 'BricolageGrotesque-SemiBold',
     fontSize: 30,

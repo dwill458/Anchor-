@@ -335,6 +335,18 @@ describe('Consistency (Thread Strength) states', () => {
 });
 
 describe('Today', () => {
+  it('keeps Today incomplete when only a Chart destination has been reached', () => {
+    oneAnchor();
+    renderHome({}, { today: {
+      state: 'ready', mode: 'release', action: 'Release', reason: 'destination_reached',
+      completionSignal: { id: 'destination', type: 'destination_reached', occurredAt: new Date().toISOString() },
+      threadStrength: null, threadDelta: null, threadDeltaStatus: 'UNAVAILABLE',
+    } });
+    expect(screen.getByText('TODAY')).toBeTruthy();
+    expect(screen.queryByText('Returned today')).toBeNull();
+    expect(screen.queryByText('DONE TODAY')).toBeNull();
+  });
+
   it('renders product language, never the server reason identifier', () => {
     oneAnchor();
     renderHome();
@@ -381,6 +393,27 @@ describe('Today', () => {
     expect(screen.getByText(/^Next · Visualize ·/)).toBeTruthy();
     fireEvent.press(screen.getByTestId('v2-home-today-begin'));
     expect(onOpenPractice).toHaveBeenCalledWith('a', 'visualize');
+  });
+
+  it('clears the completion label when the current day has no practice and Today is refreshing', () => {
+    oneAnchor();
+    useSessionStore.setState({ practiceHistory: [{
+      id: 'session-today', accountId: 'user-1', anchorId: 'a', practiceMode: 'focus',
+      completedAt: new Date().toISOString(), completedDurationSeconds: 30, completionStatus: 'completed',
+    } as never] });
+    renderHome();
+    expect(screen.getByText('DONE TODAY')).toBeTruthy();
+
+    const model = mockUseV2HomeModel.mock.results.at(-1)?.value;
+    mockUseV2HomeModel.mockReturnValue({ ...model, today: { state: 'loading' } });
+    const yesterday = new Date();
+    yesterday.setDate(yesterday.getDate() - 1);
+    act(() => useSessionStore.setState(state => ({ practiceHistory: state.practiceHistory.map(
+      session => ({ ...session, completedAt: yesterday.toISOString() }),
+    ) })));
+
+    expect(screen.getByText('TODAY')).toBeTruthy();
+    expect(screen.queryByText('DONE TODAY')).toBeNull();
   });
 
   it('uses All Practices when every available mode is complete', () => {
