@@ -1,6 +1,17 @@
-import { isSqlCipherNativeCohortAllowed, isSqlCipherStorageEnabled } from '../cohort';
+import { isSqlCipherAndroidStoreEnabled, isSqlCipherNativeCohortAllowed, isSqlCipherStorageEnabled } from '../cohort';
 
 describe('SQLCipher native cohort guard', () => {
+  it.each([
+    ['android', 'com.anchorintentions.app', '2.0-android-sqlcipher-v1', true, true],
+    ['android', 'com.anchorintentions.app', '2.0-android-sqlcipher-v1', false, false],
+    ['android', 'com.anchorintentions.app', '2.0', true, false],
+    ['android', 'com.anchorintentions.app', null, true, false],
+    ['android', 'com.anchorintentions.sqlcipherpreview20261015', '2.0-android-sqlcipher-v1', true, false],
+    ['ios', 'com.anchorintentions.app', '2.0-android-sqlcipher-v1', true, false],
+  ])('checks the OTA flag, platform, app ID and native runtime (%s %s %s %s)', (platform, app, runtime, flag, expected) => {
+    expect(isSqlCipherAndroidStoreEnabled(platform, app, runtime, flag)).toBe(expected);
+  });
+
   it('keeps the production package on legacy storage without the owner-pilot build flag', () => {
     expect(isSqlCipherNativeCohortAllowed('com.anchorintentions.app', false, false)).toBe(false);
   });

@@ -8,6 +8,7 @@ import Constants from 'expo-constants';
 import { EncryptedRecordDatabase, type SqlConnection } from './database';
 import { databaseFileUri } from './databaseFileUri';
 import { isSqlCipherNativeCohortAllowed } from './cohort';
+import { sqlCipherAndroidStoreEnabled } from './androidStore';
 
 export const DATABASE_NAME = 'anchor-private-v1.db';
 const KEY_NAME = 'anchor.sqlcipher.key.v1';
@@ -17,13 +18,17 @@ let instance: EncryptedRecordDatabase | undefined;
 export function recordDatabase(): EncryptedRecordDatabase {
   const ownerPilotEnabled = Constants.expoConfig?.extra?.sqlCipherOwnerPilot === true;
   const ownerPilotMigrationEnabled = Constants.expoConfig?.extra?.sqlCipherOwnerPilotMigrationEnabled === true;
-  if (!isSqlCipherNativeCohortAllowed(Application.applicationId, ownerPilotEnabled, ownerPilotMigrationEnabled)) {
+  if (!sqlCipherAndroidStoreEnabled && !isSqlCipherNativeCohortAllowed(Application.applicationId, ownerPilotEnabled, ownerPilotMigrationEnabled)) {
     throw new Error('SQLCipher activation requires an approved native cohort build');
   }
   if (!instance) instance = new EncryptedRecordDatabase({
     measure: process.env.EXPO_PUBLIC_ANCHOR_PERF_DIAGNOSTICS === '1'
       ? (event, fields) => console.log('SQLCIPHER_PRODUCT ' + JSON.stringify({ event, ...fields }))
-      : undefined,
+      : sqlCipherAndroidStoreEnabled
+        ? (event, fields) => {
+            if (event === 'initialization') console.info('SQLCIPHER_PRODUCT ' + JSON.stringify({ event, ...fields }));
+          }
+        : undefined,
     exists: async () => {
       // Check base file AND WAL/SHM before permitting key creation. Restored
       // encrypted bytes without their key must remain untouched.

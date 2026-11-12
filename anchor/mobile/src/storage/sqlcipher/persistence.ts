@@ -1,8 +1,9 @@
 import Constants from 'expo-constants';
 import { createJSONStorage, type PersistStorage, type StateStorage, type StorageValue } from 'zustand/middleware';
 import { isSqlCipherStorageEnabled } from './cohort';
+import { sqlCipherAndroidStoreEnabled } from './androidStore';
 
-export const sqlCipherEnabled = () => isSqlCipherStorageEnabled(
+export const sqlCipherEnabled = () => sqlCipherAndroidStoreEnabled || isSqlCipherStorageEnabled(
   Constants.expoConfig?.extra?.sqlCipherLab === true,
   Constants.expoConfig?.extra?.sqlCipherOwnerPilot === true,
   Constants.expoConfig?.extra?.sqlCipherOwnerPilotMigrationEnabled === true,

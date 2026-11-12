@@ -14,6 +14,7 @@ module.exports = ({ config = staticConfig } = {}) => {
     plugins: [...config.plugins, ['expo-sqlite', { useSQLCipher: true, enableFTS: false }]],
     extra: {
       ...config.extra,
+      sqlCipherAndroidStore: isProductionCohort,
       sqlCipherOwnerPilot: !isProductionCohort,
       sqlCipherOwnerPilotMigrationEnabled: !isProductionCohort,
     },
