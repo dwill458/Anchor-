@@ -3,7 +3,7 @@ import type { ThreadStrengthSensitivity } from '@/stores/settingsStore';
 export const THREAD_STRENGTH_CONSTANTS = {
   activationBonus: 12,
   dailyReturnBonus: 1.5,
-  pointsPerMinute: 0.5,
+  pointsPerMinute: 1.35,
   dailyDurationCapSeconds: 600, // 10 minutes max earning
   minStrength: 0,
   maxStrength: 100,

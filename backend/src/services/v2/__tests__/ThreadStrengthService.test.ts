@@ -68,79 +68,26 @@ describe('ThreadStrengthService - Thread Strength 2.0', () => {
   });
 
   describe('1. Earning Formula Tests', () => {
-    it('10-second practice earns 1.5833 points (1.5 bonus + 10s duration)', () => {
+    it.each([
+      [10, 0.225, 1.725],
+      [30, 0.675, 2.175],
+      [60, 1.35, 2.85],
+      [180, 4.05, 5.55],
+      [300, 6.75, 8.25],
+      [600, 13.5, 15],
+    ])('first practice of %is earns %f duration points and %f total', (durationSeconds, durationPoints, total) => {
       const earning = calculateSessionEarning({
         practiceType: 'focus',
-        durationSeconds: 10,
+        durationSeconds,
         isFirstSessionToday: true,
         priorEligibleSecondsToday: 0,
       });
       expect(earning.dailyBonus).toBe(1.5);
-      expect(earning.durationPoints).toBeCloseTo(10 / 120, 6);
-      expect(earning.delta).toBeCloseTo(1.583333, 4);
+      expect(earning.durationPoints).toBeCloseTo(durationPoints);
+      expect(earning.delta).toBeCloseTo(total);
     });
 
-    it('30-second practice earns 1.75 points (1.5 bonus + 30s duration)', () => {
-      const earning = calculateSessionEarning({
-        practiceType: 'focus',
-        durationSeconds: 30,
-        isFirstSessionToday: true,
-        priorEligibleSecondsToday: 0,
-      });
-      expect(earning.dailyBonus).toBe(1.5);
-      expect(earning.durationPoints).toBe(0.25);
-      expect(earning.delta).toBe(1.75);
-    });
-
-    it('1-minute practice earns 2.0 points (1.5 bonus + 60s duration)', () => {
-      const earning = calculateSessionEarning({
-        practiceType: 'focus',
-        durationSeconds: 60,
-        isFirstSessionToday: true,
-        priorEligibleSecondsToday: 0,
-      });
-      expect(earning.dailyBonus).toBe(1.5);
-      expect(earning.durationPoints).toBe(0.5);
-      expect(earning.delta).toBe(2.0);
-    });
-
-    it('3-minute practice earns 3.0 points (1.5 bonus + 180s duration)', () => {
-      const earning = calculateSessionEarning({
-        practiceType: 'focus',
-        durationSeconds: 180,
-        isFirstSessionToday: true,
-        priorEligibleSecondsToday: 0,
-      });
-      expect(earning.dailyBonus).toBe(1.5);
-      expect(earning.durationPoints).toBe(1.5);
-      expect(earning.delta).toBe(3.0);
-    });
-
-    it('5-minute practice earns 4.0 points (1.5 bonus + 300s duration)', () => {
-      const earning = calculateSessionEarning({
-        practiceType: 'focus',
-        durationSeconds: 300,
-        isFirstSessionToday: true,
-        priorEligibleSecondsToday: 0,
-      });
-      expect(earning.dailyBonus).toBe(1.5);
-      expect(earning.durationPoints).toBe(2.5);
-      expect(earning.delta).toBe(4.0);
-    });
-
-    it('10-minute practice earns 6.5 points (1.5 bonus + 600s duration)', () => {
-      const earning = calculateSessionEarning({
-        practiceType: 'focus',
-        durationSeconds: 600,
-        isFirstSessionToday: true,
-        priorEligibleSecondsToday: 0,
-      });
-      expect(earning.dailyBonus).toBe(1.5);
-      expect(earning.durationPoints).toBe(5.0);
-      expect(earning.delta).toBe(6.5);
-    });
-
-    it('session duration beyond 10 minutes is capped at 10 minutes (6.5 points max)', () => {
+    it('session duration beyond 10 minutes is capped at 10 minutes', () => {
       const earning = calculateSessionEarning({
         practiceType: 'focus',
         durationSeconds: 1200, // 20 minutes
@@ -148,12 +95,12 @@ describe('ThreadStrengthService - Thread Strength 2.0', () => {
         priorEligibleSecondsToday: 0,
       });
       expect(earning.dailyBonus).toBe(1.5);
-      expect(earning.durationPoints).toBe(5.0); // only first 600s
-      expect(earning.delta).toBe(6.5);
+      expect(earning.durationPoints).toBe(13.5);
+      expect(earning.delta).toBe(15);
       expect(earning.newEligibleSecondsToday).toBe(600);
     });
 
-    it('five completed 10-second sessions on the same day earn 1.916667 total', () => {
+    it('five completed 10-second sessions on the same day earn one daily bonus', () => {
       let prior = 0;
       let totalDelta = 0;
 
@@ -169,7 +116,7 @@ describe('ThreadStrengthService - Thread Strength 2.0', () => {
       }
 
       expect(prior).toBe(50);
-      expect(totalDelta).toBeCloseTo(1.916667, 5);
+      expect(totalDelta).toBeCloseTo(2.625, 5);
     });
 
     it('all eligible practice modes follow the exact same scoring formula', () => {
@@ -181,7 +128,7 @@ describe('ThreadStrengthService - Thread Strength 2.0', () => {
           isFirstSessionToday: true,
           priorEligibleSecondsToday: 0,
         });
-        expect(earning.delta).toBe(4.0); // 1.5 + 2.5 = 4.0 for all modes
+        expect(earning.delta).toBe(8.25);
       }
     });
 

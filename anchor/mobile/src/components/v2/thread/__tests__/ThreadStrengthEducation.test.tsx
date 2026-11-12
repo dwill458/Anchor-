@@ -57,7 +57,7 @@ describe('ThreadStrengthExplainerSheet', () => {
     fireEvent.press(getByTestId('thread-strength-explainer-sheet-rules-toggle'));
     expect(getByText(/First eligible practice on a new Anchor: \+12 bonus, once only\./)).toBeTruthy();
     expect(getByText(/First completed practice each day: \+1\.5\./)).toBeTruthy();
-    expect(getByText(/Each eligible minute: \+0\.5\./)).toBeTruthy();
+    expect(getByText(/Each eligible minute: \+1\.35\./)).toBeTruthy();
     expect(getByText(/up to 10 minutes/)).toBeTruthy();
   });
 

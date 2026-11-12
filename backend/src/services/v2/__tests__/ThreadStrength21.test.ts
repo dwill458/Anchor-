@@ -57,12 +57,12 @@ function simulateDaily(seconds: number, days: number) {
 
 describe('Thread Strength 2.1 — activation bonus', () => {
   it.each([
-    [10, 13.5833],
-    [30, 13.75],
-    [60, 14],
-    [180, 15],
-    [300, 16],
-    [600, 18.5],
+    [10, 13.725],
+    [30, 14.175],
+    [60, 14.85],
+    [180, 17.55],
+    [300, 20.25],
+    [600, 27],
   ])('first %is practice lands at %f', (seconds, expected) => {
     const { steps } = simulateDaily(seconds, 1);
     expect(steps[0].afterStrength).toBeCloseTo(expected, 3);
@@ -72,7 +72,7 @@ describe('Thread Strength 2.1 — activation bonus', () => {
   it('second practice does not award activation again', () => {
     const { steps } = simulateDaily(60, 2);
     expect(steps[1].activationBonus).toBe(0);
-    expect(steps[1].delta).toBe(2);
+    expect(steps[1].delta).toBe(2.85);
   });
 
   it('release never receives or consumes activation', () => {
@@ -106,17 +106,16 @@ describe('Thread Strength 2.1 — activation bonus', () => {
       sensitivity: 'balanced',
       activationSessionId: 'x0',
     });
-    // 12 + 1.5 + 10 capped minutes * 0.5 = 18.5
-    expect(strength).toBe(18.5);
+    expect(strength).toBe(27);
   });
 
   it.each([
-    [10, 56],
-    [30, 51],
-    [60, 44],
-    [180, 30],
-    [300, 22],
-    [600, 14],
+    [10, 52],
+    [30, 41],
+    [60, 31],
+    [180, 16],
+    [300, 11],
+    [600, 6],
   ])('%is/day reaches 100 on day %i and never exceeds 100', (seconds, expectedDay) => {
     const reached = (d: number) => simulateDaily(seconds, d).strength ?? 0;
     expect(reached(expectedDay - 1)).toBeLessThan(100);
@@ -147,7 +146,7 @@ describe('Thread Strength 2.1 — activation bonus', () => {
     );
     expect(steps[1].beforeStrength).toBe(0);
     expect(steps[1].activationBonus).toBe(0);
-    expect(strength).toBe(2);
+    expect(strength).toBe(2.85);
   });
 });
 
@@ -190,7 +189,7 @@ describe('Thread Strength 2.1 — legacy baseline replay', () => {
     expect(res.strength).toBe(79);
   });
 
-  it('adds post-baseline practice with the 2.1 formula and no activation', () => {
+  it('adds post-baseline practice at the current rate without activation', () => {
     const res = replayThreadStrength(
       [
         { sessionId: 'old2', practiceType: 'focus', completedAt: new Date('2026-10-20T12:00:00Z') },
@@ -200,7 +199,7 @@ describe('Thread Strength 2.1 — legacy baseline replay', () => {
     );
     expect(res.steps).toHaveLength(1);
     expect(res.steps[0].activationBonus).toBe(0);
-    expect(res.steps[0].afterStrength).toBe(81);
+    expect(res.steps[0].afterStrength).toBe(81.85);
   });
 
   it('applies normal decay after the baseline', () => {
@@ -210,7 +209,7 @@ describe('Thread Strength 2.1 — legacy baseline replay', () => {
     );
     // 4 missed days (21-24), balanced grace 1 => 3 decay days => 79 - 9 = 70, then +2.
     expect(res.steps[0].beforeStrength).toBe(70);
-    expect(res.steps[0].afterStrength).toBe(72);
+    expect(res.steps[0].afterStrength).toBe(72.85);
   });
 
   it('does not re-credit the daily bonus or minutes already used on the baseline day', () => {
@@ -221,8 +220,8 @@ describe('Thread Strength 2.1 — legacy baseline replay', () => {
       ],
       ctx()
     );
-    expect(res.steps[0].delta).toBe(2.5); // daily bonus consumed; 5 of 10 minutes already used
-    expect(res.steps[0].afterStrength).toBeCloseTo(81.5, 3);
+    expect(res.steps[0].delta).toBe(6.75); // daily bonus consumed; 5 of 10 minutes already used
+    expect(res.steps[0].afterStrength).toBe(85.75);
   });
 
   it('is deterministic: replaying twice yields the same result', () => {
@@ -323,14 +322,14 @@ describe('Thread Strength 2.1 — transactional activation', () => {
 
   it('awards +12 on the first completed practice and persists the activation state', async () => {
     const movement = await service.calculatePracticeCompletion(input);
-    expect(movement.afterStrength).toBe(14);
+    expect(movement.afterStrength).toBe(14.85);
     expect(movement.activationBonus).toBe(12);
     expect(mockTx.threadV2State.update).toHaveBeenCalledWith(
       expect.objectContaining({
         data: expect.objectContaining({
           activationStatus: 'awarded',
           activationSessionId: 'session-1',
-          strength: 14,
+          strength: 14.85,
         }),
       })
     );
@@ -340,7 +339,7 @@ describe('Thread Strength 2.1 — transactional activation', () => {
     mockTx.practiceSession.count.mockResolvedValue(1);
     const movement = await service.calculatePracticeCompletion(input);
     expect(movement.activationBonus).toBe(0);
-    expect(movement.afterStrength).toBe(2);
+    expect(movement.afterStrength).toBe(2.85);
     expect(mockTx.threadV2State.update).toHaveBeenCalledWith(
       expect.objectContaining({ data: expect.objectContaining({ activationStatus: 'legacy_exempt' }) })
     );

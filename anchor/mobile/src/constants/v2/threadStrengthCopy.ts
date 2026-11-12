@@ -1,11 +1,12 @@
 import { THREAD_STRENGTH_LEVELS, type ThreadStrengthLevel } from './threadEvents';
+import { THREAD_STRENGTH_CONSTANTS } from '@/utils/threadStrength';
 
-/** The mobile mirror of the server's locked Thread Strength 2.1 scoring constants (display only). */
+/** Scoring values shown in the Thread Strength explainer. */
 export const THREAD_STRENGTH_RULES = {
-  activationBonus: 12,
-  dailyReturnBonus: 1.5,
-  pointsPerMinute: 0.5,
-  dailyDurationCapMinutes: 10,
+  activationBonus: THREAD_STRENGTH_CONSTANTS.activationBonus,
+  dailyReturnBonus: THREAD_STRENGTH_CONSTANTS.dailyReturnBonus,
+  pointsPerMinute: THREAD_STRENGTH_CONSTANTS.pointsPerMinute,
+  dailyDurationCapMinutes: THREAD_STRENGTH_CONSTANTS.dailyDurationCapSeconds / 60,
   dailyDecay: 3,
 } as const;
 

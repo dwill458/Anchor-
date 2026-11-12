@@ -34,13 +34,13 @@ describe('threadStrength utilities', () => {
 
       expect(result.beforeStrength).toBe(0);
       expect(result.activationBonus).toBe(12);
-      expect(result.delta).toBeCloseTo(13.5833, 4);
-      expect(result.afterStrength).toBeCloseTo(13.5833, 4);
+      expect(result.delta).toBe(13.725);
+      expect(result.afterStrength).toBe(13.725);
     });
 
     it('awards only duration points on second 10s practice today without daily or activation bonus', () => {
       const result = calculateOptimisticPracticeGain({
-        currentStrength: 13.5833,
+        currentStrength: 13.725,
         practiceType: 'focus',
         durationSeconds: 10,
         isFirstPracticeEver: false,
@@ -48,13 +48,13 @@ describe('threadStrength utilities', () => {
         priorEligibleSecondsToday: 10,
       });
 
-      expect(result.beforeStrength).toBe(13.5833);
+      expect(result.beforeStrength).toBe(13.725);
       expect(result.activationBonus).toBe(0);
-      expect(result.delta).toBeCloseTo(0.0833, 3);
-      expect(result.afterStrength).toBeCloseTo(13.6667, 3);
+      expect(result.delta).toBe(0.225);
+      expect(result.afterStrength).toBe(13.95);
     });
 
-    it('awards 1.0 point for a 2-minute repeat practice (120s)', () => {
+    it('awards 2.7 points for a 2-minute repeat practice (120s)', () => {
       const result = calculateOptimisticPracticeGain({
         currentStrength: 20,
         practiceType: 'deep_prime',
@@ -65,8 +65,8 @@ describe('threadStrength utilities', () => {
       });
 
       expect(result.beforeStrength).toBe(20);
-      expect(result.delta).toBe(1.0);
-      expect(result.afterStrength).toBe(21.0);
+      expect(result.delta).toBe(2.7);
+      expect(result.afterStrength).toBe(22.7);
     });
 
     it('caps eligible seconds at 10 minutes (600s) total for the day', () => {
@@ -80,8 +80,8 @@ describe('threadStrength utilities', () => {
         priorEligibleSecondsToday: 480,
       });
 
-      expect(result.delta).toBe(1.0); // 120s / 60 * 0.5 = 1.0 pt
-      expect(result.afterStrength).toBe(31.0);
+      expect(result.delta).toBe(2.7);
+      expect(result.afterStrength).toBe(32.7);
     });
 
     it('awards 0 points when 10 minutes has already been fully used today on repeat sessions', () => {

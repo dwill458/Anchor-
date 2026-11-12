@@ -142,7 +142,7 @@ describe('PracticeCompletionService', () => {
       intentionText: 'Test anchor',
     } as any);
 
-    // Session 1: 10s focus, first practice ever -> activation (12) + daily bonus (1.5) + duration (10/60 * 0.5 = 0.0833) = ~13.5833
+    // First practice earns the activation and daily bonuses plus 10 seconds of duration credit.
     const s1 = await PracticeCompletionService.completePracticeSession({
       sessionId: 'sess-1',
       accountId: 'account-ts-repeat',
@@ -158,11 +158,11 @@ describe('PracticeCompletionService', () => {
     }, { flushImmediately: false });
 
     expect(s1.record.threadStrengthBefore).toBe(0);
-    expect(s1.record.threadStrengthDelta).toBeCloseTo(13.5833, 3);
-    expect(s1.record.threadStrengthAfter).toBeCloseTo(13.5833, 3);
-    expect(useAnchorStore.getState().anchors[0].threadStrength).toBeCloseTo(13.5833, 3);
+    expect(s1.record.threadStrengthDelta).toBe(13.725);
+    expect(s1.record.threadStrengthAfter).toBe(13.725);
+    expect(useAnchorStore.getState().anchors[0].threadStrength).toBe(13.725);
 
-    // Session 2: 10s repeat focus today -> no activation bonus, no daily bonus, duration (10s = 0.0833)
+    // Repeat practice today earns duration credit only.
     const s2 = await PracticeCompletionService.completePracticeSession({
       sessionId: 'sess-2',
       accountId: 'account-ts-repeat',
@@ -177,12 +177,12 @@ describe('PracticeCompletionService', () => {
       backgroundAudio: 'off',
     }, { flushImmediately: false });
 
-    expect(s2.record.threadStrengthBefore).toBeCloseTo(13.5833, 3);
-    expect(s2.record.threadStrengthDelta).toBeCloseTo(0.0833, 3);
-    expect(s2.record.threadStrengthAfter).toBeCloseTo(13.6666, 3);
-    expect(useAnchorStore.getState().anchors[0].threadStrength).toBeCloseTo(13.6666, 3);
+    expect(s2.record.threadStrengthBefore).toBe(13.725);
+    expect(s2.record.threadStrengthDelta).toBe(0.225);
+    expect(s2.record.threadStrengthAfter).toBe(13.95);
+    expect(useAnchorStore.getState().anchors[0].threadStrength).toBe(13.95);
 
-    // Session 3: 120s (2 min) repeat focus today -> duration (120/60 * 0.5 = 1.0)
+    // Both minutes of this repeat practice are still eligible.
     const s3 = await PracticeCompletionService.completePracticeSession({
       sessionId: 'sess-3',
       accountId: 'account-ts-repeat',
@@ -197,11 +197,10 @@ describe('PracticeCompletionService', () => {
       backgroundAudio: 'off',
     }, { flushImmediately: false });
 
-    expect(s3.record.threadStrengthDelta).toBe(1.0);
-    expect(s3.record.threadStrengthAfter).toBeCloseTo(14.6666, 3);
+    expect(s3.record.threadStrengthDelta).toBe(2.7);
+    expect(s3.record.threadStrengthAfter).toBe(16.65);
 
     // Session 4: 500s session (already used 10 + 10 + 120 = 140s; 140 + 500 = 640s, capped at 600s, so 460s credited)
-    // 460s / 60 * 0.5 = 3.8333 pts
     const s4 = await PracticeCompletionService.completePracticeSession({
       sessionId: 'sess-4',
       accountId: 'account-ts-repeat',
@@ -216,7 +215,7 @@ describe('PracticeCompletionService', () => {
       backgroundAudio: 'off',
     }, { flushImmediately: false });
 
-    expect(s4.record.threadStrengthDelta).toBeCloseTo(3.8333, 3);
+    expect(s4.record.threadStrengthDelta).toBe(10.35);
 
     // Session 5: 60s session after 600s cap reached -> delta should be 0
     const s5 = await PracticeCompletionService.completePracticeSession({

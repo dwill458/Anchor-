@@ -48,12 +48,11 @@ export type AnchorThreadState = {
   ruleVersion: string;
 };
 
-// Thread Strength 2.0 locked scoring constants
 export const DAILY_RETURN_BONUS = 1.5;
 // Thread Strength 2.1: one-time bonus for the first eligible completed practice on an Anchor.
 export const ACTIVATION_BONUS = 12;
-export const THREAD_RULE_VERSION = 'v2.1-authoritative';
-export const POINTS_PER_MINUTE = 0.5;
+export const THREAD_RULE_VERSION = 'v2.2-authoritative';
+export const POINTS_PER_MINUTE = 1.35;
 export const DAILY_DURATION_CAP_SECONDS = 600; // 10 minutes max earning
 export const DAILY_DECAY = 3;
 export const MIN_STRENGTH = 0;
