@@ -120,7 +120,40 @@ describe('slot positions', () => {
   });
 });
 
-describe('adding to a position', () => {
+describe('Add and the ghost frames (D6, D7)', () => {
+  beforeEach(() => { mockPhoto.mockClear(); });
+  it('Add goes straight to the add flow: no position picker', () => {
+    const { view, props } = setup(['a', null, 'b']);
+    fireEvent.press(view.getByLabelText('Add to Vision'));
+    expect(props.onAddImage).toHaveBeenCalledWith();
+    expect(view.queryByText('Choose where it goes')).toBeNull();
+  });
+  it('draws the next empty slot as a pencil frame on a Classic board, and two while it holds one photo', () => {
+    const one = setup(['a'], { boardLayout: 'CLASSIC' });
+    expect(one.view.getByTestId('vision-board-ghost-1')).toBeTruthy();
+    expect(one.view.getByTestId('vision-board-ghost-2')).toBeTruthy();
+    expect(one.view.getByText('The day it happens')).toBeTruthy();
+    expect(one.view.getByText('Who is with me')).toBeTruthy();
+    one.view.unmount();
+    const three = setup(['a', 'b', 'c'], { boardLayout: 'CLASSIC' });
+    expect(three.view.getByTestId('vision-board-ghost-3')).toBeTruthy();
+    expect(three.view.queryByTestId('vision-board-ghost-4')).toBeNull();
+    fireEvent.press(three.view.getByTestId('vision-board-ghost-3'));
+    expect(three.props.onAddImage).toHaveBeenCalledWith({ slot: 3, prompt: 'An ordinary morning after' });
+  });
+  it.each([[['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h'], 'CLASSIC'], [['a'], 'EDITORIAL'], [['a'], 'SCRAPBOOK']] as const)('has no ghost frames for %j on %s', (ids, boardLayout) => {
+    expect(setup([...ids], { boardLayout }).view.queryByTestId(/vision-board-ghost-/)).toBeNull();
+  });
+  // Not covered here: focus on a shared-composition board waits for a native measureInWindow callback the Jest host never fires.
+  it('the docked board draws no chip row', () => {
+    const { view } = setup(['a'], { controlsDocked: true });
+    expect(view.queryByLabelText('Add to Vision')).toBeNull();
+    expect(view.queryByTestId('vision-layout-open')).toBeNull();
+  });
+});
+
+// DEFERRED (D7): Add no longer asks where first; the slot is chosen in Develop's placement row or by a ghost frame.
+describe.skip('adding to a position', () => {
   beforeEach(() => { mockPhoto.mockClear(); });
 
   it('Add asks where first, and offers every empty position', () => {

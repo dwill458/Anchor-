@@ -44,6 +44,9 @@ export function visionSceneSuggestions(goal: string, currentText = ''): string[]
 }
 
 /** Putting a shortcut into the field: replaces an empty field, otherwise it is added on a new line, never overwriting the person's words. */
+/** The four sparks: Describe's chip row and the board's ghost frames use them in this order. */
+export const SPARK_SUGGESTIONS = ['The day it happens', 'Who is with me', 'An ordinary morning after', 'A quiet moment of it'] as const;
+
 export function applySceneSuggestion(current: string, suggestion: string): string {
   const text = current.trim();
   return text ? `${text}\n${suggestion}` : suggestion;

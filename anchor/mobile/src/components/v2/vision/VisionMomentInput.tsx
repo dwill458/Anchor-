@@ -18,7 +18,7 @@ import { VisionReferenceStrip } from './VisionReferenceStrip';
 import { type VisionStartPhoto } from './VisionReferencePhoto';
 import { VisionSceneField, type VisionSceneFieldHandle } from './VisionSceneField';
 import { VisionBackButton, VisionInkPill, VISION_GOLD, VISION_SERIF, VISION_SERIF_ITALIC } from './VisionPaperChrome';
-import { applySceneSuggestion } from './visionSceneSuggestions';
+import { applySceneSuggestion, SPARK_SUGGESTIONS } from './visionSceneSuggestions';
 import { visionDetailHint, visionDetailLevel } from './visionGuidance';
 
 export type { VisionStartPhoto };
@@ -57,7 +57,7 @@ export interface VisionMomentInputProps {
   textInputTestID?: string;
 }
 
-export const SPARK_SUGGESTIONS = ['The day it happens', 'Who is with me', 'An ordinary morning after', 'A quiet moment of it'] as const;
+export { SPARK_SUGGESTIONS };
 
 /** The guidance written inside the field until the person starts typing. */
 export const VISION_FIELD_GUIDANCE = 'Where you are, what you\'re doing, how it feels. A little more detail makes a stronger picture.';

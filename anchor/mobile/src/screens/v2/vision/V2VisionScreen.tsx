@@ -13,6 +13,7 @@ import { useVisionPresentationStore } from '@/stores/v2/visionPresentationStore'
 import { VisionPhotoFit } from '@/components/v2/vision/VisionPhotoFitScreen';
 import { assessPhotoFit } from '@/components/v2/vision/visionPhotoFit';
 import { type AddSceneRequest } from '@/components/v2/vision/VisionAddSceneSheet';
+import { applySceneSuggestion } from '@/components/v2/vision/visionSceneSuggestions';
 import { VisionAddSceneEntry } from '@/components/v2/vision/VisionAddSceneEntry';
 import { readPhotoSize } from '@/hooks/v2/vision/visionPhotoFitProcessing';
 import { playCreationSound } from '@/services/CreationSounds';
@@ -307,9 +308,11 @@ function VisionScreenContent(props: V2VisionScreenProps) {
   const [addRequest, setAddRequest] = useState<AddSceneRequest | null>(null);
   // A request taken back from generation reopens the Add sheet with its words and photo intact.
   const [addDraft, setAddDraft] = useState<AddSceneRequest | null>(null);
-  const openAddScene = (target?: { slot?: number }) => {
+  const openAddScene = (target?: { slot?: number; prompt?: string }) => {
     pendingSlot.current = typeof target?.slot === 'number' ? target.slot : null;
     setPlacementPick(pendingSlot.current);
+    // A ghost frame's spark seeds the description through the same append path Describe's chips use.
+    if (target?.prompt) setAddDraft({ description: applySceneSuggestion('', target.prompt), photo: null });
     setActionError(null); setAddSheetOpen(true);
   };
   // The placement row in Develop: the board's filled slots and the target, defaulting to the caller's slot or the first empty one.

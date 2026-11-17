@@ -22,7 +22,8 @@ import type { VisionSlotOverlay } from './VisionBoardScene';
 import { focusCamera, focusContentRect, photoFocusOptions, restCamera, type CameraState } from './visionBoardCamera';
 import { boardCameraEasing, boardDelay, boardTiming, VISION_BOARD_MOTION as MOTION } from './visionBoardMotion';
 import { moveBoardOrder } from './visionBoardReorder';
-import { VISION_SERIF_ITALIC } from '../VisionPaperChrome';
+import { VISION_GOLD, VISION_SERIF_ITALIC } from '../VisionPaperChrome';
+import { SPARK_SUGGESTIONS } from '../visionSceneSuggestions';
 import { measureTeachingTarget, type TeachingRect } from '@/components/v2/teaching/scrollToTarget';
 import { projectTeachingSlot } from '@/hooks/v2/teaching/visionTeaching';
 import { useAuthStore } from '@/stores/authStore';
@@ -86,7 +87,9 @@ export type VisionBoardProps = {
   /** A new order of scene ids, after a drag or an accessibility move. */
   onReorder: (sceneIds: string[]) => void;
   /** Opens the Vision add flow; it remains available at the image limit for note entry. With a target, the photograph goes to that exact position. */
-  onAddImage?: (target?: { slot: number }) => void;
+  onAddImage?: (target?: { slot: number; prompt?: string }) => void;
+  /** The host's bottom dock owns Add and Layout (E1): the board draws no chip row and reserves no room for it. */
+  controlsDocked?: boolean;
   arrangement?: VisionBoardArrangement;
   /** True while a photo is being dragged (the host should stop scrolling). */
   onDragActive?: (active: boolean) => void;
@@ -105,7 +108,7 @@ export type VisionBoardProps = {
  */
 export function VisionBoard({
   tiles, arrangement, notes = [], onNotePresentationChange, onNoteEdit, onNoteDelete, onCaptionEdit, intention, annotation = '', category, art, width, reduceMotion, busy = false, canRegenerate, arrivingSceneId, arrivingNoteId,
-  onReplace, onRegenerate, onRemove, onEditVision, onReorder, onAddImage, onDragActive, captureFrame, testID = 'vision-board', onTeachingIdleChange, teachingTarget, boardLayout, onLayoutPress, onInteractionChange,onScrollLockChange,
+  onReplace, onRegenerate, onRemove, onEditVision, onReorder, onAddImage, onDragActive, captureFrame, testID = 'vision-board', onTeachingIdleChange, teachingTarget, boardLayout, onLayoutPress, onInteractionChange,onScrollLockChange, controlsDocked = false,
 }: VisionBoardProps) {
   const [arrange, setArrange] = useState<ArrangeState>({ kind: 'off' });
   const {height:screenHeight}=useWindowDimensions(),safeArea=useSafeAreaInsets();
@@ -126,7 +129,7 @@ export function VisionBoard({
   const annotationExtra = annotation.trim() ? captionExtra : 0;
   // Editing controls live outside the shared artwork bounds. Notes may occupy
   // the final row; placing controls at the canvas bottom covers their paper.
-  const controlExtra = sharedComposition && onAddImage ? chipRowHeight + spacing[2] : 0;
+  const controlExtra = sharedComposition && onAddImage && !controlsDocked ? chipRowHeight + spacing[2] : 0;
   const rest = useMemo(() => restCamera(scene, viewport), [scene, viewport]);
   const board = useVisionBoardScene(tiles, scene, rest.scale, true, slotMap ? { map: slotMap, heightRatio } : undefined, sharedComposition ? composition : undefined);
   const { shared, layout, slotRects, order } = board;
@@ -353,10 +356,21 @@ export function VisionBoard({
     return { slots, emphasis: arrange.kind === 'arrange' ? 'subtle' : 'strong', action:arrange.kind==='move'?'move':'add', onPress: choosePosition };
   }, [slotMap, arrange, focus, empty, choosePosition]);
   // The Add chip: with room it asks where; at the limit it goes straight to the add flow (notes still need it).
+  // DEFERRED: Add asked where first ("Choose where it goes"); the slot is now chosen in Develop's placement row (D7).
+  // if (slotMap && empty.length > 0) { setFocus(null); setArrange({ kind: 'add' }); return; }
   const requestAdd = useCallback(() => {
-    if (slotMap && empty.length > 0) { setFocus(null); setArrange({ kind: 'add' }); return; }
     onAddImage?.();
-  }, [empty.length, onAddImage, slotMap]);
+  }, [onAddImage]);
+  // D6: in Classic's rest view the next empty slot (two while the board holds one photo) is drawn as a pencil frame with a spark.
+  const ghosts = useMemo(() => {
+    if (boardLayout !== 'CLASSIC' || !sharedComposition || !slotMap || !onAddImage || arranging || focus || dragging || count === 0 || count >= 8) return [];
+    return empty.slice(0, count === 1 ? 2 : 1).map(slot => {
+      const photo = layout.photos[slot];
+      return photo ? { slot, rect: toSceneRect(photo, viewport), prompt: SPARK_SUGGESTIONS[(slot + SPARK_SUGGESTIONS.length - 1) % SPARK_SUGGESTIONS.length] } : null;
+    }).filter((ghost): ghost is NonNullable<typeof ghost> => Boolean(ghost));
+  }, [boardLayout, sharedComposition, slotMap, onAddImage, arranging, focus, dragging, count, empty, layout.photos, viewport]);
+  // Ghosts below the board extend only the scroll content: the composition, and the notes placed against it, keep their height.
+  const ghostExtra = ghosts.reduce((extra, ghost) => Math.max(extra, ghost.rect.y + ghost.rect.height + spacing[4] - viewport.height), 0);
   const moveFocused = useCallback((sceneId: string) => { setFocus(null); setArrange({ kind: 'move', sceneId }); }, []);
   const handleSetAsProfilePhoto = async (imageUrl: string | null | undefined) => {
     if (!imageUrl) return;
@@ -403,7 +417,7 @@ export function VisionBoard({
 
   return (
     // The board is transparent: the archival paper is one continuous sheet behind the whole Vision screen.
-    <View ref={teachingViewportRef} collapsable={false} testID={testID} style={[styles.viewport, { width: viewport.width, height: viewport.height + annotationExtra + controlExtra }]}>
+    <View ref={teachingViewportRef} collapsable={false} testID={testID} style={[styles.viewport, { width: viewport.width, height: viewport.height + annotationExtra + controlExtra + ghostExtra }]}>
       {sharedComposition ? composition.measurementView : null}
       <Animated.View style={[styles.scene, {
         width: scene.width, height: scene.height,
@@ -455,6 +469,15 @@ export function VisionBoard({
         />
       </Animated.View>
 
+      {ghosts.map(ghost => (
+        <Pressable key={ghost.slot} testID={`${testID}-ghost-${ghost.slot}`} accessibilityRole="button" accessibilityLabel={`Add a picture here: ${ghost.prompt}`}
+          onPress={() => { v2Haptics.selection(); onAddImage?.({ slot: ghost.slot, prompt: ghost.prompt }); }}
+          style={({ pressed }) => [styles.ghost, { left: ghost.rect.x, top: ghost.rect.y, width: ghost.rect.width, height: ghost.rect.height,
+            transform: [{ rotate: `${ghost.rect.rotation}deg` }] }, pressed && styles.pressed]}>
+          <Text style={styles.ghostPrompt}>{ghost.prompt}</Text>
+          <Plus size={22} color={VISION_GOLD} strokeWidth={1.4} />
+        </Pressable>
+      ))}
       {count === 0 ? <View pointerEvents="none" style={styles.empty}><Text style={styles.emptyText}>Bring your future into view.</Text></View> : null}
       {selectedNoteId && !focus && !dragging ? <View style={[styles.noteActions,noteActionsPosition]}>
         <Pressable accessibilityRole="button" accessibilityLabel="Edit selected note" onPress={() => onNoteEdit?.(selectedNoteId)} style={styles.noteAction}><Text style={styles.noteActionText}>Edit note</Text></Pressable>
@@ -464,7 +487,8 @@ export function VisionBoard({
       {!focus && !dragging && annotation.trim() ? <Text testID="vision-board-annotation" pointerEvents="none"
         onLayout={event => setCaptionExtra(Math.max(0, captionTop + event.nativeEvent.layout.height + 16 - viewport.height))}
         style={[styles.annotation, { top: captionTop, width: width * 0.22, fontSize: annotation.length > 40 ? 21 : 24 }]}>{annotation.trim()}</Text> : null}
-      {!focus && !dragging && arrange.kind === 'off' && onAddImage ? (
+      {/* DEFERRED (E1): the Add / Layout chip row under the board; the saved screen's bottom dock holds them when `controlsDocked`. */}
+      {!controlsDocked && !focus && !dragging && arrange.kind === 'off' && onAddImage ? (
         <View testID={`${testID}-controls`} style={[styles.chipRow, sharedComposition && { top: viewport.height + annotationExtra, bottom: undefined }]}
           onLayout={sharedComposition ? event => setChipRowHeight(Math.max(44, event.nativeEvent.layout.height)) : undefined} pointerEvents="box-none">
           <Pressable testID={`${testID}-add`} accessibilityRole="button" accessibilityLabel="Add to Vision"
@@ -605,6 +629,9 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(244,237,224,0.92)', paddingHorizontal: spacing[3], paddingVertical: 4, borderRadius: radii.lg, marginBottom: spacing[2] },
   disabled: { opacity: 0.45 },
   pressed: { opacity: 0.72 },
+  ghost: { position: 'absolute', zIndex: 5, alignItems: 'center', justifyContent: 'center', gap: 8, padding: 12, borderRadius: 2,
+    borderWidth: 1.2, borderStyle: 'dashed', borderColor: '#B9A988' },
+  ghostPrompt: { fontFamily: 'EBGaramond-Italic', fontSize: 17, lineHeight: 20, color: '#8A7A5C', textAlign: 'center' },
   noteActions: { position: 'absolute', top: 8, left: 8, flexDirection: 'row', gap: 6, zIndex: 30 },
   noteAction: { minHeight: 38, justifyContent: 'center', paddingHorizontal: 12, borderRadius: 20, backgroundColor: '#F8F3E9', borderWidth: 1, borderColor: '#C9BFAE' },
   noteActionText: { ...typography.labelSM, color: colors.text.primary },
