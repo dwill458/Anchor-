@@ -1,10 +1,10 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { DevImageModelPicker } from '@/components/dev/DevImageModelPicker';
-import { ActivityIndicator, Image, Keyboard, Pressable, StatusBar, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
+import { ActivityIndicator, Image, Keyboard, Pressable, ScrollView, StatusBar, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
 import Animated, { interpolateColor, useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as ImagePicker from 'expo-image-picker';
-import { Camera, ChevronDown, ChevronRight, Images, Plus, RefreshCw, Trash2, User as UserIcon } from 'lucide-react-native';
+import { Camera, ChevronRight, Images, Plus, RefreshCw, Trash2, User as UserIcon } from 'lucide-react-native';
 import { v2Haptics } from '@/hooks/v2';
 import { useVisionAppearanceReference } from '@/hooks/v2/vision';
 import { ChartKeyboardFrame } from '@/components/v2/chart/ChartKeyboardFrame';
@@ -17,7 +17,7 @@ import { AttentionWash, useAttention, useVisionContentMotion } from './VisionMot
 import { VisionReferenceStrip } from './VisionReferenceStrip';
 import { type VisionStartPhoto } from './VisionReferencePhoto';
 import { VisionSceneField, type VisionSceneFieldHandle } from './VisionSceneField';
-import { VisionBackButton, VisionInkPill, VisionKicker, VISION_GOLD, VISION_SERIF, VISION_SERIF_ITALIC } from './VisionPaperChrome';
+import { VisionBackButton, VisionInkPill, VISION_GOLD, VISION_SERIF, VISION_SERIF_ITALIC } from './VisionPaperChrome';
 import { applySceneSuggestion } from './visionSceneSuggestions';
 import { visionDetailHint, visionDetailLevel } from './visionGuidance';
 
@@ -57,7 +57,18 @@ export interface VisionMomentInputProps {
   textInputTestID?: string;
 }
 
-const SPARK_SUGGESTIONS = ['The day it happens', 'Who is with me', 'An ordinary morning after', 'A quiet moment of it'] as const;
+export const SPARK_SUGGESTIONS = ['The day it happens', 'Who is with me', 'An ordinary morning after', 'A quiet moment of it'] as const;
+
+/** The guidance written inside the field until the person starts typing. */
+export const VISION_FIELD_GUIDANCE = 'Where you are, what you\'re doing, how it feels. A little more detail makes a stronger picture.';
+/** The character counter appears only once the description nears its limit. */
+const COUNTER_VISIBLE_AFTER = 1500;
+
+/** The own-photo path: one link under the CTA opens this choice. Sheet testID `vision-add` keeps `vision-add-photos` and `vision-add-camera`. */
+const OWN_PHOTO_ACTIONS: ReadonlyArray<VisionChoiceAction> = [
+  { key: 'photos', label: 'Use my own photos', Icon: Images },
+  { key: 'camera', label: 'Take a photo', Icon: Camera },
+];
 
 /** Colours the animated styles interpolate between, held as plain strings so no theme object is carried into a worklet. */
 const colors = paperColors;
@@ -182,8 +193,7 @@ export function VisionMomentInput({
 
   const content = useVisionContentMotion();
   const inputAttention = useAttention();
-  const [sheet, setSheet] = useState<'reference' | null>(null);
-  const [showSuggestions, setShowSuggestions] = useState(false);
+  const [sheet, setSheet] = useState<'reference' | 'own-photo' | null>(null);
 
   const minChars = isCreate ? 12 : 6;
   const maxChars = 2000;
@@ -211,7 +221,6 @@ export function VisionMomentInput({
   const handleChipPress = (suggestion: string) => {
     v2Haptics.selection();
     setDescription(applySceneSuggestion(description, suggestion));
-    setShowSuggestions(false);
   };
 
   const handlePickReferencePhoto = async () => {
@@ -268,17 +277,20 @@ export function VisionMomentInput({
     onBack();
   };
 
-  const placeholderText = customPlaceholder ?? 'Describe the moment you want to see...';
-  const kicker = isCreate ? 'CREATE YOUR VISION' : 'ADD TO YOUR VISION';
-  const title = isCreate ? 'Imagine Your First Scene' : 'What Else Do You See?';
-  const subtitle = isCreate
-    ? 'Bring a moment from your future to life.'
-    : 'Imagine another moment from your future.';
+  // DEFERRED: the placeholder text. The guidance now sits inside the field under the text; a caller's custom placeholder still wins.
+  // const placeholderText = customPlaceholder ?? 'Describe the moment you want to see...';
+  const placeholderText = customPlaceholder ?? '';
+  // DEFERRED: the kicker / title / subtitle stack.
+  // const kicker = isCreate ? 'CREATE YOUR VISION' : 'ADD TO YOUR VISION';
+  // const subtitle = isCreate ? 'Bring a moment from your future to life.' : 'Imagine another moment from your future.';
+  const title = isCreate ? 'When it\'s true, what do you see?' : 'What else do you see?';
   const compactEmpty = viewportHeight < 820 && displayedReferences.length === 0 && !trimmed && !inputFocused;
-  const ctaLabel = 'Create My Scene';
+  const ctaLabel = 'Create my scene';
   const ctaA11y = isCreate ? 'Continue to create your Vision' : 'Create this scene';
-  const footnote = 'You’ll choose what belongs in your Vision.';
-  const suggestionsVisible = !inputFocused && (trimmed.length === 0 || showSuggestions);
+  // DEFERRED: const footnote = 'You’ll choose what belongs in your Vision.';
+  const fieldHint = photoPath
+    ? (trimmed.length > 0 && trimmed.length < minChars ? 'Add a little more, or clear it to continue with the photo alone.' : 'What changes · what stays · how it feels')
+    : hint ?? VISION_FIELD_GUIDANCE;
 
   // A blocked tap says why: the field still waiting on the person takes a brief wash of gold, and the reason is written beneath it.
   const handleBlockedSubmit = () => {
@@ -310,6 +322,13 @@ export function VisionMomentInput({
     <View style={styles.footer}>
       {submit(false)}
       {onAddPhotos ? (
+        <Pressable testID="vision-own-photo-link" accessibilityRole="button" accessibilityLabel="Use a photo I already have" disabled={loading}
+          hitSlop={6} onPress={() => { Keyboard.dismiss(); setSheet('own-photo'); }} style={[styles.ownPhotoLink, loading && styles.disabled]}>
+          <Text style={styles.ownPhotoLinkText}>Use a photo I already have</Text>
+        </Pressable>
+      ) : null}
+      {/* DEFERRED: the two own-photo buttons; the link above opens them as a sheet.
+      {onAddPhotos ? (
         <View style={styles.ownPhotoRow}>
           <Pressable testID="vision-add-photos" accessibilityRole="button" accessibilityLabel="Add my own images" disabled={loading}
             onPress={() => onAddPhotos('library')} style={[styles.textAction, loading && styles.disabled]}>
@@ -323,11 +342,12 @@ export function VisionMomentInput({
           </Pressable>
         </View>
       ) : null}
+      DEFERRED: the footnote.
       {(!onAddPhotos || (mode === 'add' && displayedReferences.length > 0)) ? (
         <Text style={[styles.footnote, mode === 'add' && displayedReferences.length > 0 && styles.referenceFootnote]}>
           {mode === 'add' && displayedReferences.length > 0 ? 'Tap a photo to replace or remove it' : footnote}
         </Text>
-      ) : null}
+      ) : null} */}
     </View>
   );
 
@@ -341,16 +361,8 @@ export function VisionMomentInput({
         restingBottom={spacing[3]}
       >
         <View style={styles.headerRow}>
-          <View pointerEvents="none" style={styles.kickerSlot}><VisionKicker>{kicker}</VisionKicker></View>
-          <View style={styles.backOverlay}><VisionBackButton onPress={handleBack} style={styles.back} color={colors.text.primary} /></View>
-          {__DEV__ ? <View style={styles.devModelOverlay}><DevImageModelPicker purpose="vision" disabled={loading} tone="paper" compact /></View> : null}
-        </View>
-        <View style={styles.header}>
-          <Text accessibilityRole="header" style={styles.title}>{title}</Text>
-          <Animated.Text key={subtitle} entering={content.entering} exiting={content.exiting} style={styles.subtitle}>{subtitle}</Animated.Text>
-        </View>
-
-        {isCreate ? <View style={styles.intentionChip} testID={`${testID}-anchor`}>
+          {/* DEFERRED: <View pointerEvents="none" style={styles.kickerSlot}><VisionKicker>{kicker}</VisionKicker></View> */}
+          {isCreate ? <View style={styles.intentionChip} testID={`${testID}-anchor`}>
           {anchorArt?.svg || anchorArt?.imageUrl ? (
             <CircularAnchorRenderer
               svg={anchorArt.svg}
@@ -365,14 +377,21 @@ export function VisionMomentInput({
           ) : null}
           <Text numberOfLines={1} style={styles.intentionText}>{anchorIntention}</Text>
           <View style={[styles.intentionDot, { backgroundColor: categoryColor }]} />
-        </View> : null}
+          </View> : null}
+          <View style={styles.backOverlay}><VisionBackButton onPress={handleBack} style={styles.back} color={colors.text.primary} /></View>
+          {__DEV__ ? <View style={styles.devModelOverlay}><DevImageModelPicker purpose="vision" disabled={loading} tone="paper" compact /></View> : null}
+        </View>
+        <View style={styles.header}>
+          <Text accessibilityRole="header" style={styles.title}>{title}</Text>
+          {/* DEFERRED: <Animated.Text key={subtitle} entering={content.entering} exiting={content.exiting} style={styles.subtitle}>{subtitle}</Animated.Text> */}
+        </View>
 
         {/* The body beneath the toggle cross-fades as one piece when the path changes: the old fades out, the new follows. Nothing here
             animates layout, so the field never trails its own text while it grows. */}
         <Animated.View key={photoPath ? 'photo-body' : 'words-body'} entering={content.entering} exiting={content.exiting} style={[styles.region, compactEmpty && { gap: spacing[2] }]}>
           <View>
             <AttentionWash level={inputAttention.level} color={VISION_GOLD} radius={radii.lg} />
-            {!inputFocused ? <Text style={styles.fieldLabel}>Describe the moment you want to see</Text> : null}
+            {/* DEFERRED: {!inputFocused ? <Text style={styles.fieldLabel}>Describe the moment you want to see</Text> : null} */}
             <VisionSceneField
               handleRef={fieldRef}
               testID={textInputTestID ?? (isCreate ? 'vision-prompt-input' : 'vision-scene-input')}
@@ -383,17 +402,28 @@ export function VisionMomentInput({
               placeholder={placeholderText}
               onFocus={handleFieldFocus}
               onBlur={handleFieldBlur}
+              hint={fieldHint}
+              hintTestID="vision-detail-hint"
+              hintStyle={!ceremony && !photoPath && level === 'rich' ? { color: colors.semantic.success } : undefined}
             />
           </View>
 
-          <View style={styles.meter}>
-            <Text testID="vision-detail-hint" style={[styles.meterHint, !ceremony && !photoPath && level === 'rich' && { color: colors.semantic.success }]} numberOfLines={2}>
-              {photoPath
-                ? (trimmed.length > 0 && trimmed.length < minChars ? 'Add a little more, or clear it to continue with the photo alone.' : 'What changes · what stays · how it feels')
-                : hint ?? 'Where you are · what you’re doing · how it feels'}
-            </Text>
-            <Text style={styles.counterText}>{description.length} / {maxChars}</Text>
-          </View>
+          {description.length > COUNTER_VISIBLE_AFTER ? (
+            <Text testID="vision-description-counter" style={styles.counterText}>{description.length} / {maxChars}</Text>
+          ) : null}
+
+          {/* Sparks: always one horizontally scrolling row under the field. A tap appends on a new line. */}
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} keyboardShouldPersistTaps="handled"
+            testID={`${testID}-suggestions`} style={styles.sparkScroller} contentContainerStyle={styles.suggestionChips}>
+            {SPARK_SUGGESTIONS.map((suggestion, index) => (
+              <Pressable key={suggestion} testID={`${testID}-suggestion-${index}`}
+                accessibilityRole="button" accessibilityLabel={suggestion} disabled={loading} hitSlop={4}
+                onPress={() => handleChipPress(suggestion)}
+                style={({ pressed }) => [styles.suggestionChip, pressed && styles.chipPressed, loading && styles.disabled]}>
+                <Text style={styles.suggestionChipText}>{suggestion}</Text>
+              </Pressable>
+            ))}
+          </ScrollView>
 
           {startPhotoEnabled ? (
             <View>
@@ -410,6 +440,7 @@ export function VisionMomentInput({
             </View>
           ) : null}
 
+          {/* DEFERRED: the "Need a spark?" heading, toggle and wrapping chips; the row above replaces them.
           {!inputFocused ? (
             <View style={styles.suggestionGroup}>
               {trimmed.length === 0 ? (
@@ -435,7 +466,7 @@ export function VisionMomentInput({
                 </View>
               ) : null}
             </View>
-          ) : null}
+          ) : null} */}
 
           {SHOW_APPEARANCE_REFERENCE_CARD && !inputFocused && !photoPath ? (
             <Animated.View key="reference-group" exiting={content.exiting} style={styles.referenceGroup}>
@@ -487,6 +518,18 @@ export function VisionMomentInput({
         onChoose={key => { if (key === 'remove') removeReference(); else void handlePickReferencePhoto(); }}
         testID="vision-reference-sheet"
       />
+      {onAddPhotos ? (
+        <VisionChoiceSheet
+          neutral={false}
+          visible={sheet === 'own-photo'}
+          onClose={() => setSheet(null)}
+          title="Use your own photo"
+          subtitle="It goes on the board as it is."
+          actions={OWN_PHOTO_ACTIONS}
+          onChoose={key => onAddPhotos(key === 'camera' ? 'camera' : 'library')}
+          testID="vision-add"
+        />
+      ) : null}
     </View>
   );
 }
@@ -499,10 +542,10 @@ const makeStyles = (colors: { canvas: string; surface: string; grouped: string; 
   kickerSlot: { position: 'absolute', top: 0, right: 0, bottom: 0, left: 0, alignItems: 'center', justifyContent: 'center' },
   backOverlay: { position: 'absolute', left: 0, top: 0, minWidth: 44, minHeight: 44, justifyContent: 'center' },
   devModelOverlay: { position: 'absolute', right: 0, top: 0, width: 44, height: 44, alignItems: 'center', justifyContent: 'center' },
-  header: { alignItems: 'center', gap: spacing[3], paddingHorizontal: spacing[2], marginBottom: spacing[1] },
-  title: { alignSelf: 'stretch', fontFamily: VISION_SERIF, fontSize: 35, lineHeight: 39, letterSpacing: -0.7, textAlign: 'center', color: colors.text.primary },
+  header: { alignItems: 'flex-start', gap: spacing[3], marginTop: spacing[2], marginBottom: spacing[1] },
+  title: { alignSelf: 'stretch', fontFamily: VISION_SERIF, fontSize: 34, lineHeight: 37, letterSpacing: -0.4, textAlign: 'left', color: colors.text.primary },
   subtitle: { alignSelf: 'stretch', fontFamily: 'Inter-Regular', fontSize: 14, lineHeight: 20, textAlign: 'center', color: colors.text.secondary },
-  intentionChip: { minHeight: 40, alignSelf: 'center', maxWidth: '100%', flexDirection: 'row', alignItems: 'center', gap: spacing[2], paddingHorizontal: spacing[3], borderRadius: radii.pill, backgroundColor: colors.grouped, borderWidth: StyleSheet.hairlineWidth, borderColor: colors.border.default },
+  intentionChip: { minHeight: 34, alignSelf: 'center', maxWidth: '72%', flexDirection: 'row', alignItems: 'center', gap: spacing[2], paddingHorizontal: spacing[3], borderRadius: radii.pill, backgroundColor: colors.grouped, borderWidth: StyleSheet.hairlineWidth, borderColor: colors.border.default },
   intentionText: { fontFamily: 'Inter-Regular', fontSize: 13, lineHeight: 18, color: colors.text.primary, flexShrink: 1 },
   intentionDot: { width: 7, height: 7, borderRadius: 4 },
   fieldLabel: { fontFamily: 'Inter-SemiBold', fontSize: 14, lineHeight: 20, color: colors.text.primary, marginBottom: spacing[2] },
@@ -529,12 +572,15 @@ const makeStyles = (colors: { canvas: string; surface: string; grouped: string; 
   ownPhotoRow: { flexDirection: 'row', gap: spacing[2] },
   meter: { flexDirection: 'row', justifyContent: 'space-between', gap: spacing[3] },
   meterHint: { flex: 1, fontFamily: 'Inter-Regular', fontSize: 13, lineHeight: 18, color: colors.text.secondary },
-  counterText: { fontFamily: 'Inter-Regular', fontSize: 13, lineHeight: 18, color: colors.text.secondary },
+  counterText: { alignSelf: 'flex-end', fontFamily: 'Inter-Regular', fontSize: 13, lineHeight: 18, color: colors.text.secondary },
   suggestionGroup: { gap: spacing[2] },
   suggestionHeading: { fontFamily: 'Inter-SemiBold', fontSize: 13, lineHeight: 18, color: colors.text.secondary },
   suggestionToggle: { minHeight: 32, alignSelf: 'flex-start', justifyContent: 'center' },
   suggestionToggleText: { fontFamily: 'Inter-Regular', fontSize: 13, lineHeight: 18, color: colors.text.secondary },
-  suggestionChips: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing[2] },
+  suggestionChips: { flexDirection: 'row', gap: spacing[2], paddingHorizontal: spacing[4] },
+  sparkScroller: { marginHorizontal: -spacing[4], flexGrow: 0 },
+  ownPhotoLink: { minHeight: 44, alignSelf: 'center', justifyContent: 'center', paddingHorizontal: spacing[3] },
+  ownPhotoLinkText: { fontFamily: 'Inter-Medium', fontSize: 14, lineHeight: 20, color: colors.text.primary, textDecorationLine: 'underline', textDecorationColor: '#C9B98F' },
   suggestionChip: { minHeight: 40, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', paddingHorizontal: spacing[3], borderRadius: radii.pill, backgroundColor: colors.surface, borderWidth: StyleSheet.hairlineWidth, borderColor: 'rgba(176,138,74,0.65)' },
   suggestionChipText: { fontFamily: 'Inter-Regular', fontSize: 13, lineHeight: 18, color: colors.text.primary },
   chipPressed: { opacity: 0.7 },

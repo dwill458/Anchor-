@@ -105,7 +105,9 @@ async function ownPhoto(view: ReturnType<typeof render>, source: 'camera' | 'lib
   const cta = view.queryByTestId('vision-entrance-cta');
   if (cta) {
     await act(async () => { fireEvent.press(cta); });
+    await act(async () => { fireEvent.press(view.getByTestId('vision-own-photo-link')); });
     await act(async () => { fireEvent.press(view.getByTestId(source === 'camera' ? 'vision-add-camera' : 'vision-add-photos')); });
+    await advance(SHEET_HANDOFF);
   } else {
     await act(async () => { fireEvent.press(view.getByLabelText(source === 'camera' ? 'Take a photo' : 'Use my own photo')); });
   }

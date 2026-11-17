@@ -38,10 +38,10 @@ describe('VisionMomentInput', () => {
   });
 
   it('renders the approved create heading and one four-chip spark group', () => {
-    const { getByText, getByLabelText, queryByLabelText } = render(<VisionMomentInput {...defaultProps} startPhotoEnabled />);
-    expect(getByText('Imagine Your First Scene')).toBeTruthy();
-    expect(getByText('Bring a moment from your future to life.')).toBeTruthy();
-    expect(getByText('CREATE YOUR VISION')).toBeTruthy();
+    const { getByText, getByLabelText, queryByLabelText, queryByText } = render(<VisionMomentInput {...defaultProps} startPhotoEnabled />);
+    expect(getByText('When it\'s true, what do you see?')).toBeTruthy();
+    expect(queryByText('Bring a moment from your future to life.')).toBeNull();
+    expect(queryByText('CREATE YOUR VISION')).toBeNull();
     for (const suggestion of ['The day it happens', 'Who is with me', 'An ordinary morning after', 'A quiet moment of it']) {
       expect(getByLabelText(suggestion)).toBeTruthy();
     }
@@ -55,10 +55,19 @@ describe('VisionMomentInput', () => {
     const text = 'I open my laptop and see ten thousand active users for my app today.';
     fireEvent.changeText(getByTestId('vision-prompt-input'), text);
     expect(getByTestId('vision-detail-hint').props.children).toBe('14 words · Add a little more detail for stronger images');
-    expect(getByText(`${text.length} / 2000`)).toBeTruthy();
+    // The counter appears only past 1500 characters.
+    expect(queryByText(`${text.length} / 2000`)).toBeNull();
+    fireEvent.changeText(getByTestId('vision-prompt-input'), 'a'.repeat(1501));
+    expect(getByText('1501 / 2000')).toBeTruthy();
     expect(queryByText('Optional · Add photos of yourself for more personal images.')).toBeNull();
     expect(queryByLabelText('Make it look like you reference photo')).toBeNull();
-    expect(getByText('You’ll choose what belongs in your Vision.')).toBeTruthy();
+    expect(queryByText('You’ll choose what belongs in your Vision.')).toBeNull();
+  });
+
+  it('writes the guidance inside the field instead of a placeholder', () => {
+    const { getByTestId } = render(<VisionMomentInput {...defaultProps} />);
+    expect(getByTestId('vision-prompt-input').props.placeholder).toBe('');
+    expect(getByTestId('vision-detail-hint').props.children).toBe('Where you are, what you\'re doing, how it feels. A little more detail makes a stronger picture.');
   });
 
   it('shows the saved Anchor artwork in the intention chip when available', () => {
@@ -69,30 +78,30 @@ describe('VisionMomentInput', () => {
     expect(getByText('I build what matters.')).toBeTruthy();
   });
 
-  it('renders the approved add-scene heading, field label, and creation action without the oversized Anchor card', () => {
+  it('renders the approved add-scene heading and creation action without the oversized Anchor card', () => {
     const { getByText, getByTestId, queryByTestId, queryByText } = render(<VisionMomentInput {...defaultProps} mode="add" startPhotoEnabled />);
-    expect(getByText('What Else Do You See?')).toBeTruthy();
-    expect(getByText('Imagine another moment from your future.')).toBeTruthy();
-    expect(getByText('Describe the moment you want to see')).toBeTruthy();
-    expect(getByText('Create My Scene')).toBeTruthy();
+    expect(getByText('What else do you see?')).toBeTruthy();
+    expect(queryByText('Imagine another moment from your future.')).toBeNull();
+    expect(queryByText('Describe the moment you want to see')).toBeNull();
+    expect(getByText('Create my scene')).toBeTruthy();
     expect(queryByText('Create New Version')).toBeNull();
     expect(queryByTestId('vision-moment-input-anchor')).toBeNull();
     expect(getByTestId('vision-moment-input-references')).toBeTruthy();
-    expect(StyleSheet.flatten(getByText('Imagine another moment from your future.').props.style)).toEqual(expect.objectContaining({ fontSize: 14, alignSelf: 'stretch' }));
+    expect(StyleSheet.flatten(getByText('What else do you see?').props.style)).toEqual(expect.objectContaining({ fontSize: 34, lineHeight: 37, textAlign: 'left' }));
     if (__DEV__) expect(getByTestId('dev-image-model-vision')).toBeTruthy();
   });
 
-  it('uses the reference-specific footer when add-scene references are present', () => {
+  it('has no footnote, even with add-scene references present', () => {
     const refs = [{ id: 'a', uri: 'file:///a.jpg', mimeType: 'image/jpeg', role: 'place' as const }];
-    const { getByText, queryByText } = render(<VisionMomentInput {...defaultProps} mode="add" startPhotoEnabled references={refs} onChangeReferences={jest.fn()} />);
-    expect(getByText('Tap a photo to replace or remove it')).toBeTruthy();
+    const { queryByText } = render(<VisionMomentInput {...defaultProps} mode="add" startPhotoEnabled references={refs} onChangeReferences={jest.fn()} />);
+    expect(queryByText('Tap a photo to replace or remove it')).toBeNull();
     expect(queryByText('You’ll choose what belongs in your Vision.')).toBeNull();
   });
 
-  it('uses a single compact header row for back, kicker, and the development model control', () => {
-    const { getByLabelText, getByTestId, getByText } = render(<VisionMomentInput {...defaultProps} mode="add" startPhotoEnabled />);
+  it('uses a single compact header row for back and the development model control, with no kicker', () => {
+    const { getByLabelText, getByTestId, queryByText } = render(<VisionMomentInput {...defaultProps} mode="add" startPhotoEnabled />);
     expect(getByLabelText('Go back')).toBeTruthy();
-    expect(getByText('ADD TO YOUR VISION')).toBeTruthy();
+    expect(queryByText('ADD TO YOUR VISION')).toBeNull();
     if (__DEV__) expect(getByTestId('dev-image-model-vision')).toBeTruthy();
   });
 
@@ -109,14 +118,14 @@ describe('VisionMomentInput', () => {
     stateFocus.mockRestore();
   });
 
-  it('collapses the chips for written text and expands them only on request', () => {
+  it('keeps the spark row visible after text is written, with no toggle, and appends on a new line', () => {
     const text = 'I open the doors to my own quiet studio.';
-    const { getByTestId, getByLabelText, queryByLabelText } = render(<VisionMomentInput {...defaultProps} />);
+    const { getByTestId, getByLabelText, queryByTestId, queryByText } = render(<VisionMomentInput {...defaultProps} />);
     fireEvent.changeText(getByTestId('vision-prompt-input'), text);
-    expect(getByLabelText('Need a spark? Show suggestions')).toBeTruthy();
-    expect(queryByLabelText('The day it happens')).toBeNull();
-    fireEvent.press(getByTestId('vision-moment-input-suggestions-toggle'));
-    expect(getByLabelText('An ordinary morning after')).toBeTruthy();
+    expect(queryByText('Need a spark?')).toBeNull();
+    expect(queryByTestId('vision-moment-input-suggestions-toggle')).toBeNull();
+    fireEvent.press(getByLabelText('An ordinary morning after'));
+    expect(getByTestId('vision-prompt-input').props.value).toBe(`${text}\nAn ordinary morning after`);
   });
 
   it('keeps typing local and calls the description callback at submit', () => {
@@ -146,15 +155,15 @@ describe('VisionMomentInput', () => {
     expect(onSubmit).toHaveBeenCalledWith(text, null, null, references);
   });
 
-  it('shows the mini gallery and hides suggestions while typing with the keyboard open', () => {
-    const { getByTestId, getByText, getByLabelText, queryByLabelText } = render(
+  it('shows the mini gallery while typing with the keyboard open and keeps the spark row', () => {
+    const { getByTestId, getByText, getByLabelText } = render(
       <VisionMomentInput {...defaultProps} startPhotoEnabled />,
     );
     fireEvent(getByTestId('vision-prompt-input'), 'focus');
 
     expect(getByText('0 references attached')).toBeTruthy();
     expect(getByLabelText('Add reference photo')).toBeTruthy();
-    expect(queryByLabelText('The day it happens')).toBeNull();
+    expect(getByLabelText('The day it happens')).toBeTruthy();
   });
 
   it('expands the gallery and suggestions when Android hides the keyboard without blurring the field', () => {
@@ -171,17 +180,16 @@ describe('VisionMomentInput', () => {
 
     fireEvent(input, 'focus');
     expect(view.getByText('1 reference attached')).toBeTruthy();
-    expect(view.queryByText('Reference photos')).toBeNull();
-    expect(view.queryByText('Need a spark?')).toBeNull();
+    expect(view.queryByText('Photos to work from')).toBeNull();
 
     act(() => listeners.get('keyboardDidHide')?.());
-    expect(view.getByText('Reference photos')).toBeTruthy();
-    expect(view.getByText('Need a spark?')).toBeTruthy();
+    expect(view.getByText('Photos to work from')).toBeTruthy();
+    expect(view.getByLabelText('The day it happens')).toBeTruthy();
     expect(view.queryByText('1 reference attached')).toBeNull();
 
     act(() => listeners.get('keyboardDidShow')?.());
     expect(view.getByText('1 reference attached')).toBeTruthy();
-    expect(view.queryByText('Reference photos')).toBeNull();
+    expect(view.queryByText('Photos to work from')).toBeNull();
 
     view.unmount();
     addListener.mockRestore();
@@ -239,18 +247,21 @@ describe('VisionMomentInput', () => {
     expect(onSubmit).toHaveBeenCalledWith('A clear studio desk with working prototypes.', 'ref-123');
   });
 
-  it('renders "Use my own photos instead" when onAddPhotos is supplied', () => {
+  it('opens the own-photo sheet from one link under the CTA when onAddPhotos is supplied', () => {
+    jest.useFakeTimers();
     const onAddPhotos = jest.fn();
-    const { getByTestId } = render(
+    const { getByTestId, getByText, queryByText } = render(
       <VisionMomentInput {...defaultProps} onAddPhotos={onAddPhotos} />,
     );
-    const input = getByTestId('vision-prompt-input');
-    fireEvent.changeText(input, 'Valid description for my future vision.');
-    const addPhotosBtn = getByTestId('vision-add-photos');
-    expect(addPhotosBtn).toBeTruthy();
-    fireEvent.press(addPhotosBtn);
+    expect(queryByText('Use my own photos')).toBeNull();
+    fireEvent.press(getByText('Use a photo I already have'));
+    fireEvent.press(getByTestId('vision-add-photos'));
+    act(() => { jest.advanceTimersByTime(400); });
     expect(onAddPhotos).toHaveBeenLastCalledWith('library');
+    fireEvent.press(getByTestId('vision-own-photo-link'));
     fireEvent.press(getByTestId('vision-add-camera'));
+    act(() => { jest.advanceTimersByTime(400); });
     expect(onAddPhotos).toHaveBeenLastCalledWith('camera');
+    jest.useRealTimers();
   });
 });

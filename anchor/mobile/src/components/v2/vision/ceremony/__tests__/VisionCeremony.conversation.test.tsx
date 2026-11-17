@@ -334,7 +334,7 @@ describe('VisionCeremony conversation integration', () => {
     expect(view.queryByTestId('vision-resume-card')).toBeNull();
     expect(view.queryByTestId('vision-selection-lineage')).toBeNull();
     expect(view.getByTestId('v2-vision-creation-flow-prompt-references')).toBeTruthy();
-    expect(view.getByText('Optional · Up to 5')).toBeTruthy();
+    expect(view.getByText('Optional, up to 5')).toBeTruthy();
     expect(view.queryAllByLabelText(/^Remove reference photo [1-5]$/)).toHaveLength(0);
   });
 
@@ -348,7 +348,7 @@ describe('VisionCeremony conversation integration', () => {
     act(() => useAuthStore.setState({ user: { id: 'owner-b' } as never }));
     expect(view.queryByTestId('vision-conversation-selection')).toBeNull();
     fireEvent.press(view.getByLabelText(copy.createVision));
-    expect(view.getByText('Optional · Up to 5')).toBeTruthy();
+    expect(view.getByText('Optional, up to 5')).toBeTruthy();
     expect(view.queryAllByLabelText(/^Remove reference photo [1-5]$/)).toHaveLength(0);
     expect(view.queryByTestId('vision-conversation-selection-print-0-sharp')).toBeNull();
 

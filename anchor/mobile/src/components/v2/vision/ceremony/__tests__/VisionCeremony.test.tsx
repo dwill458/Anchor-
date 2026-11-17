@@ -66,7 +66,9 @@ function setup(overrides: Partial<VisionCeremonyProps> = {}, settle = true) {
 /** The own-photo path starts from the composer: the CTA opens it, then its own-photo link (each tap in its own act, so the composer has rendered). */
 async function pressOwnPhotos(view: ReturnType<typeof setup>) {
   await act(async () => { fireEvent.press(view.getByLabelText(copy.createVision)); });
+  await act(async () => { fireEvent.press(view.getByTestId('vision-own-photo-link')); });
   await act(async () => { fireEvent.press(view.getByTestId('vision-add-photos')); });
+  await act(async () => { jest.advanceTimersByTime(400); });
 }
 async function advance(ms: number) { await act(async () => { jest.advanceTimersByTime(ms); }); }
 async function develop(view: ReturnType<typeof setup>, count: number) {
@@ -279,7 +281,7 @@ describe('Vision ceremony', () => {
   it('regenerate enters Describe, then follows Develop, Choose, Keep and Seal', async () => {
     mockJob = job(); const onAdd = jest.fn(async () => true);
     const view = setup({ mode: 'add', startAt: 'describe', regenerating: true, onAdd });
-    expect(view.getAllByText('What Else Do You See?').length).toBeGreaterThan(0);
+    expect(view.getAllByText('What else do you see?').length).toBeGreaterThan(0);
     await act(async () => { fireEvent.press(view.getByTestId('vision-scene-generate')); }); await develop(view, 2);
     fireEvent.press(view.getByTestId('scene-candidate-c0')); await seal(view);
     expect(onAdd).toHaveBeenCalledWith({ assetId: 'asset-0', prompt: 'Moment 0', caption: base.anchorIntention });
@@ -369,7 +371,8 @@ describe('Vision ceremony', () => {
     const add = setup({ mode: 'add' });
     expect(AnalyticsService.track).not.toHaveBeenCalledWith('vision_image_add_started', expect.anything());
     mockSinglePick.mockResolvedValue({ status: 'cancelled' });
-    fireEvent.press(add.getByLabelText(copy.addScene)); await act(async () => { fireEvent.press(add.getByTestId('vision-add-camera')); });
+    fireEvent.press(add.getByLabelText(copy.addScene)); await act(async () => { fireEvent.press(add.getByTestId('vision-own-photo-link')); });
+    await act(async () => { fireEvent.press(add.getByTestId('vision-add-camera')); }); await act(async () => { jest.advanceTimersByTime(400); });
     expect(AnalyticsService.track).toHaveBeenCalledWith('vision_image_add_started', { anchor_id: 'anchor', source_type: 'camera' });
   });
   const bedCalls = () => (playCreationSound as jest.Mock).mock.calls.filter(([id]) => id === 'formBed').length;
@@ -609,9 +612,9 @@ describe('Unified composer and prepared requests', () => {
 
   it('is one composer: reference photo, description and microphone together, with no mode toggle', () => {
     const view = setup(); fireEvent.press(view.getByLabelText(copy.createVision));
-    expect(view.getByText('Imagine Your First Scene')).toBeTruthy();
+    expect(view.getByText("When it's true, what do you see?")).toBeTruthy();
     expect(view.getByTestId('v2-vision-creation-flow-prompt-references-add')).toBeTruthy();
-    expect(view.getByTestId('vision-prompt-input').props.placeholder).toBe('Describe the moment you want to see...');
+    expect(view.getByTestId('vision-prompt-input').props.placeholder).toBe('');
     expect(view.getByLabelText('Describe it with your voice')).toBeTruthy();
     expect(view.queryByTestId('vision-path-photo')).toBeNull(); expect(view.queryByTestId('vision-path-words')).toBeNull();
   });

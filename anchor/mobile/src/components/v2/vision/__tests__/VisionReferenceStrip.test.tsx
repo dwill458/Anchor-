@@ -35,16 +35,16 @@ describe('VisionReferenceStrip', () => {
     const onChange = jest.fn();
     const view = render(<VisionReferenceStrip references={[]} onChange={onChange} />);
 
-    expect(view.getByText('Add reference photos')).toBeTruthy();
-    expect(view.getByText('Optional · Up to 5')).toBeTruthy();
-    expect(view.getByText('Add photos from library or camera')).toBeTruthy();
-    expect(view.getByText('Include yourself, a place, a vehicle, or visual inspiration')).toBeTruthy();
+    expect(view.getByText('Photos to work from')).toBeTruthy();
+    expect(view.getByText('Optional, up to 5')).toBeTruthy();
+    expect(view.queryByText('Add photos from library or camera')).toBeNull();
     const emptyTile = view.getByTestId('vision-reference-strip-add');
     const emptyTileStyle = StyleSheet.flatten(typeof emptyTile.props.style === 'function'
       ? emptyTile.props.style({ pressed: false })
       : emptyTile.props.style);
-    expect(emptyTileStyle.width).toBe('100%');
-    expect(emptyTileStyle.minHeight).toBe(88);
+    // One 64x78 dashed add tile, not the full-width box.
+    expect(emptyTileStyle.width).toBe(64);
+    expect(emptyTileStyle.height).toBe(78);
 
     fireEvent.press(view.getByLabelText('Add reference photo'));
     expect(view.getByLabelText('Take photo')).toBeTruthy();

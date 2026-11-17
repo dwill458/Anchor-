@@ -64,8 +64,11 @@ export const VisionReferenceStrip = memo(function VisionReferenceStrip({
   const nextId = useRef(1);
   const shownReferences = references.slice(0, MAX_REFERENCES);
   const isFull = shownReferences.length >= MAX_REFERENCES;
-  const tileWidth = compact ? 48 : density === 'refine' ? 65 : shownReferences.length >= 4 ? 65 : 78;
-  const tileHeight = compact ? 48 : density === 'refine' ? 77 : shownReferences.length >= 4 ? 92 : 98;
+  // DEFERRED: the default density grew tiles to 78x98 when there were fewer than four; Describe now uses one 64x78 size.
+  // const tileWidth = compact ? 48 : density === 'refine' ? 65 : shownReferences.length >= 4 ? 65 : 78;
+  // const tileHeight = compact ? 48 : density === 'refine' ? 77 : shownReferences.length >= 4 ? 92 : 98;
+  const tileWidth = compact ? 48 : density === 'refine' ? 65 : 64;
+  const tileHeight = compact ? 48 : density === 'refine' ? 77 : 78;
 
   const openAdd = () => {
     if (disabled || isPicking || isFull) return;
@@ -169,12 +172,19 @@ export const VisionReferenceStrip = memo(function VisionReferenceStrip({
   return (
     <View testID={testID}>
       {!compact ? <View style={[styles.heading, density === 'refine' && styles.refineHeading]}>
-        <Text style={styles.headingTitle}>{shownReferences.length === 0 ? 'Add reference photos' : 'Reference photos'}</Text>
+        {/* DEFERRED: {shownReferences.length === 0 ? 'Add reference photos' : 'Reference photos'} */}
+        <Text style={styles.headingTitle}>{density === 'refine' ? 'Reference photos' : 'Photos to work from'}</Text>
+        {/* DEFERRED: 'Optional · Up to 5' / `N of 5 · Maximum reached | Roles are optional` */}
         <Text style={[styles.count, isFull && styles.countFull]}>
-          {shownReferences.length === 0 ? 'Optional · Up to 5' : `${shownReferences.length} of ${MAX_REFERENCES} · ${isFull ? 'Maximum reached' : 'Roles are optional'}`}
+          {shownReferences.length === 0 ? `Optional, up to ${MAX_REFERENCES}` : `${shownReferences.length} of ${MAX_REFERENCES}`}
         </Text>
       </View> : null}
-      {!compact && shownReferences.length === 0 ? (
+      {!compact && shownReferences.length === 0 && density !== 'refine' ? (
+        <Pressable testID={`${testID}-add`} accessibilityRole="button" accessibilityLabel="Add reference photo" disabled={disabled || isPicking}
+          onPress={openAdd} style={({ pressed }) => [styles.addTile, { width: tileWidth, height: tileHeight }, pressed && styles.pressed, disabled && styles.disabled]}>
+          <Plus size={24} color={VISION_GOLD} strokeWidth={1.4} />
+        </Pressable>
+      ) : !compact && shownReferences.length === 0 ? (
         <Pressable testID={`${testID}-add`} accessibilityRole="button" accessibilityLabel="Add reference photo" disabled={disabled || isPicking}
           onPress={openAdd} style={({ pressed }) => [styles.emptyAddTile, pressed && styles.pressed, disabled && styles.disabled]}>
           <View style={styles.emptyAddIcon}>
@@ -187,7 +197,7 @@ export const VisionReferenceStrip = memo(function VisionReferenceStrip({
         </Pressable>
       ) : (
       <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.gallery}>
-        {!isFull && !compact && shownReferences.length > 0 ? (
+        {!isFull && !compact && shownReferences.length > 0 && density === 'refine' ? (
           <Pressable testID={`${testID}-add`} accessibilityRole="button" accessibilityLabel="Add reference photo" disabled={disabled || isPicking}
             onPress={openAdd} style={({ pressed }) => [styles.addTile, { width: tileWidth, height: tileHeight }, pressed && styles.pressed, disabled && styles.disabled]}>
             <Plus size={22} color={VISION_GOLD} strokeWidth={1.6} />
@@ -233,6 +243,12 @@ export const VisionReferenceStrip = memo(function VisionReferenceStrip({
             </Pressable>
           </View>
         ))}
+        {!isFull && !compact && shownReferences.length > 0 && density !== 'refine' ? (
+          <Pressable testID={`${testID}-add`} accessibilityRole="button" accessibilityLabel="Add reference photo" disabled={disabled || isPicking}
+            onPress={openAdd} style={({ pressed }) => [styles.addTile, { width: tileWidth, height: tileHeight }, pressed && styles.pressed, disabled && styles.disabled]}>
+            <Plus size={24} color={VISION_GOLD} strokeWidth={1.4} />
+          </Pressable>
+        ) : null}
         {!isFull && compact ? (
           <Pressable testID={`${testID}-add`} accessibilityRole="button" accessibilityLabel="Add reference photo" disabled={disabled || isPicking}
             onPress={openAdd} style={({ pressed }) => [styles.compactAdd, pressed && styles.pressed, disabled && styles.disabled]}>
@@ -297,7 +313,7 @@ const styles = StyleSheet.create({
   inlineRoleOptionSelected: { backgroundColor: colors.ink.deep },
   inlineRoleLabel: { color: colors.text.secondary, fontFamily: typography.body, fontSize: 12, lineHeight: 16 },
   inlineRoleLabelSelected: { color: colors.paper, fontFamily: typography.bodySemiBold },
-  addTile: { flexShrink: 0, alignItems: 'center', justifyContent: 'center', gap: 2, borderWidth: 1.5, borderStyle: 'dashed', borderColor: VISION_GOLD, borderRadius: radii.lg, backgroundColor: colors.surface },
+  addTile: { flexShrink: 0, alignItems: 'center', justifyContent: 'center', gap: 2, borderWidth: 1.5, borderStyle: 'dashed', borderColor: VISION_GOLD, borderRadius: 12, backgroundColor: colors.surface },
   addLabel: { color: colors.text.primary, fontFamily: typography.bodySemiBold, fontSize: 12, lineHeight: 15, textAlign: 'center' },
   thumbCard: { flexShrink: 0, overflow: 'hidden', position: 'relative', borderRadius: radii.lg, borderWidth: 1, borderColor: colors.border.strong, backgroundColor: colors.grouped },
   selectedCard: { borderColor: VISION_GOLD, borderWidth: 1.5 },

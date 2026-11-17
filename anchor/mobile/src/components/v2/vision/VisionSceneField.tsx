@@ -1,5 +1,5 @@
 import { useImperativeHandle, useRef, useState, type Ref } from 'react';
-import { Pressable, StyleSheet, Text, TextInput, View, type StyleProp, type ViewStyle } from 'react-native';
+import { Pressable, StyleSheet, Text, TextInput, View, type StyleProp, type TextStyle, type ViewStyle } from 'react-native';
 import { Mic, Square } from 'lucide-react-native';
 import { speechModule } from '@/hooks/v2/vision/speechRecognition';
 import { v2Haptics } from '@/hooks/v2';
@@ -22,6 +22,10 @@ type Props = {
   compactMaxHeight?: number;
   onFocus?: () => void;
   onBlur?: () => void;
+  /** Guidance written inside the field along its bottom edge, left of the microphone. */
+  hint?: string | null;
+  hintTestID?: string;
+  hintStyle?: StyleProp<TextStyle>;
   /** Lets the screen release the microphone before it submits. */
   handleRef?: Ref<VisionSceneFieldHandle>;
   style?: StyleProp<ViewStyle>;
@@ -36,7 +40,7 @@ function recognitionAvailable(): boolean {
  * to type here. It adds words after what is already written, never starts creation, and the field stays
  * fully editable throughout. On a device without speech recognition the microphone is simply absent.
  */
-export function VisionSceneField({ value, onChangeText, maxChars, placeholder, accessibilityLabel, testID, minHeight = 124, compact = false, compactMaxHeight = 100, onFocus, onBlur, handleRef, style }: Props) {
+export function VisionSceneField({ value, onChangeText, maxChars, placeholder, accessibilityLabel, testID, minHeight = 124, compact = false, compactMaxHeight = 100, onFocus, onBlur, handleRef, style, hint, hintTestID, hintStyle }: Props) {
   const latest = useRef(value);
   latest.current = value;
   const [available] = useState(recognitionAvailable);
@@ -58,10 +62,15 @@ export function VisionSceneField({ value, onChangeText, maxChars, placeholder, a
           placeholderTextColor="rgba(23,23,23,0.42)"
           onFocus={onFocus}
           onBlur={onBlur}
-          style={[styles.input, { minHeight }, available && styles.inputWithMic, compact && [styles.compactInput, { maxHeight: compactMaxHeight }]]}
+          style={[styles.input, { minHeight }, (available || hint) && styles.inputWithMic, compact && [styles.compactInput, { maxHeight: compactMaxHeight }]]}
           textAlignVertical="top"
           scrollEnabled
         />
+        {hint ? (
+          <View pointerEvents="none" style={[styles.hintRow, !available && styles.hintNoMic]}>
+            <Text testID={hintTestID} numberOfLines={2} style={[styles.hint, hintStyle]}>{hint}</Text>
+          </View>
+        ) : null}
         {available ? (
           <Pressable
             testID="vision-dictate"
@@ -93,6 +102,9 @@ const styles = StyleSheet.create({
   frameListening: { borderColor: VISION_GOLD, borderWidth: 1.5 },
   input: { width: '100%', fontFamily: VISION_SERIF_ITALIC, fontSize: 20, lineHeight: 28, color: colors.text.primary, maxHeight: 200, padding: spacing[4] },
   inputWithMic: { paddingBottom: 56 },
+  hintRow: { position: 'absolute', left: spacing[4], right: 64, bottom: spacing[2], height: 44, justifyContent: 'center' },
+  hint: { fontFamily: 'Inter-Regular', fontSize: 12.5, lineHeight: 17, color: colors.text.secondary },
+  hintNoMic: { right: spacing[4] },
   compactInput: { fontSize: 17, lineHeight: 24, padding: 12, paddingRight: 56, paddingBottom: 12, maxHeight: 100 },
   mic: {
     position: 'absolute', right: spacing[2], bottom: spacing[2], width: 44, height: 44, borderRadius: 22,
