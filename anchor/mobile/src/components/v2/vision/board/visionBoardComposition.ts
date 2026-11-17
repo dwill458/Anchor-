@@ -263,8 +263,10 @@ export function composeVisionBoard(input: Input) {
       caption: pinnedCaption(i, p.width, p.width / p.aspectRatio),
     }));
     // The Anchor sits on the hero print's lower-right corner, flat, in front of everything (row 0, so it never shifts).
+    // It starts on the window's edge; once the hero's caption settles it moves to the band's foot if the band survived.
+    // The hero's band text is clamped left of the disc, so the disc never decides whether that band survives.
     const heroPrint = photos[0];
-    card = { ...card, x: CLASSIC_ANCHOR.x, y: heroPrint.y + heroPrint.width / heroPrint.aspectRatio / 2 + (heroPrint.caption?.extra ?? 0),
+    card = { ...card, x: CLASSIC_ANCHOR.x, y: heroPrint.y + heroPrint.width / heroPrint.aspectRatio / 2,
       width: CLASSIC_ANCHOR.width, rotation: 0, zIndex: 40, ring: 'mount' };
     // Paper labels share a top layer. Search their own photograph first; only a collision
     // with a later row may grow Classic. The saved slots and note coordinates never change.
@@ -432,6 +434,10 @@ export function composeVisionBoard(input: Input) {
     }
     photos = photos.map((p, i) => ({ ...p, y: p.y + shifts[ROW[i]] }));
     // DEFERRED: card.y += shifts[1]; (Classic's Anchor now belongs to the hero's row, which never shifts)
+    // The hero's corner is the band's foot only when the band survived; a label fallback leaves it on the window's edge.
+    const settledHero = photos[0];
+    card = { ...card, y: settledHero.y + settledHero.width / settledHero.aspectRatio / 2
+      + (settledHero.caption?.kind === 'band' ? settledHero.caption.extra : 0) };
     const hasCaption = photos.some((p, i) => p.caption && slotMap[i]);
     if (hasCaption)
       ratio = Math.max(

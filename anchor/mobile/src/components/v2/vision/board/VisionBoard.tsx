@@ -15,7 +15,7 @@ import type { VisionNote, VisionNotePresentation } from '@/adapters/v2/vision';
 import { VisionBoardScene } from './VisionBoardScene';
 import type { VisionBoardCardArt } from './VisionBoardIntentionCard';
 import { useVisionBoardScene } from './useVisionBoardScene';
-import { boardCaptionRect, boardPrintRect, detailBoardSizeForWidth, slotBoardHeightRatio, slotBoardSizeForWidth, toSceneRect } from './visionBoardLayouts';
+import { boardCaptionRect, boardPrintRect, detailBoardSizeForWidth, slotBoardHeightRatio, slotBoardSizeForWidth, toSceneRect, VISION_BOARD_PAPER_MARK_SCALE, type SceneRect } from './visionBoardLayouts';
 import { freeSlots, highestOccupiedSlot, mapFromOrder, moveToSlot, orderFromMap, slotLabel, swapScenes, type VisionSlotMap } from './visionBoardSlots';
 import type { VisionFocal } from '../visionPhotoFocus';
 import type { VisionSlotOverlay } from './VisionBoardScene';
@@ -364,11 +364,28 @@ export function VisionBoard({
   // D6: in Classic's rest view the next empty slot (two while the board holds one photo) is drawn as a pencil frame with a spark.
   const ghosts = useMemo(() => {
     if (boardLayout !== 'CLASSIC' || !sharedComposition || !slotMap || !onAddImage || arranging || focus || dragging || count === 0 || count >= 8) return [];
+    // A ghost keeps its slot's x and size but never sits on a print, its caption paper, or the Anchor:
+    // a hero band or the corner disc can reach into the next row's empty slots, so the frame steps below them.
+    const blockers: SceneRect[] = layout.photos.flatMap((photo, slot) => {
+      if (!slotMap[slot] || !photo) return [];
+      const caption = boardCaptionRect(photo, viewport);
+      return caption ? [boardPrintRect(photo, viewport), caption] : [boardPrintRect(photo, viewport)];
+    });
+    const seal = layout.card.width * VISION_BOARD_PAPER_MARK_SCALE * viewport.width;
+    blockers.push({ x: layout.card.x * viewport.width - seal / 2, y: layout.card.y * viewport.height - seal / 2, width: seal, height: seal, rotation: 0, zIndex: 0 });
+    blockers.sort((a, b) => a.y - b.y);
     return empty.slice(0, count === 1 ? 2 : 1).map(slot => {
       const photo = layout.photos[slot];
-      return photo ? { slot, rect: toSceneRect(photo, viewport), prompt: SPARK_SUGGESTIONS[(slot + SPARK_SUGGESTIONS.length - 1) % SPARK_SUGGESTIONS.length] } : null;
+      if (!photo) return null;
+      const rect = { ...toSceneRect(photo, viewport) };
+      for (const block of blockers) {
+        const overlapsX = rect.x < block.x + block.width && rect.x + rect.width > block.x;
+        const overlapsY = rect.y < block.y + block.height && rect.y + rect.height > block.y;
+        if (overlapsX && overlapsY) rect.y = block.y + block.height + spacing[3];
+      }
+      return { slot, rect, prompt: SPARK_SUGGESTIONS[(slot + SPARK_SUGGESTIONS.length - 1) % SPARK_SUGGESTIONS.length] };
     }).filter((ghost): ghost is NonNullable<typeof ghost> => Boolean(ghost));
-  }, [boardLayout, sharedComposition, slotMap, onAddImage, arranging, focus, dragging, count, empty, layout.photos, viewport]);
+  }, [boardLayout, sharedComposition, slotMap, onAddImage, arranging, focus, dragging, count, empty, layout.photos, layout.card, viewport]);
   // Ghosts below the board extend only the scroll content: the composition, and the notes placed against it, keep their height.
   const ghostExtra = ghosts.reduce((extra, ghost) => Math.max(extra, ghost.rect.y + ghost.rect.height + spacing[4] - viewport.height), 0);
   const moveFocused = useCallback((sceneId: string) => { setFocus(null); setArrange({ kind: 'move', sceneId }); }, []);

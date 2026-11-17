@@ -675,7 +675,8 @@ const styles = StyleSheet.create({
   tornPhoto: { borderWidth: 0, ...VISION_SHADOW.contact },
   // One print language for Classic: even mount border, the mount's hairline edge, and the ambient shadow.
   pinnedPhoto: { borderWidth: 0.5, borderColor: '#CFC5B0', borderRadius: 0 },
-  pinnedBand: { position: 'absolute', left: 0, backgroundColor: PINNED_MOUNT, borderLeftWidth: 0.5, borderRightWidth: 0.5, borderBottomWidth: 0.5, borderColor: '#CFC5B0' },
+  // The band is the same sheet as the mount, so it carries the mount's ambient shadow (a bare band read as loose text on the board).
+  pinnedBand: { position: 'absolute', left: 0, backgroundColor: PINNED_MOUNT, borderLeftWidth: 0.5, borderRightWidth: 0.5, borderBottomWidth: 0.5, borderColor: '#CFC5B0', ...VISION_SHADOW.ambient },
   captionLabel: { position: 'absolute', alignItems: 'center', justifyContent: 'center', backgroundColor: '#FBF7EC', borderRadius: 2,
     transform: [{ rotate: '-1.5deg' }], zIndex: 3, ...VISION_SHADOW.contact },
   layer: { position: 'absolute', left: 0, top: 0, width: '100%', height: '100%' },
