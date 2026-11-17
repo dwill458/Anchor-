@@ -219,7 +219,7 @@ describe('V2VisionScreen ceremony additions', () => {
 
     fireEvent.press(view.getByTestId('vision-resume-card-keep'));
     await waitFor(() => expect(view.getByTestId('vision-ceremony-print-1-sharp').props.source).toEqual({ uri: 'file:///saved-version-1-option-2.jpg' }));
-    fireEvent.press(view.getByTestId('vision-ceremony-keep'));
+    fireEvent(view.getByTestId('vision-ceremony-keep'), 'accessibilityAction', { nativeEvent: { actionName: 'activate' } });
     await waitFor(() => expect(apiClient.post).toHaveBeenCalledWith('/api/v2/visions/vision-101/scenes', expect.objectContaining({
       assetId: 'asset-version-1-option-2', sourceType: 'AI_GENERATED', prompt: 'Prompt for version-1-option-2',
     })));
@@ -295,7 +295,7 @@ describe('V2VisionScreen ceremony additions', () => {
       await waitForGenerationReady(view);
       await act(async () => { fireEvent.press(view.getByTestId('vision-scene-generate')); });
       fireEvent(await view.findByTestId('vision-ceremony-print-0-sharp'), 'load'); await advance(0); await advance(2800); await advance(3600);
-      fireEvent.press(view.getByTestId('scene-candidate-candidate-0')); fireEvent.press(view.getByTestId('vision-complete-vision'));
+      fireEvent.press(view.getByTestId('scene-candidate-candidate-0')); fireEvent(view.getByTestId('vision-ceremony-keep'), 'accessibilityAction', { nativeEvent: { actionName: 'activate' } });
       await advance(200);
     }
     await advance(3200); await advance(1200); await advance(200); await advance(600);
@@ -475,7 +475,7 @@ describe('V2VisionScreen ceremony additions', () => {
     await waitForGenerationReady(view);
     await act(async () => { fireEvent.press(view.getByTestId('vision-scene-generate')); });
     fireEvent(await view.findByTestId('vision-ceremony-print-0-sharp'), 'load'); await advance(0); await advance(2800); await advance(3600);
-    fireEvent.press(view.getByTestId('scene-candidate-candidate-0')); fireEvent.press(view.getByTestId('vision-complete-vision'));
+    fireEvent.press(view.getByTestId('scene-candidate-candidate-0')); fireEvent(view.getByTestId('vision-ceremony-keep'), 'accessibilityAction', { nativeEvent: { actionName: 'activate' } });
     await advance(200);
     expect(view.getByTestId('vision-ceremony-save-retry')).toBeTruthy();
     expect(currentVision).toEqual(original);

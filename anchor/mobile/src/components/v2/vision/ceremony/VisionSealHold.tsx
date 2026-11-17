@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef } from 'react';
 import { AppState, Pressable, StyleSheet, View } from 'react-native';
-import Animated, { cancelAnimation, useAnimatedProps, useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
+import Animated, { cancelAnimation, useAnimatedProps, useAnimatedStyle, useSharedValue, withTiming, type SharedValue } from 'react-native-reanimated';
 import Svg, { Circle } from 'react-native-svg';
 import { ImpactFeedbackStyle } from 'expo-haptics';
 import { safeHaptics } from '@/utils/haptics';
@@ -10,13 +10,22 @@ import { visionCeremonyCopy as copy } from './visionCeremonyCopy';
 
 const AnimatedCircle = Animated.createAnimatedComponent(Circle);
 /** The Vision hold has no dependency on Anchor creation stores or analytics. */
-export function VisionSealHold({ children, active, committed, reduced, holdMs = CEREMONY.sealHoldMs, onCommit, onBegin, onAbandon }: {
+export function VisionSealHold({ children, active, committed, reduced, holdMs = CEREMONY.sealHoldMs, onCommit, onBegin, onAbandon,
+  variant = 'ring', progress: externalProgress, accessibilityLabel = copy.sealLabel, testID = 'vision-seal-hold', fillColor = '#D9C08A' }: {
   children: React.ReactNode; active: boolean; committed: boolean; reduced: boolean;
   /** The press-and-hold length: 1.6s for the first image, 900ms for later ones. */
   holdMs?: number;
   onCommit: () => void; onBegin?: () => void; onAbandon?: (progress: number) => void;
+  /** 'ring' circles the Anchor; 'bar' fills a pill button left to right. */
+  variant?: 'ring' | 'bar';
+  /** Optional shared progress (0-1), so the screen can draw its own cue (the gold outline around the print). */
+  progress?: SharedValue<number>;
+  accessibilityLabel?: string;
+  testID?: string;
+  fillColor?: string;
 }) {
-  const progress = useSharedValue(0), press = useSharedValue(1);
+  const ownProgress = useSharedValue(0), press = useSharedValue(1);
+  const progress = externalProgress ?? ownProgress;
   const complete = useRef(false), touching = useRef(false), startedAt = useRef(0);
   const tone = useRef<CreationSoundHandle | null>(null);
   const timers = useRef<ReturnType<typeof setTimeout>[]>([]);
@@ -51,7 +60,16 @@ export function VisionSealHold({ children, active, committed, reduced, holdMs = 
   useEffect(() => { if (!active) release(); }, [active, release]);
   useEffect(() => () => { release(); stop(); }, [release, stop]);
   const circle = useAnimatedProps(() => ({ strokeDashoffset: 2 * Math.PI * 72 * (1 - progress.value) }));
-  const style = useAnimatedStyle(() => ({ transform: [{ scale: press.value }] }));
+  const style = useAnimatedStyle(() => ({ transform: [{ scale: variant === 'bar' ? 1 : press.value }] }));
+  const barStyle = useAnimatedStyle(() => ({ width: `${Math.max(0, Math.min(1, progress.value)) * 100}%` }));
+  if (variant === 'bar') return <Animated.View style={[styles.fill, styles.bar, style]}>
+    <Animated.View pointerEvents="none" testID={`${testID}-fill`} style={[styles.barFill, { backgroundColor: fillColor }, barStyle]} />
+    {children}
+    {active && !committed ? <Pressable testID={testID} style={styles.fill} accessibilityRole="button" accessibilityLabel={accessibilityLabel}
+      accessibilityHint="Press and hold. With a screen reader, activate once."
+      accessibilityActions={[{ name: 'activate' }]} onAccessibilityAction={event => { if (event.nativeEvent.actionName === 'activate') { callbacks.current.onBegin?.(); commit(); } }}
+      onPressIn={begin} onPressOut={release} /> : null}
+  </Animated.View>;
   return <Animated.View style={[styles.fill, style]}>
     {children}
     {active && !committed ? <>
@@ -60,11 +78,13 @@ export function VisionSealHold({ children, active, committed, reduced, holdMs = 
         <AnimatedCircle cx="80" cy="80" r="72" stroke="#F4EDE0" strokeWidth="1.5" fill="none" strokeDasharray={2 * Math.PI * 72}
           rotation="-90" origin="80,80" animatedProps={circle} />
       </Svg>
-      <Pressable testID="vision-seal-hold" style={styles.fill} accessibilityRole="button" accessibilityLabel={copy.sealLabel}
+      <Pressable testID={testID} style={styles.fill} accessibilityRole="button" accessibilityLabel={accessibilityLabel}
         accessibilityActions={[{ name: 'activate' }]} onAccessibilityAction={event => { if (event.nativeEvent.actionName === 'activate') { callbacks.current.onBegin?.(); commit(); } }}
         onPressIn={begin} onPressOut={release} />
     </> : null}
   </Animated.View>;
 }
 
-const styles = StyleSheet.create({ fill: { ...StyleSheet.absoluteFill }, ring: { position: 'absolute', left: '-12.5%', top: '-12.5%' } });
+const styles = StyleSheet.create({ fill: { ...StyleSheet.absoluteFill }, ring: { position: 'absolute', left: '-12.5%', top: '-12.5%' },
+  bar: { overflow: 'hidden', borderRadius: 999, alignItems: 'center', justifyContent: 'center' },
+  barFill: { position: 'absolute', left: 0, top: 0, bottom: 0 } });

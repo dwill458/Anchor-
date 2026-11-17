@@ -82,7 +82,8 @@ async function choose(view: ReturnType<typeof setup>, index = 0) {
   fireEvent.press(view.getByTestId(`scene-candidate-c${index}`));
 }
 async function seal(view: ReturnType<typeof setup>) {
-  fireEvent.press(view.queryByTestId('vision-complete-vision') ?? view.getByTestId('vision-ceremony-keep'));
+  const complete = view.queryByTestId('vision-complete-vision');
+  if (complete) fireEvent.press(complete); else fireEvent(view.getByTestId('vision-ceremony-keep'), 'accessibilityAction', { nativeEvent: { actionName: 'activate' } });
   await advance(200);
   await advance(CEREMONY.printMoveMs + CEREMONY.stampMs + CEREMONY.sealHoldMs + CEREMONY.boardRiseMs + 1);
 }
@@ -188,7 +189,7 @@ describe('Vision ceremony', () => {
     await act(async () => { fireEvent.press(view.getByTestId('vision-generate')); });
     await develop(view, 1);
     fireEvent.press(view.getByTestId('scene-candidate-c0'));
-    expect(view.getByLabelText(copy.completeVision)).toBeTruthy();
+    expect(view.getByLabelText(copy.keep)).toBeTruthy();
     expect(view.queryByText(copy.both)).toBeNull();
   });
   it.each([1, 2, 4, 7, 8])('retains and develops every selected personal photo (%i)', async count => {
@@ -259,7 +260,7 @@ describe('Vision ceremony', () => {
     expect(mockRetry).toHaveBeenCalledTimes(1);
     await advance(2800);
     fireEvent.press(view.getByTestId('scene-candidate-c0'));
-    expect(view.getByText(copy.caption)).toBeTruthy();
+    expect(view.getByText(copy.thisOne)).toBeTruthy();
     expect(view.onAssemble).not.toHaveBeenCalled();
   });
   it('own-photo multi-select uploads while settling and saves the set only at Seal in picker order', async () => {
@@ -339,7 +340,7 @@ describe('Vision ceremony', () => {
     fireEvent(view.getByTestId('vision-ceremony-print-1-sharp'), 'error'); await develop(view, 1);
     expect(view.getByTestId('scene-candidate-c0').props.accessibilityState.disabled).toBeFalsy();
     expect(view.getByTestId('scene-candidate-c1').props.accessibilityState.disabled).toBe(true);
-    fireEvent.press(view.getByTestId('scene-candidate-c0')); expect(view.getByTestId('vision-complete-vision')).toBeTruthy();
+    fireEvent.press(view.getByTestId('scene-candidate-c0')); expect(view.getByTestId('vision-ceremony-keep')).toBeTruthy();
   });
   it('retry retains development readiness for a partial image reused by the server', async () => {
     mockJob = job('FAILED', candidates.slice(0, 1)); const view = setup();
@@ -347,7 +348,7 @@ describe('Vision ceremony', () => {
     mockRetry.mockImplementationOnce(async () => { mockJob = job('COMPLETE', candidates.slice(0, 1)); return true; });
     await act(async () => { fireEvent.press(view.getByText(copy.retry)); }); await advance(3600);
     expect(view.getByText(copy.choose)).toBeTruthy(); fireEvent.press(view.getByTestId('scene-candidate-c0'));
-    expect(view.getByTestId('vision-complete-vision')).toBeTruthy();
+    expect(view.getByTestId('vision-ceremony-keep')).toBeTruthy();
   });
   it('retries a failed generated image URL and lets the user choose it after reload', async () => {
     mockJob = job(); const view = setup(); await choose(view, 0);
@@ -402,7 +403,7 @@ describe('Vision ceremony', () => {
     mockJob = job(); const view = setup(); await choose(view);
     const taps = () => (playCreationSound as jest.Mock).mock.calls.filter(([id]) => id === 'uiTap').length;
     expect(taps()).toBe(1);
-    fireEvent.press(view.getByTestId('vision-ceremony-keep')); expect(taps()).toBe(2);
+    fireEvent(view.getByTestId('vision-ceremony-keep'), 'accessibilityAction', { nativeEvent: { actionName: 'activate' } }); expect(taps()).toBe(2);
   });
   const anchorOpacity = (view: ReturnType<typeof setup>) => { const node = view.getByTestId('vision-ceremony-anchor'); return node.props.jestAnimatedStyle?.value?.opacity ?? StyleSheet.flatten(node.props.style).opacity; };
   const soundCalls = (id: string) => (playCreationSound as jest.Mock).mock.calls.filter(([name]) => name === id);
@@ -719,20 +720,20 @@ describe('Vision celebration scene', () => {
   const scene = () => useCelebrationStore.getState().active;
   const impacts = () => (safeHaptics.impact as jest.Mock).mock.calls.map(call => call[0]);
   async function sealNow(view: ReturnType<typeof setup>, _holdMs: number) {
-    fireEvent.press(view.getByTestId('vision-ceremony-keep'));
+    fireEvent(view.getByTestId('vision-ceremony-keep'), 'accessibilityAction', { nativeEvent: { actionName: 'activate' } });
     await advance(200);
   }
 
   it('the first-image completion tap starts the L4 scene on the shortened timeline', async () => {
     const view = setup(); await choose(view);
-    fireEvent.press(view.getByTestId('vision-ceremony-keep'));
+    fireEvent(view.getByTestId('vision-ceremony-keep'), 'accessibilityAction', { nativeEvent: { actionName: 'activate' } });
     await advance(200);
     expect(view.onAssemble).toHaveBeenCalledTimes(1);
     expect(scene()).toEqual({ id: expect.stringMatching(/^vision-ceremony:/), level: 4, skippable: false });
   });
   it('a later image completion tap starts the L2 scene immediately', async () => {
     const view = setup({ firstImage: false }); await choose(view);
-    fireEvent.press(view.getByTestId('vision-ceremony-keep'));
+    fireEvent(view.getByTestId('vision-ceremony-keep'), 'accessibilityAction', { nativeEvent: { actionName: 'activate' } });
     await advance(200);
     expect(view.onAssemble).toHaveBeenCalledTimes(1);
     expect(scene()).toEqual({ id: expect.stringMatching(/^vision-ceremony:/), level: 2, skippable: false });
@@ -740,7 +741,7 @@ describe('Vision celebration scene', () => {
   it('completion fires one Heavy haptic after the print movement and no Medium haptic', async () => {
     const view = setup(); await choose(view);
     (safeHaptics.impact as jest.Mock).mockClear();
-    fireEvent.press(view.getByTestId('vision-ceremony-keep'));
+    fireEvent(view.getByTestId('vision-ceremony-keep'), 'accessibilityAction', { nativeEvent: { actionName: 'activate' } });
     await advance(CEREMONY.printMoveMs + CEREMONY.stampMs);
     expect(impacts()).not.toContain(ImpactFeedbackStyle.Medium);
     expect(impacts().filter(style => style === ImpactFeedbackStyle.Heavy)).toHaveLength(1);
@@ -807,7 +808,7 @@ describe('Vision celebration scene', () => {
     const onBack = jest.fn();
     const view = setup({ onBack }); await choose(view);
     const add = AppState.addEventListener as unknown as jest.Mock;
-    fireEvent.press(view.getByTestId('vision-ceremony-keep'));
+    fireEvent(view.getByTestId('vision-ceremony-keep'), 'accessibilityAction', { nativeEvent: { actionName: 'activate' } });
     await advance(200);
     const emit = (value: string) => act(() => { add.mock.calls.forEach(([, handler]) => handler(value)); });
     emit('background'); await advance(3000);

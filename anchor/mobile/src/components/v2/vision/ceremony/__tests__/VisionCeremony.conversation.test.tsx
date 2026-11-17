@@ -170,7 +170,7 @@ async function continueLatest(view: ReturnType<typeof setup>) {
 }
 
 async function seal(view: ReturnType<typeof setup>) {
-  fireEvent.press(view.getByTestId('vision-ceremony-keep'));
+  fireEvent(view.getByTestId('vision-ceremony-keep'), 'accessibilityAction', { nativeEvent: { actionName: 'activate' } });
   await act(async () => { jest.advanceTimersByTime(200); await Promise.resolve(); });
 }
 

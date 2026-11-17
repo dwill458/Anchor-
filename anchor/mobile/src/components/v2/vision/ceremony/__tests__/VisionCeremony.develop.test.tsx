@@ -5,6 +5,8 @@ import { VisionCeremony, type VisionCeremonyProps } from '../VisionCeremony';
 import { ENTRANCE } from '../VisionEntrance';
 import { visionCeremonyCopy as copy } from '../visionCeremonyCopy';
 import { useDevImageModelStore } from '@/stores/devImageModelStore';
+import { AnalyticsService } from '@/services/AnalyticsService';
+import { CEREMONY } from '../VisionDevelop';
 
 jest.mock('@/services/AnalyticsService', () => ({ AnalyticsService: { track: jest.fn() } }));
 jest.mock('@/hooks/v2/vision/visionPhotoFitProcessing', () => ({
@@ -174,5 +176,95 @@ describe('Vision ceremony: Develop', () => {
     expect(view.queryByTestId('vision-develop-placement-picker-slot-0')).toBeNull();
     fireEvent.press(view.getByTestId('vision-develop-placement-picker-slot-5'));
     expect(onChange).toHaveBeenCalledWith(5);
+  });
+});
+
+describe('Vision ceremony: Keep and the hold to seal', () => {
+  beforeEach(() => {
+    jest.useFakeTimers(); jest.clearAllMocks(); mockJob = null;
+    useDevImageModelStore.setState({ anchor: null, vision: null });
+    (FileSystem.getInfoAsync as jest.Mock).mockResolvedValue({ exists: true });
+  });
+  afterEach(() => { jest.clearAllTimers(); jest.useRealTimers(); });
+  async function toKeep(overrides: Partial<VisionCeremonyProps> = {}, index = 1) {
+    mockJob = job('COMPLETE');
+    const view = setup(overrides);
+    await startDevelop(view);
+    await load(view, 2);
+    fireEvent.press(view.getByTestId(`scene-candidate-c${index}`));
+    return view;
+  }
+  const tracked = (name: string) => (AnalyticsService.track as jest.Mock).mock.calls.filter(([event]) => event === name);
+
+  it('brings the chosen print to the centre and keeps the other as a thumbnail that returns to Choose', async () => {
+    const view = await toKeep();
+    expect(view.getByText(copy.thisOne)).toBeTruthy();
+    const hero = rect(view, 1), thumb = rect(view, 0);
+    expect(hero.width).toBeGreaterThan(thumb.width * 3);
+    expect(thumb.width).toBe(58);
+    fireEvent.press(view.getByTestId('vision-ceremony-thumb-0'));
+    expect(view.getByText(copy.chooseBody)).toBeTruthy();
+    fireEvent.press(view.getByTestId('scene-candidate-c0'));
+    fireEvent.press(view.getByText(copy.both));
+    expect(view.getByText(copy.chooseBody)).toBeTruthy();
+  });
+
+  it('releasing the hold early does not seal and reports the abandon', async () => {
+    const view = await toKeep();
+    expect(view.getByTestId('vision-seal-outline')).toBeTruthy();
+    fireEvent(view.getByTestId('vision-ceremony-keep'), 'pressIn');
+    await advance(CEREMONY.sealHoldMs / 2);
+    fireEvent(view.getByTestId('vision-ceremony-keep'), 'pressOut');
+    await advance(CEREMONY.sealHoldMs);
+    expect(view.onAssemble).not.toHaveBeenCalled();
+    expect(tracked('vision_seal_started')).toHaveLength(1);
+    expect(tracked('vision_seal_abandoned')).toHaveLength(1);
+    expect(view.queryByText(copy.sealed)).toBeNull();
+  });
+
+  it('completing the first-image hold (1.6s) seals once, with the caption written during Develop', async () => {
+    mockJob = job('RUNNING', []);
+    const view = setup();
+    await startDevelop(view);
+    fireEvent.changeText(view.getByTestId('vision-develop-caption'), 'Lifting 405');
+    mockJob = job('COMPLETE'); view.refresh();
+    await load(view, 2);
+    fireEvent.press(view.getByTestId('scene-candidate-c1'));
+    fireEvent(view.getByTestId('vision-ceremony-keep'), 'pressIn');
+    await advance(CEREMONY.sealHoldMs - 10);
+    expect(tracked('vision_seal_completed')).toHaveLength(0);
+    await advance(20);
+    expect(tracked('vision_seal_completed')).toHaveLength(1);
+    // The save measures the print first (150ms fallback), then saves.
+    await advance(200);
+    expect(view.onAssemble).toHaveBeenCalledTimes(1);
+    expect(view.onAssemble).toHaveBeenCalledWith(expect.objectContaining({ selectedAssets: [expect.objectContaining({ assetId: 'asset-1', caption: 'Lifting 405' })] }));
+    expect(tracked('vision_seal_completed')).toHaveLength(1);
+    expect(tracked('vision_caption_edited')).toEqual([['vision_caption_edited', { anchor_id: 'anchor', length: 11 }]]);
+    await advance(CEREMONY.printMoveMs + CEREMONY.stampMs);
+    expect(view.getByText(copy.sealed)).toBeTruthy();
+    expect(view.queryByText(copy.press)).toBeNull();
+    expect(view.queryByText(copy.commitment)).toBeNull();
+    expect(tracked('vision_ceremony_beat_viewed').some(([, props]) => props.beat === 'seal')).toBe(true);
+  });
+
+  it('a later image seals on the shorter 900ms hold', async () => {
+    const view = await toKeep({ firstImage: false });
+    fireEvent(view.getByTestId('vision-ceremony-keep'), 'pressIn');
+    await advance(CEREMONY.sealHoldLaterMs - 10);
+    expect(tracked('vision_seal_completed')).toHaveLength(0);
+    await advance(20 + 200);
+    expect(view.onAssemble).toHaveBeenCalledTimes(1);
+  });
+
+  it('a screen reader seals with a single activation', async () => {
+    const view = await toKeep();
+    fireEvent(view.getByTestId('vision-ceremony-keep'), 'accessibilityAction', { nativeEvent: { actionName: 'activate' } });
+    // Sealing removes the control, so a repeated activation has nothing to reach.
+    const again = view.queryByTestId('vision-ceremony-keep');
+    if (again) fireEvent(again, 'accessibilityAction', { nativeEvent: { actionName: 'activate' } });
+    await advance(200);
+    expect(view.onAssemble).toHaveBeenCalledTimes(1);
+    expect(tracked('vision_seal_completed')).toHaveLength(1);
   });
 });

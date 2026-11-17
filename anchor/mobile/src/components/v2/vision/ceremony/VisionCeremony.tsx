@@ -658,15 +658,23 @@ function ScopedVisionCeremony(props: VisionCeremonyProps) {
   const twoH = 8 + (twoW - 16) * 1.25 + TWO_STRIP;
   const twoTop = insets.top + TWO_TOP, twoLeft = (width - (twoW * 2 + TWO_GAP)) / 2;
   const railTop = twoTop + twoH + 22, slipTop = railTop + 56;
+  // Keep (generated): the chosen print comes to the centre at about 74% width; the other waits as a 58pt thumbnail on the action row.
+  const KEEP_TOP = 100, HOLD_H = 58, THUMB_W = 58, THUMB_H = 8 + (THUMB_W - 16) * 1.25 + 8;
+  const keepW = Math.max(180, Math.min(width * .74, (usable - KEEP_TOP - 24 - HOLD_H - 14 - THUMB_H - 16 - 8 - CEREMONY.captionStripPts) / 1.25 + 16));
+  const keepH = 8 + (keepW - 16) * 1.25 + CEREMONY.captionStripPts;
+  const keepTop = insets.top + KEEP_TOP, holdTop = keepTop + keepH + 24, keepRowTop = holdTop + HOLD_H + 14;
   const curateY = insets.top + usable * .11, sealY = insets.top + usable * .055, keepY = curateY + usable * .04;
   // Keep: lift the hero so its caption strip clears the keyboard by 16pt.
-  const lift = beat === 'keep' && keyboardH > 0 ? Math.max(0, keepY + curateW * 1.25 + 54 + 16 - (height - keyboardH)) : 0;
+  const lift = beat === 'keep' && keyboardH > 0 ? Math.max(0, (ownPhoto ? keepY + curateW * 1.25 + 54 : keepTop + keepH) + 16 - (height - keyboardH)) : 0;
   const printPlacement = (index: number, stackPosition = index): PrintPlacement => {
     const hero = ownPhoto ? stackPosition === 0 : index === chosen;
     // The entrance owns Ask; these prints stay invisible until Develop begins.
     if (beat === 'ask' || beat === 'describe') return { x: (width - askW) / 2, y: askFrameY, width: askW, height: askH, rotation: 0, opacity: 0 };
-    if (beat === 'keep') return { x: (width - curateW) / 2, y: hero || ownPhoto ? keepY : height + 80,
-      width: curateW, height: curateW * 1.25 + 54, rotation: ownPhoto || hero ? 0 : 8, opacity: ownPhoto || hero ? 1 : 0 };
+    if (beat === 'keep' && ownPhoto) return { x: (width - curateW) / 2, y: keepY, width: curateW, height: curateW * 1.25 + 54, rotation: 0, opacity: 1 };
+    // DEFERRED: generated Keep sent the other print off the bottom: { y: height + 80, rotation: 8, opacity: 0 }.
+    if (beat === 'keep') return hero
+      ? { x: (width - keepW) / 2, y: keepTop, width: keepW, height: keepH, rotation: 0, opacity: 1 }
+      : { x: 22, y: keepRowTop, width: THUMB_W, height: THUMB_H, rotation: -4, opacity: canChooseAnotherGenerated ? .75 : 0 };
     if (beat === 'seal' || beat === 'pinned') return { x: (width - sealW) / 2 + (ownPhoto ? stackPosition * 5 : 0), y: sealY + stackPosition * (ownPhoto ? 5 : 0),
       width: sealW, height: sealW * 1.25 + 54, rotation: hero ? 0 : stackPosition % 2 ? 3 : -3, opacity: hero || (ownPhoto && stackPosition < 3) ? 1 : 0 };
     if (ownPhoto) return { x: (width - curateW) / 2, y: keepY, width: curateW, height: curateW * 1.25 + 54, rotation: 0, opacity: 1 };
@@ -721,6 +729,13 @@ function ScopedVisionCeremony(props: VisionCeremonyProps) {
     }
     void generate(descriptionRef.current, startPhoto ? null : undefined, startPhoto ?? undefined);
   };
+  const seeBoth = () => { if (committedRef.current) return; setChosen(null); setBeat('choose'); };
+  // Refine needs the conversation's round for its sheet; without a session the Keep row offers See both only.
+  const refineAvailable = Boolean(conversation && rounds.length > 0);
+  const sealProgress = useSharedValue(0);
+  const outlineStyle = useAnimatedStyle(() => ({ width: Math.max(0, Math.min(1, sealProgress.value)) * (keepW + 10) }));
+  const beginSealHold = () => { playCreationSound('uiTap'); attempts.current += 1; if (!sealStarted.current) { sealStarted.current = true; AnalyticsService.track('vision_seal_started', { anchor_id: anchorId, mode: analyticsMode, path }); } };
+  const abandonSealHold = (progress: number) => AnalyticsService.track('vision_seal_abandoned', { anchor_id: anchorId, progress: Math.round(progress * 100) / 100 });
   const startDescribe = () => {
     if (mode === 'add') AnalyticsService.track('vision_image_add_started', { anchor_id: anchorId, source_type: 'AI_GENERATED' });
     setBeat('describe');
@@ -773,7 +788,7 @@ function ScopedVisionCeremony(props: VisionCeremonyProps) {
         const item = state.slots[index];
         const uri = item?.imageUrl ?? undefined;
         return <VisionPrintSlot key={item?.assetId ?? `generated-print-${index}`} placement={printPlacement(index)} pointerEvents={beat === 'ask' || beat === 'describe' ? 'none' : 'auto'} testID={`vision-ceremony-slot-${index}`}>
-          <Animated.View style={[styles.fill, { zIndex: 1 }, liftStyle, conversationChoose && !refineCandidate ? { opacity: 0 } : undefined]} pointerEvents={index === chosen || beat === 'choose' ? 'auto' : 'none'}>
+          <Animated.View style={[styles.fill, { zIndex: 1 }, index === chosen ? liftStyle : undefined, conversationChoose && !refineCandidate ? { opacity: 0 } : undefined]} pointerEvents={index === chosen || beat === 'choose' || beat === 'keep' ? 'auto' : 'none'}>
             <VisionPrint uri={uri} developing={beat === 'develop'} revealMs={2400} inkRevealMs={2400} revealed={beat !== 'ask' && beat !== 'describe' && !reading}
               empty={beat === 'ask' || beat === 'describe'} active={foreground} showCaption={twoUpCaption || (showCaption && index === chosen)} caption={caption} pinned={false}
               captionStripPts={twoUpCaption ? TWO_STRIP : undefined} captionStyle={twoUpCaption ? styles.twoUpCaption : styles.handCaption}
@@ -786,6 +801,8 @@ function ScopedVisionCeremony(props: VisionCeremonyProps) {
               onReframe={beat === 'keep' && index === chosen ? setReframe : undefined} testID={`vision-ceremony-print-${index}`} />
             {beat === 'choose' && item ? <Pressable testID={`scene-candidate-${item.id}`} accessibilityRole="imagebutton" accessibilityLabel={`Choose image ${index + 1}`}
               disabled={!item.imageUrl || !developed.has(item.imageUrl) || failedImages.has(item.imageUrl)} onPress={() => choose(index, item)} style={styles.fill} /> : null}
+            {beat === 'keep' && index !== chosen && canChooseAnotherGenerated && !committed ? <Pressable testID={`vision-ceremony-thumb-${index}`} accessibilityRole="button"
+              accessibilityLabel={copy.both} onPress={seeBoth} style={styles.fill} /> : null}
           </Animated.View>
         </VisionPrintSlot>;
       }).reverse()}
@@ -793,6 +810,10 @@ function ScopedVisionCeremony(props: VisionCeremonyProps) {
       previewImageUrl={props.previewImageUrl} previewCaption={props.previewCaption?.trim() || anchorIntention} firstRun={!entrancePlayed.current} active={foreground}
       notice={actions.notice} anchorTarget={anchorPosition} onAnchorHandoff={() => setHandedOff(true)} onBack={back}
       onWords={startDescribe} canAddImage={props.canAddImage} /> : null}
+    {beat === 'keep' && !ownPhoto && !committed ? <Animated.View pointerEvents="none" testID="vision-seal-outline"
+      style={[styles.outline, { left: (width - keepW) / 2 - 5, top: keepTop - 5, height: keepH + 10 }, outlineStyle]}>
+      <View style={[styles.outlineBox, { width: keepW + 10, height: keepH + 10 }]} />
+    </Animated.View> : null}
     {committed ? <Animated.View pointerEvents="none" testID="vision-seal-stamp-line" style={[{ position: 'absolute', zIndex: 42, left: (width - sealW) / 2 + 10, top: sealY + sealW * 1.25 + 12, width: sealW - 20, height: 1, backgroundColor: '#B08A4A' }, sealLineStyle]} /> : null}
     <VisionPrintSlot placement={anchorPosition} nodeRef={anchorRef} pointerEvents={beat === 'describe' ? 'none' : 'auto'} testID="vision-ceremony-anchor">
       <Animated.View style={[styles.mark, stampStyle]}>
@@ -875,7 +896,26 @@ function ScopedVisionCeremony(props: VisionCeremonyProps) {
           {(actions.notice || actions.generation.error) && !limitReached ? <Text accessibilityLiveRegion="polite" style={styles.error}>{actions.notice ?? actions.generation.error}</Text> : null}
         </View> : null}
       </> : null}
-      {beat === 'keep' ? <>
+      {beat === 'keep' && !ownPhoto ? <>
+        <View style={[styles.copy, { top: insets.top + 56 }]}><Text accessibilityRole="header" style={styles.title}>{copy.thisOne}</Text></View>
+        {keyboardH === 0 ? <>
+          {/* The hold lives here now (C3): the seal begins on Keep, and Seal is only the stamp after it. */}
+          <View style={[styles.holdWrap, { top: holdTop, height: HOLD_H }]}>
+            <View style={styles.holdButton}>
+              <VisionSealHold variant="bar" active={beat === 'keep'} committed={committed} reduced={reduced} progress={sealProgress}
+                holdMs={firstImage ? CEREMONY.sealHoldMs : CEREMONY.sealHoldLaterMs} accessibilityLabel={copy.keep} testID="vision-ceremony-keep"
+                onCommit={() => { setBeat('seal'); commit(); }} onBegin={beginSealHold} onAbandon={abandonSealHold}>
+                <Text style={styles.holdText}>{copy.keep}</Text>
+              </VisionSealHold>
+            </View>
+          </View>
+          <View style={[styles.keepRow, { top: keepRowTop }]}>
+            {canChooseAnotherGenerated ? link(copy.both, seeBoth, 'vision-ceremony-see-both') : null}
+            {candidate?.assetId && candidate.imageUrl && refineAvailable ? link(copy.refine, () => openRefine(candidate), 'vision-ceremony-refine') : null}
+          </View>
+        </> : null}
+      </> : null}
+      {beat === 'keep' && ownPhoto ? <>
         <View style={[styles.copy, { top: insets.top + usable * .10 }]}><Text style={styles.eyebrow}>{copy.caption}</Text></View>
         {keyboardH === 0 ? <View style={[styles.footer, { bottom: insets.bottom + 20 }]}>
           {ownPhoto && failedImages.size > 0 ? <Text accessibilityLiveRegion="polite" style={styles.note}>{copy.unavailable}</Text> : null}
@@ -888,8 +928,9 @@ function ScopedVisionCeremony(props: VisionCeremonyProps) {
       {beat === 'seal' || beat === 'pinned' ? <>
         <View style={[styles.copy, { top: insets.top + usable * .52 }]}>
           {stampComplete ? <Animated.Text entering={FadeIn.duration(220)} accessibilityRole="header" accessibilityLiveRegion="polite" style={styles.title}>{copy.sealed}</Animated.Text> : !committed ? <Text style={styles.title}>{copy.hold}</Text> : null}
-          {committed ? <VisionHairline pending={saving} label={copy.saving} testID="vision-ceremony-saving" /> : <Text style={styles.note}>{copy.commitment}</Text>}{saveError ? <><Text accessibilityLiveRegion="polite" style={styles.error}>{saveError}</Text>{link(copy.retry, () => { void save(); }, 'vision-ceremony-save-retry')}</> : null}</View>
-        {!committed ? <Text style={[styles.press, { bottom: insets.bottom + 30 }]}>{copy.press}</Text> : null}
+          {/* DEFERRED: the commitment note under the hold: : <Text style={styles.note}>{copy.commitment}</Text> */}
+          {committed ? <VisionHairline pending={saving} label={copy.saving} testID="vision-ceremony-saving" /> : null}{saveError ? <><Text accessibilityLiveRegion="polite" style={styles.error}>{saveError}</Text>{link(copy.retry, () => { void save(); }, 'vision-ceremony-save-retry')}</> : null}</View>
+        {/* DEFERRED: the hold lives on Keep now. {!committed ? <Text style={[styles.press, { bottom: insets.bottom + 30 }]}>{copy.press}</Text> : null} */}
       </> : null}
     </Animated.View> : null}
     {resumeVisible ? <View style={[styles.fill, { zIndex: 45, paddingTop: insets.top, paddingBottom: insets.bottom }]}>
@@ -991,6 +1032,12 @@ const styles = StyleSheet.create({
   chooseBody: { fontFamily: 'Inter-Regular', fontSize: 14, lineHeight: 20, color: '#ADAABC', textAlign: 'center' },
   pill: { minHeight: 44, marginTop: 12, paddingHorizontal: 18, borderRadius: 99, borderWidth: 1, borderColor: '#ffffff2e', alignItems: 'center', justifyContent: 'center' },
   pillText: { fontFamily: 'Inter-Medium', fontSize: 14, color: '#F4EDE0' },
+  holdWrap: { position: 'absolute', left: 22, right: 22 },
+  holdButton: { flex: 1, borderRadius: 99, backgroundColor: '#F4EDE0', overflow: 'hidden' },
+  holdText: { fontFamily: VISION_SERIF, fontSize: 20, color: '#14162B' },
+  keepRow: { position: 'absolute', left: 22 + 58 + 12, right: 22, minHeight: 44, flexDirection: 'row', justifyContent: 'flex-end', alignItems: 'center', gap: 18 },
+  outline: { position: 'absolute', zIndex: 31, overflow: 'hidden' },
+  outlineBox: { borderWidth: 2, borderColor: '#B08A4A' },
   twoUpCaption: { fontFamily: 'Caveat-SemiBold', fontSize: 17, lineHeight: 20, color: '#2A1E10' },
   handCaption: { fontFamily: 'Caveat-SemiBold', fontSize: 25, lineHeight: 29, color: '#2A1E10' },
   // The anchor art carries its own disc; no extra border or backing (it read as a stray ring on device).
