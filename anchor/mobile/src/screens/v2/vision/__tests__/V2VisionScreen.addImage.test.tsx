@@ -171,7 +171,8 @@ describe('V2VisionScreen ceremony additions', () => {
     });
   });
   afterEach(() => { jest.clearAllTimers(); jest.useRealTimers(); jest.restoreAllMocks(); });
-  it('persists a chosen Add position through the atomic slot endpoint and reopens the server-confirmed arrangement', async () => {
+  // DEFERRED (D7): the board's numbered position picker; a ghost frame now names the slot.
+  it.skip('persists a chosen Add position through the atomic slot endpoint and reopens the server-confirmed arrangement', async () => {
     const view = render(<V2VisionScreen anchorId="anchor-1" />);
     await view.findByTestId('vision-board');
     fireEvent.press(view.getByLabelText('Add to Vision'));
@@ -265,7 +266,7 @@ describe('V2VisionScreen ceremony additions', () => {
     expect(apiClient.post).toHaveBeenCalledWith('/api/v2/visions/vision-101/scenes', expect.objectContaining({
       assetId: 'own-asset', sourceType: source === 'camera' ? 'USER_CAMERA' : 'USER_UPLOAD', caption: 'Finished work in my studio.' }));
     await advance(3200); await advance(1200); await advance(200); await advance(600);
-    expect(view.getByTestId('vision-just-added')).toBeTruthy(); expect(view.getByTestId('vision-board-photo-sc-4')).toBeTruthy();
+    expect(view.getByText('Sit with it now · Begin')).toBeTruthy(); expect(view.getByTestId('vision-board-photo-sc-4')).toBeTruthy();
   });
   it.each(['add', 'regenerate'] as const)('drops the arrival pin on the saved scene id after %s even when the read model re-signs its URL', async kind => {
     // Every read re-signs URLs; the arrival must follow scene identity after either mutation.
@@ -505,7 +506,7 @@ describe('V2VisionScreen ceremony additions', () => {
       await ownPhoto(view, 'library'); await seal(view);
       // Step to the moment the board shows the pinned print: the sit beat is timed from there.
       for (let waited = 0; waited < 12000 && !view.queryByTestId('vision-board'); waited += 50) await advance(50);
-      expect(view.getByTestId('vision-board')).toBeTruthy(); expect(view.getByTestId('vision-just-added')).toBeTruthy();
+      expect(view.getByTestId('vision-board')).toBeTruthy(); expect(view.getByText('Sit with it now · Begin')).toBeTruthy();
       return view;
     }
     it('stays on the completed board after the pinned board has been sat with', async () => {
@@ -540,7 +541,7 @@ describe('V2VisionScreen ceremony additions', () => {
     it('a later image never navigates', async () => {
       const view = render(<V2VisionScreen anchorId="anchor-1" />); await openAsk(view); await ownPhoto(view, 'library'); await seal(view, 900);
       await advance(3500); await advance(1200); await advance(200); await advance(600);
-      expect(view.getByTestId('vision-just-added')).toBeTruthy();
+      expect(view.getByText('Sit with it now · Begin')).toBeTruthy();
       await advance(20000); expect(goHome()).toHaveLength(0);
     });
   });

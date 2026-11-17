@@ -238,14 +238,16 @@ describe('V2VisionScreen', () => {
       data: { seenToday: true },
     });
 
-    const { findByTestId, getByText } = render(
+    const { findByTestId, getByText, queryByText } = render(
       <V2VisionScreen anchorId="anchor-1" />,
     );
 
     const screen = await findByTestId('v2-vision-screen');
     expect(screen).toBeTruthy();
     expect(getByText('Begin Visualize')).toBeTruthy();
-    expect(getByText('A quiet, sunlit workspace with completed projects.')).toBeTruthy();
+    // E2: view mode no longer shows the statement under the board; Edit keeps it.
+    expect(queryByText('A quiet, sunlit workspace with completed projects.')).toBeNull();
+    expect(getByText('Tap a photo for its tools. Press and hold, then drag, to move it to any spot.')).toBeTruthy();
   });
 
   it('opens the existing editor directly from Anchor Details Edit', async () => {
@@ -392,7 +394,8 @@ describe('V2VisionScreen', () => {
     expect(mockPracticeProps).toBeUndefined();
   });
 
-  it('clamps long statements and lets the person expand and collapse the real text', async () => {
+  // DEFERRED (E2): the view-mode statement and its Read more are hidden.
+  it.skip('clamps long statements and lets the person expand and collapse the real text', async () => {
     const description = 'A real future with room for my family. '.repeat(10);
     (apiClient.get as jest.Mock).mockResolvedValueOnce({ data: { ...mockVisionData, description } });
     const view = render(<V2VisionScreen anchorId="anchor-1" />);

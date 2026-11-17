@@ -6,9 +6,11 @@ import { Alert, Animated, Easing, Image, StatusBar, KeyboardAvoidingView, Pressa
 // Gesture Handler's ScrollView takes part in gesture arbitration, so a lifted photo keeps the touch on Android.
 import { ScrollView } from 'react-native-gesture-handler';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { ChevronRight, ChevronDown, Eye, MoreHorizontal } from 'lucide-react-native';
+import { ChevronRight, ChevronDown, Eye, MoreHorizontal, PanelsTopLeft, Plus } from 'lucide-react-native';
 import { VisionLayoutSheet } from './VisionLayoutSheet';
-import { useVisionBeginDock } from './useVisionBeginDock';
+// DEFERRED (E4): the floating Begin dock hook; the persistent bottom dock below replaces it.
+// import { useVisionBeginDock } from './useVisionBeginDock';
+import type { ViewInstance as DockViewInstance } from 'react-native';
 import type { VisionBoardLayout, VisionNoteLayoutPositions } from '@/adapters/v2/vision';
 import type { VisionMutationFeedback } from '@/hooks/v2/vision/visionMutationQueue';
 import type { VisionFocal } from './visionPhotoFocus';
@@ -53,7 +55,7 @@ type Props = {
   arrivingNoteId?: string;
   arrivingSceneId?: string | null;
   /** Opens the add flow. With a target, the new image goes to that exact board position. */
-  onAddImage?: (target?: { slot: number }) => void;
+  onAddImage?: (target?: { slot: number; prompt?: string }) => void;
   /** The Vision's id. With it the board keeps each image in its own position and remembers how each is framed. */
   visionId?: string | null;
   /** Pushes a position or framing change to the server. */
@@ -157,8 +159,14 @@ export function V2SavedVision({
   const teachingAccountId = useAuthStore(state => state.user?.id ?? null);
   const imageArrival = useVisionImageArrival();
   const contextualBlocked=mode!=='view'||boardInteracting||dragging||busy||layoutSheetOpen||menuOpen||addSheetOpen||nativeAlertOpen||Boolean(captionSceneId)||manageImages||Boolean(teachingBlocked);
-  const dock=useVisionBeginDock({blocked:contextualBlocked,dockHeight:insets.bottom+12+52+8,
-    newBoard:Boolean(justAdded),landed:!imageArrival?.url&&!imageArrival?.setActive});
+  // DEFERRED (E4): const dock=useVisionBeginDock({blocked:contextualBlocked,dockHeight:insets.bottom+12+52+8,
+  //   newBoard:Boolean(justAdded),landed:!imageArrival?.url&&!imageArrival?.setActive});
+  // One persistent bottom dock (E1). It steps away while a photo is focused, while arranging or dragging, and in edit mode.
+  const dockViewportRef=useRef<DockViewInstance>(null),dockBoardRef=useRef<DockViewInstance>(null),dockButtonRef=useRef<DockViewInstance>(null);
+  const dockVisible=mode==='view'&&!boardInteracting&&!dragging;
+  const dock=useMemo(()=>({viewportRef:dockViewportRef,boardRef:dockBoardRef,buttonRef:dockButtonRef,measure:()=>undefined,
+    onScroll:(_y:number)=>undefined,visible:dockVisible,overBoard:false}),[dockVisible]);
+  void contextualBlocked; void imageArrival;
   // Over the photos the floating button turns to dark glass so the board stays the hero; clear of them it is solid ink.
   const dockGlass=useRef(new Animated.Value(0)).current;
   useEffect(()=>{Animated.timing(dockGlass,{toValue:dock.overBoard?1:0,duration:reduceMotion?0:220,easing:Easing.out(Easing.quad),useNativeDriver:false}).start();},[dock.overBoard,dockGlass,reduceMotion]);
@@ -397,7 +405,7 @@ export function V2SavedVision({
           onScrollBeginDrag={() => setTeachingScrolling(true)}
           onScrollEndDrag={() => { measureCanvas(); setTeachingScrolling(false); }}
           onMomentumScrollBegin={() => { if (!teachingControlledScroll.current) setTeachingScrolling(true); }}
-          onMomentumScrollEnd={() => { measureCanvas(); setTeachingScrolling(false); }} scrollEnabled={!dragging&&!focusLocked} contentContainerStyle={{ paddingBottom: mode === 'view' ? (dock.visible ? 110+insets.bottom : 0) : insets.bottom + spacing[6] }}
+          onMomentumScrollEnd={() => { measureCanvas(); setTeachingScrolling(false); }} scrollEnabled={!dragging&&!focusLocked} contentContainerStyle={{ paddingBottom: mode === 'view' ? DOCK_HEIGHT + 36 + insets.bottom : insets.bottom + spacing[6] }}
           keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
           <View style={{ paddingTop: insets.top }}>
             <StatusBar barStyle="dark-content" />
@@ -438,8 +446,10 @@ export function V2SavedVision({
                   arrangement={arrangement}
                   onReplace={arrangement ? onReplace : undefined}
                   onAddImage={addImage}
+                  controlsDocked
                   onDragActive={setDragging}
                 /></View>
+                <Text testID="vision-board-hint" style={styles.boardHint}>{BOARD_HINT}</Text>
               </View>
             ) : <View style={styles.bandTail} />}
           </View>
@@ -464,13 +474,14 @@ export function V2SavedVision({
               </>
             ) : (
               <>
+                {/* DEFERRED (E2): the "My Vision" heading and statement in view mode; edit mode keeps the description field.
                 <Text style={styles.heading}>My Vision</Text>
                 <Text testID="vision-statement" style={styles.description}>{expanded ? description : preview}</Text>
                 {(truncated || expanded) ? <Pressable accessibilityRole="button" accessibilityState={{ expanded }}
                   onPress={() => setExpanded(value => !value)} style={{ minHeight: 44, flexDirection: 'row', alignItems: 'center', alignSelf: 'flex-start', gap: 4 }}>
                   <Text style={styles.disclosure}>{expanded ? 'Read less' : 'Read more'}</Text>
                   <ChevronDown size={14} color={colors.text.primary} style={{ transform: [{ rotate: expanded ? '180deg' : '0deg' }] }} />
-                </Pressable> : null}
+                </Pressable> : null} */}
                 {manageImages ? <View style={{ gap: spacing[3] }}>{boardTiles.map((tile, index) =>
                   <View key={tile.sceneId} style={{ flexDirection: 'row', alignItems: 'center', gap: spacing[3] }}>
                     <VisionArrivalDestination url={tile.imageUrl} style={{ width: 80, height: 72, backgroundColor: colors.grouped }}>
@@ -491,14 +502,16 @@ export function V2SavedVision({
                       </Pressable>
                     </View>
                   </View>)}</View> : null}
+                {/* DEFERRED (E2): the just-added "Sit with it now" block; the dock's label carries it ("Sit with it now · Begin").
                 {justAdded ? <View testID="vision-just-added" style={{ marginTop: 16, gap: 4 }}>
                   <Text style={styles.heading}>{visionCeremonyCopy.sit}</Text>
                   <Text style={styles.chartPosition}>{justAdded === 'create' ? visionCeremonyCopy.sitCreate : visionCeremonyCopy.sitAdd}</Text>
-                </View> : null}
+                </View> : null} */}
+                {/* DEFERRED (E1): the inline Begin Visualize button; the bottom dock holds it.
                 <View ref={dock.buttonRef} collapsable={false} onLayout={dock.measure}><V2Button size="large" accessibilityLabel="Begin Visualize" disabled={!visualizeReady} onPress={beginVisualize} style={styles.visualize}
                   iconLeft={<Eye size={18} color={colors.paper} />} iconRight={<ChevronRight size={18} color={colors.paper} />}>
                   <Text style={{ fontFamily: 'EBGaramond-Medium', fontSize: 18, fontWeight: 'normal' }}>Begin Visualize</Text>
-                </V2Button></View>
+                </V2Button></View> */}
                 {!visualizeReady ? <Text accessibilityLiveRegion="polite" style={styles.chartPosition}>{preparationIssue ?? 'Preparing your Vision…'}</Text> : null}
                 {preparationIssue && onRetryVisualize ? <Pressable accessibilityRole="button" onPress={onRetryVisualize} style={{ minHeight: 44 }}><Text style={styles.chartLinkText}>Retry Vision images</Text></Pressable> : null}
                 {preparationIssue && onUseAvailableImages ? <Pressable accessibilityRole="button" onPress={onUseAvailableImages} style={{ minHeight: 44 }}><Text style={styles.chartLinkText}>Continue with available images</Text></Pressable> : null}
@@ -512,14 +525,29 @@ export function V2SavedVision({
       {pinnedBelow&&!contextualBlocked?<Pressable testID="vision-pinned-below" accessibilityRole="button" accessibilityLabel="Pinned further down. Show me" onPress={()=>{void revealPinned();}}
         style={{position:'absolute',bottom:insets.bottom+12,alignSelf:'center',height:52,paddingHorizontal:20,borderRadius:30,backgroundColor:'#111C23',justifyContent:'center',zIndex:46}}>
         <Text style={{fontFamily:'Inter-Medium',fontSize:13,color:'#FBF9F4'}}>Pinned further down · Show me</Text>
-      </Pressable>:dock.visible&&visualizeReady?<Animated.View testID="vision-begin-dock-surface" pointerEvents="box-none"
+      </Pressable>:dock.visible?<View testID="vision-bottom-dock" pointerEvents="box-none" style={[styles.dock,{paddingBottom:insets.bottom+14}]}>
+        <Pressable testID="vision-begin-dock" accessibilityRole="button" accessibilityLabel="Begin Visualize" accessibilityState={{disabled:!visualizeReady}}
+          disabled={!visualizeReady} onPress={beginVisualize} style={({pressed})=>[styles.dockBegin,!visualizeReady&&styles.dockDisabled,pressed&&{opacity:.86}]}>
+          <Eye size={20} color={colors.paper} />
+          <Text numberOfLines={1} style={styles.dockBeginText}>{visualizeReady?(justAdded?'Sit with it now · Begin':'Begin Visualize'):'Preparing your Vision…'}</Text>
+        </Pressable>
+        <Pressable testID="vision-board-add" accessibilityRole="button" accessibilityLabel="Add to Vision" disabled={busy} onPress={()=>addImage()} style={({pressed})=>[styles.dockRound,pressed&&{opacity:.8}]}>
+          <Plus size={22} color={colors.text.primary} />
+        </Pressable>
+        {onUpdateBoardLayout?<Pressable testID="vision-layout-open" accessibilityRole="button" accessibilityLabel="Board layout" disabled={busy}
+          onPress={()=>{setLayoutSheetOpen(true);setPreviewLayout(boardLayout??'CLASSIC');}} style={({pressed})=>[styles.dockRound,pressed&&{opacity:.8}]}>
+          <PanelsTopLeft size={22} color={colors.text.primary} />
+        </Pressable>:null}
+      </View>:null}
+      {/* DEFERRED (E1): the floating Begin dock.
+      {false&&dock.visible&&visualizeReady?<Animated.View testID="vision-begin-dock-surface" pointerEvents="box-none"
         style={{position:'absolute',bottom:insets.bottom+12,alignSelf:'center',height:52,borderRadius:30,borderWidth:1,borderColor:dockBorder,backgroundColor:dockBackground,zIndex:45}}>
         <Pressable testID="vision-begin-dock" accessibilityRole="button" accessibilityLabel="Begin Visualize" onPress={beginVisualize}
           style={{height:52,paddingHorizontal:24,justifyContent:'center'}}>
           <Text style={{fontFamily:'EBGaramond-Medium',fontSize:18,color:'#FBF9F4',textShadowColor:'rgba(0,0,0,0.55)',textShadowRadius:4,textShadowOffset:{width:0,height:1}}}>{justAdded?'Sit with it now · Begin':'Begin Visualize'}</Text>
         </Pressable>
-      </Animated.View>:null}
-      {mutationFeedback?.message||error?<View testID="vision-mutation-feedback" accessibilityLiveRegion="polite" style={{position:'absolute',bottom:insets.bottom+(dock.visible||boardInteracting?78:14),alignSelf:'center',maxWidth:'94%',paddingLeft:16,paddingRight:6,paddingVertical:4,minHeight:44,borderRadius:26,backgroundColor:'#17232A',flexDirection:'row',alignItems:'center',gap:8,zIndex:50}}>
+      </Animated.View>:null} */}
+      {mutationFeedback?.message||error?<View testID="vision-mutation-feedback" accessibilityLiveRegion="polite" style={{position:'absolute',bottom:insets.bottom+(dock.visible||boardInteracting?DOCK_HEIGHT+28:14),alignSelf:'center',maxWidth:'94%',paddingLeft:16,paddingRight:6,paddingVertical:4,minHeight:44,borderRadius:26,backgroundColor:'#17232A',flexDirection:'row',alignItems:'center',gap:8,zIndex:50}}>
         <Text style={{color:'#FBF9F4',fontFamily:'Inter-Medium',fontSize:12,flexShrink:1}}>{mutationFeedback?.pending?'Saving…':error??mutationFeedback?.message}</Text>
         {error&&onRetrySave&&!mutationFeedback?.pending?<Pressable accessibilityRole="button" accessibilityLabel="Retry saving Vision" onPress={onRetrySave} style={{minWidth:54,minHeight:38,alignItems:'center',justifyContent:'center'}}><Text style={{color:'#FFF'}}>Retry</Text></Pressable>:null}
         {mutationFeedback?.undo?<Pressable accessibilityRole="button" onPress={()=>{void mutationFeedback.undo?.();}} style={{minWidth:54,minHeight:38,alignItems:'center',justifyContent:'center',borderRadius:22,backgroundColor:'#3D484E'}}><Text style={{color:'#FFF'}}>Undo</Text></Pressable>:null}
@@ -576,7 +604,20 @@ export function V2SavedVision({
   );
 }
 
+/** The bottom dock's button height (E1). */
+const DOCK_HEIGHT = 58;
+/** One line under the board (E3). */
+export const BOARD_HINT = 'Tap a photo for its tools. Press and hold, then drag, to move it to any spot.';
+
 const styles = StyleSheet.create({
+  dock: { position: 'absolute', left: 0, right: 0, bottom: 0, zIndex: 45, flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 18, paddingTop: 14 },
+  dockBegin: { flex: 1, height: DOCK_HEIGHT, borderRadius: 99, backgroundColor: '#14162B', flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10,
+    shadowColor: '#14162B', shadowOpacity: .35, shadowRadius: 12, shadowOffset: { width: 0, height: 8 }, elevation: 6 },
+  dockDisabled: { opacity: .55 },
+  dockBeginText: { flexShrink: 1, fontFamily: 'EBGaramond-Medium', fontSize: 20, color: '#FBF9F4' },
+  dockRound: { width: DOCK_HEIGHT, height: DOCK_HEIGHT, borderRadius: DOCK_HEIGHT / 2, alignItems: 'center', justifyContent: 'center',
+    backgroundColor: '#FBF9F4', borderWidth: 1, borderColor: '#DDD6C9' },
+  boardHint: { fontFamily: 'Inter-Regular', fontSize: 12.5, lineHeight: 17, color: '#77736A', textAlign: 'center', paddingHorizontal: 24, paddingTop: 4, paddingBottom: 12 },
   sectionRule: { width: 32, height: 2, backgroundColor: VISION_GOLD, marginBottom: spacing[2] },
   root: { flex: 1 },
   flex: { flex: 1 },
