@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { Image, Keyboard, StyleSheet, Text, TextInput, View, type ImageSourcePropType, type ViewInstance } from 'react-native';
+import { Image, Keyboard, StyleSheet, Text, TextInput, View, type ImageSourcePropType, type StyleProp, type TextStyle, type ViewInstance } from 'react-native';
 import Animated, { cancelAnimation, Easing, runOnJS, useAnimatedProps, useAnimatedStyle, useSharedValue, withRepeat, withSequence, withTiming, withDelay } from 'react-native-reanimated';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -13,6 +13,7 @@ import { VISION_SERIF_ITALIC } from '../VisionPaperChrome';
 import { CEREMONY, ceremonyDuration, useDevelopReveal } from './VisionDevelop';
 import { visionCeremonyCopy as copy } from './visionCeremonyCopy';
 import { VisionHairline } from './VisionHairline';
+import { VisionDevelopWash, type VisionDevelopPlaceholder } from './VisionDevelopWash';
 
 const AnimatedRect = Animated.createAnimatedComponent(Rect);
 export type PrintPlacement = { x: number; y: number; width: number; height: number; rotation?: number; opacity?: number };
@@ -89,12 +90,16 @@ export interface VisionPrintProps {
   silent?: boolean;
   /** Already developed: no reveal at all. */
   instant?: boolean;
+  /** Develop only: what the empty window shows until the real image reveals (a blurred reference, or a category tint). */
+  placeholder?: VisionDevelopPlaceholder | null;
+  /** Overrides the caption's type (the two-up uses a smaller hand). */
+  captionStyle?: StyleProp<TextStyle>;
   testID?: string;
 }
 
 export function VisionPrint({ uri: uriProp, source, developing, revealed, showCaption, caption, onChangeCaption, pinned,
   reframe, onReframe, empty = false, active = true, revealDelayMs = 0, onDeveloped, onImageError, onRevealStart, imageRef, pressed = false,
-  label, captionStripPts, captionHint = false, revealMs, inkRevealMs, opaque = false, silent = false, instant = false, retryToken = 0, testID = 'vision-print' }: VisionPrintProps) {
+  label, captionStripPts, captionHint = false, revealMs, inkRevealMs, opaque = false, silent = false, instant = false, retryToken = 0, placeholder = null, captionStyle: captionTextStyle, testID = 'vision-print' }: VisionPrintProps) {
   const reduced = useV2ReduceMotion();
   const lowPerformance=usePerformanceTier()==='low';
   const uri = uriProp ?? sourceUri(source);
@@ -172,6 +177,8 @@ export function VisionPrint({ uri: uriProp, source, developing, revealed, showCa
   const windowStyle = useAnimatedStyle(() => ({ bottom: inset.value }));
   const captionStyle = useAnimatedStyle(() => ({ opacity: (inset.value - 8) / Math.max(1, strip - 8) }));
   const inkStyle = useAnimatedStyle(() => ({ opacity: ink.value }));
+  // The wash crossfades out with the ink: full until the image begins to reveal, gone once it has developed.
+  const washStyle = useAnimatedStyle(() => ({ opacity: ink.value }));
   const blurStyle = useAnimatedStyle(() => ({ opacity: blur.value }));
   const fadeStyle=useAnimatedStyle(()=>({opacity:lowPerformance&&!instant?1-blur.value:1}));
   // DEFERRED: caption-beat overscan (1.16) returns with persisted reframe; the arrival flight measures the unzoomed window.
@@ -200,6 +207,9 @@ export function VisionPrint({ uri: uriProp, source, developing, revealed, showCa
           {instant || lowPerformance || settledUri === uri ? null : <Animated.View pointerEvents="none" style={[styles.fill, blurStyle]}><Image key={`blur:${uri}:${retryToken}`} source={imageSource!} blurRadius={24} resizeMode="cover" resizeMethod="resize" style={styles.photo} accessible={false} /></Animated.View>}
         </Animated.View> : null}
         {!instant ? <Animated.View pointerEvents="none" testID={`${testID}-ink`} style={[styles.fill, styles.ink, inkStyle]} /> : null}
+        {!instant && placeholder && !empty && !(uri && settledUri === uri) ? <Animated.View pointerEvents="none" style={[styles.fill, washStyle]}>
+          <VisionDevelopWash placeholder={placeholder} still={reduced || lowPerformance || !active} testID={`${testID}-wash`} />
+        </Animated.View> : null}
         {developing ? <Animated.View pointerEvents="none" style={[styles.fill, sheenStyle]}><LinearGradient colors={['transparent', '#FFFFFF14', 'transparent']} start={{ x: 0, y: 1 }} end={{ x: 1, y: 0 }} style={styles.fill} /></Animated.View> : null}
         {failedUri === uri && uri ? <Text style={styles.error}>{copy.unavailable}</Text> : null}
         {instant && uri && loadedUri !== uri && failedUri !== uri ? <View style={{ position: 'absolute', bottom: 4, alignSelf: 'center' }}><VisionHairline pending label="Reading your photo" /></View> : null}
@@ -208,7 +218,7 @@ export function VisionPrint({ uri: uriProp, source, developing, revealed, showCa
         {label ? <Text style={styles.label} numberOfLines={1}>{label}</Text> : null}
         {onChangeCaption ? <TextInput testID={`${testID}-caption`} accessibilityLabel={copy.captionLabel} value={caption} maxLength={80} multiline={false}
           onChangeText={text => onChangeCaption(text.replace(/[\r\n]/g, ' ').slice(0, 80))} returnKeyType="done" onSubmitEditing={Keyboard.dismiss}
-          style={styles.captionText} /> : <Text numberOfLines={1} ellipsizeMode="tail" style={[styles.captionText, label ? styles.captionTextCompact : null]}>{caption}</Text>}
+          style={[styles.captionText, captionTextStyle]} /> : <Text numberOfLines={1} ellipsizeMode="tail" style={[styles.captionText, label ? styles.captionTextCompact : null, captionTextStyle]}>{caption}</Text>}
         {onChangeCaption || captionHint ? <Text style={styles.captionHint}>{copy.hint}</Text> : null}
       </Animated.View>
       {pinned ? <View style={styles.pin} /> : null}

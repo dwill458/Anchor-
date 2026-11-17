@@ -279,6 +279,11 @@ export function slotBoardHeightRatio(highestOccupiedSlot: number, expanded = fal
   return Math.max(lowest, SLOT_ANCHOR_BOTTOM_WIDTHS) + SLOT_BOARD_SLACK;
 }
 
+/** The eight Classic slots as plain outlines, in board widths (centre, size, tilt): the placement map in Develop draws the real board. */
+export function classicSlotOutlines(): Array<{ cx: number; cy: number; width: number; height: number; rotation: number }> {
+  return SLOT_PRINTS.map(spec => ({ cx: spec[0], cy: spec[1], width: spec[2], height: spec[2] / printAspect(spec), rotation: spec[4] }));
+}
+
 /** The fixed eight-slot composition on a board of the given height ratio. `photos[i]` is slot `i`. */
 export function selectSlotBoardLayout(heightRatio: number): BoardLayout {
   return {

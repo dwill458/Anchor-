@@ -309,8 +309,23 @@ function VisionScreenContent(props: V2VisionScreenProps) {
   const [addDraft, setAddDraft] = useState<AddSceneRequest | null>(null);
   const openAddScene = (target?: { slot?: number }) => {
     pendingSlot.current = typeof target?.slot === 'number' ? target.slot : null;
+    setPlacementPick(pendingSlot.current);
     setActionError(null); setAddSheetOpen(true);
   };
+  // The placement row in Develop: the board's filled slots and the target, defaulting to the caller's slot or the first empty one.
+  // A change goes to the same pendingSlot the board's slot picker used, so the add that follows lands there.
+  const [placementPick, setPlacementPick] = useState<number | null>(null);
+  const addPlacement = useMemo(() => {
+    const visionId = model.vision?.id;
+    if (!visionId) return undefined;
+    const stored = { ...useVisionPresentationStore.getState().byVision[visionId]?.slots,
+      ...Object.fromEntries(model.tiles.filter(tile => tile.slotIndex != null).map(tile => [tile.sceneId, tile.slotIndex!])) };
+    const occupied = resolveSlotMap(model.tiles.map(tile => tile.sceneId), stored).map(Boolean);
+    const firstEmpty = occupied.indexOf(false);
+    if (firstEmpty < 0) return undefined;
+    const slot = placementPick !== null && !occupied[placementPick] ? placementPick : firstEmpty;
+    return { occupied, slot, onChange: (next: number) => { pendingSlot.current = next; setPlacementPick(next); } };
+  }, [model.tiles, model.vision?.id, placementPick]);
   const startAddScene = (request: AddSceneRequest) => {
     setActionError(null);
     setSavedImageUrl(null);
@@ -475,6 +490,7 @@ function VisionScreenContent(props: V2VisionScreenProps) {
       autoStart={Boolean(addRequest) && !replaceSceneId} initialDescription={addRequest?.description} initialStartPhoto={addRequest?.photo ?? null}
       initialReferences={addRequest?.references}
       initialSessionId={addRequest?.sessionId}
+      placement={replaceSceneId ? undefined : addPlacement}
       onAddNote={replaceSceneId ? undefined : openNoteComposer} canAddImage={model.tiles.length < VISION_BOARD_MAX_IMAGES}
       previewImageUrl={model.tiles[0]?.imageUrl} previewCaption={model.tiles[0]?.caption}
       anchorId={anchorId} anchorIntention={anchorIntention} anchorCategory={anchorCategory} anchorArt={anchorArt}

@@ -1,8 +1,8 @@
 import type { ViewInstance } from 'react-native';
 import { useEffect, useRef, useState } from 'react';
-import { Alert, AppState, Keyboard, Platform, Pressable, StatusBar, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
+import { Alert, AppState, Keyboard, Platform, Pressable, StatusBar, StyleSheet, Text, TextInput, View, useWindowDimensions } from 'react-native';
 import Animated, { cancelAnimation, Easing, FadeIn, FadeOut, useAnimatedStyle, useSharedValue, withRepeat, withSequence, withTiming } from 'react-native-reanimated';
-import { ArrowLeft } from 'lucide-react-native';
+import { ArrowLeft, Pencil } from 'lucide-react-native';
 import Svg, { Path } from 'react-native-svg';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { CircularAnchorRenderer } from '@/components/v2/anchor';
@@ -13,7 +13,7 @@ import { AnalyticsService } from '@/services/AnalyticsService';
 import { playCreationSound } from '@/services/CreationSounds';
 import { SoundPool } from '@/services/audio/SoundPool';
 import { useCelebrationStore, type CelebrationLevel } from '@/stores/v2/celebrationStore';
-import { colors } from '@/theme/v2';
+import { colors, getCategoryColor } from '@/theme/v2';
 import { safeHaptics } from '@/utils/haptics';
 import { resolveAnchorCategory } from '@/utils/categoryDetection';
 import type { AnchorCategory } from '@/types';
@@ -33,6 +33,7 @@ import { VisionSealHold } from './VisionSealHold';
 import { VisionEntrance } from './VisionEntrance';
 import { VisionPhotoStack } from './VisionPhotoStack';
 import { VisionHairline } from './VisionHairline';
+import { VisionPlacementMap } from './VisionPlacementMap';
 import { useVisionPicker, VisionPickerHolding } from './VisionPickerHolding';
 import { visionCelebrationTrace } from './visionCelebrationTrace';
 import { CEREMONY, ceremonyDuration } from './VisionDevelop';
@@ -87,6 +88,18 @@ export interface VisionCeremonyProps extends Omit<V2VisionCreationFlowProps, 'in
   canAddImage?: boolean;
   /** Blocks parent route gestures while an accepted seal is being saved and presented. */
   onSealingChange?: (active: boolean) => void;
+  /** Add mode: the board's eight slots (which are filled) and where this picture goes; the placement row in Develop changes it. */
+  placement?: { occupied: ReadonlyArray<boolean>; slot: number; onChange: (slot: number) => void };
+}
+
+/** One segment of the Develop rail. It fills only when its real signal arrives; the fill itself is the only motion. */
+function RailSegment({ on, still, testID }: { on: boolean; still: boolean; testID: string }) {
+  const fill = useSharedValue(on ? 1 : 0);
+  useEffect(() => { fill.value = still ? (on ? 1 : 0) : withTiming(on ? 1 : 0, { duration: on ? 1600 : 0, easing: Easing.linear }); }, [on, still]);
+  const style = useAnimatedStyle(() => ({ transform: [{ scaleX: fill.value }] }));
+  return <View testID={testID} accessibilityState={{ checked: on }} style={styles.segment}>
+    <Animated.View style={[styles.segmentFill, { transformOrigin: 'left' }, style]} />
+  </View>;
 }
 
 function measure(node: ViewInstance | null): Promise<VisionImageRect | null> {
@@ -131,6 +144,8 @@ function ScopedVisionCeremony(props: VisionCeremonyProps) {
   const [inspectCandidateId, setInspectCandidateId] = useState<string | null>(null);
   const [resumeDismissed, setResumeDismissed] = useState(Boolean(props.autoStart || props.photo || props.startAt && props.startAt !== 'ask'));
   const [choicePlacements, setChoicePlacements] = useState<Record<number, PrintPlacement>>({});
+  // The resume card hands back to the conversation view (C5); a fresh request returns to the ceremony's own two-up.
+  const [resumedSession, setResumedSession] = useState(false);
   const hydratedDraft = useRef(false);
   const [scopeReady, setScopeReady] = useState(!props.regenerating || !conversation);
   const freshScopeStarted = useRef(false);
@@ -141,6 +156,9 @@ function ScopedVisionCeremony(props: VisionCeremonyProps) {
   const viewedRound = rounds.find(round => round.id === viewedRoundId) ?? (viewedRoundSnapshot?.id === viewedRoundId ? viewedRoundSnapshot : null);
   const displayedJob = viewedRound ?? actions.generation.job;
   const displayedRound = displayedJob && 'sessionId' in displayedJob && displayedJob.sessionId ? displayedJob as VisionConversationRound : null;
+  // First-round choose is the ceremony's own two-up (C1). Later rounds, refined versions and a resumed session keep the conversation view (C5).
+  const firstRound = !displayedRound || (displayedRound.roundNumber === 0 && rounds.length <= 1 && !resumedSession);
+  const conversationChoose = beat === 'choose' && Boolean(displayedRound) && !firstRound;
   const refineRound = rounds.find(round => round.candidates.some(candidate => candidate.id === refineCandidateId));
   const refineCandidate = refineRound?.candidates.find(candidate => candidate.id === refineCandidateId);
   const resumeVisible = !resumeDismissed && beat === 'ask' && session && (session.rounds.length > 0 || Boolean(session.description.trim()));
@@ -186,7 +204,7 @@ function ScopedVisionCeremony(props: VisionCeremonyProps) {
   const continueSession = (candidateId?: string) => {
     if (!session) return;
     const round = (candidateId ? rounds.find(round => round.candidates.some(candidate => candidate.id === candidateId)) : rounds.find(round => round.id === session.viewedRoundId)) ?? rounds[rounds.length - 1];
-    setResumeDismissed(true); setDescription(conversation?.draft.current?.description ?? session.description);
+    setResumeDismissed(true); setResumedSession(true); setDescription(conversation?.draft.current?.description ?? session.description);
     if (!round) { setReferences(conversation?.draft.current?.references ?? conversationAttachments(session.references)); setStartPhoto(null); setBeat('describe'); return; }
     showRound(round.id); actions.generation.restoreJob?.(round);
     const index = candidateId ? round.candidates.findIndex(candidate => candidate.id === candidateId) : -1;
@@ -341,9 +359,10 @@ function ScopedVisionCeremony(props: VisionCeremonyProps) {
     if (ownPhoto && photos.length > 0 && photos.every(photo => developed.has(photo.uri))) setBeat('keep');
     if (!ownPhoto && !reading) {
       const usable = state.ready.filter(item => item.imageUrl && developed.has(item.imageUrl) && !failedImages.has(item.imageUrl));
-      if (state.selectable && usable.length > 0) setBeat('choose');
+      // Images that arrive while the person is writing the caption never dismiss the keyboard: Choose begins when it closes.
+      if (state.selectable && usable.length > 0 && keyboardH === 0) setBeat('choose');
     }
-  }, [beat, ownPhoto, developed, failedImages, photos, reading, state.selectable, state.ready.map(item => item.imageUrl).join('|')]);
+  }, [beat, ownPhoto, developed, failedImages, photos, reading, state.selectable, state.ready.map(item => item.imageUrl).join('|'), keyboardH]);
   const resumed = useRef(false);
   useEffect(() => {
     if (!props.resumeGeneration) { resumed.current = false; return; }
@@ -360,7 +379,7 @@ function ScopedVisionCeremony(props: VisionCeremonyProps) {
     generationStarting.current = true;
     pendingGeneration.current = { text, refs: selectedReferences ?? (conversation ? references : undefined), options };
     const fromChoose = beat === 'choose', priorDeveloped = developed;
-    setResumeDismissed(true); setViewedRoundId(null); setViewedRoundSnapshot(null); setChoicePlacements({});
+    setResumeDismissed(true); setResumedSession(false); setViewedRoundId(null); setViewedRoundSnapshot(null); setChoicePlacements({});
     setDescription(text); setPhotos([]); setActivePhotoId(null); setPhotoCaptions({}); setFailedImages(new Set()); setChosen(null); setDeveloped(new Set()); setRevealStarted(false); actions.setNotice(null);
     setGenerationPending(true); setGenerationAttempt(value => value + 1);
     requestTime.current = Date.now(); setBeat('develop');
@@ -629,7 +648,16 @@ function ScopedVisionCeremony(props: VisionCeremonyProps) {
   // const addPreview = mode === 'add' && Boolean(props.previewImageUrl);
   // const example = visionDescriptionExample(anchorIntention, anchorCategory);
   const curateW = Math.min(ownPhoto && photos.length > 1 ? width - 72 : width * .77, usable * .52 * .8);
-  const sealW = Math.min(width * .59, usable * .34 * .8), twoW = (width - 62) / 2;
+  // DEFERRED: the two-up sized itself at (width - 62) / 2 and sat at a third of the screen, separately for Develop and Choose.
+  // const twoW = (width - 62) / 2;
+  const sealW = Math.min(width * .59, usable * .34 * .8);
+  // Develop and Choose share one two-up: the prints take these places on Develop's first frame and keep them until one is chosen.
+  const TWO_GAP = 14, TWO_STRIP = 34, TWO_TOP = 104;
+  const twoStackH = 52 + 108 + 84 + 40; // rail, caption slip, placement row, note
+  const twoW = Math.max(110, Math.min((width - 44 - TWO_GAP) / 2, (usable - TWO_TOP - twoStackH - 8 - TWO_STRIP - 24) / 1.25 + 16));
+  const twoH = 8 + (twoW - 16) * 1.25 + TWO_STRIP;
+  const twoTop = insets.top + TWO_TOP, twoLeft = (width - (twoW * 2 + TWO_GAP)) / 2;
+  const railTop = twoTop + twoH + 22, slipTop = railTop + 56;
   const curateY = insets.top + usable * .11, sealY = insets.top + usable * .055, keepY = curateY + usable * .04;
   // Keep: lift the hero so its caption strip clears the keyboard by 16pt.
   const lift = beat === 'keep' && keyboardH > 0 ? Math.max(0, keepY + curateW * 1.25 + 54 + 16 - (height - keyboardH)) : 0;
@@ -643,9 +671,9 @@ function ScopedVisionCeremony(props: VisionCeremonyProps) {
       width: sealW, height: sealW * 1.25 + 54, rotation: hero ? 0 : stackPosition % 2 ? 3 : -3, opacity: hero || (ownPhoto && stackPosition < 3) ? 1 : 0 };
     if (ownPhoto) return { x: (width - curateW) / 2, y: keepY, width: curateW, height: curateW * 1.25 + 54, rotation: 0, opacity: 1 };
     if (refineCandidate) return { x: (width - 126) / 2, y: insets.top + 38, width: 126, height: 164, rotation: 0, opacity: index === refineCandidate.sortOrder ? 1 : 0 };
-    if (beat === 'choose' && displayedRound && choicePlacements[index]) return { ...choicePlacements[index], opacity: 1 };
-    return { x: 24 + index * (twoW + 14), y: insets.top + usable * .33, width: twoW, height: twoW * 1.5,
-      rotation: index === 0 ? -1.2 : 1.2, opacity: reading ? 0 : 1 };
+    if (conversationChoose && choicePlacements[index]) return { ...choicePlacements[index], opacity: 1 };
+    // DEFERRED: { x: 24 + index * (twoW + 14), y: insets.top + usable * .33, width: twoW, height: twoW * 1.5, rotation: ±1.2, opacity: reading ? 0 : 1 }
+    return { x: twoLeft + index * (twoW + TWO_GAP), y: twoTop, width: twoW, height: twoH, rotation: index === 0 ? -1.4 : 1.1, opacity: 1 };
   };
   const activePrintPlacement = printPlacement(activePhotoIndex, 0);
   const anchorSize = beat === 'seal' && !committed ? 128 : committed ? 78 : 48;
@@ -662,6 +690,19 @@ function ScopedVisionCeremony(props: VisionCeremonyProps) {
   const status = preparationLabel ?? (reading ? copy.reading
     : waitBeat >= 3 ? copy.wait40 : waitBeat >= 2 ? copy.wait20 : state.ready.length === 1 ? copy.second : waitBeat >= 1 ? copy.developingImages : copy.composing);
   const showCaption = ownPhoto || ['keep', 'seal', 'pinned'].includes(beat);
+  // Both two-up prints carry the caption live on their paper band while it develops and while choosing.
+  const twoUpCaption = !ownPhoto && (beat === 'develop' || beat === 'choose');
+  // The rail: three real signals, no timers. Reading ended; the job is running; the first image is here.
+  const jobStatus = generationPending ? null : displayedJob?.status ?? null;
+  const railSignals = [!reading, jobStatus === 'RUNNING' || jobStatus === 'PARTIAL' || jobStatus === 'COMPLETE', state.ready.length >= 1];
+  const railFilled = railSignals.map((_, index) => railSignals.slice(index).some(Boolean));
+  const developFailed = !ownPhoto && (state.phase === 'failed' || failedImages.size > 0);
+  const developPlaceholder = { uri: references[0]?.uri ?? startPhoto?.uri ?? null, color: getCategoryColor(anchorCategory) };
+  const [placementOpen, setPlacementOpen] = useState(false);
+  const firstEmptySlot = Math.max(0, props.placement?.occupied.findIndex(filled => !filled) ?? 0);
+  const placementSlot = props.placement && !props.placement.occupied[props.placement.slot] ? props.placement.slot : firstEmptySlot;
+  // While the keyboard is open the slip rides just above it; the placement row and the note step out of the way.
+  const slipY = keyboardH > 0 ? Math.min(slipTop, height - keyboardH - 104) : slipTop;
   const limitReached = actions.generation.errorCode === 'VISION_GENERATION_LIMIT';
   const liftY = useSharedValue(0);
   useEffect(() => { liftY.value = withTiming(-lift + (stampComplete ? 4 : 0), { duration: reduced ? 0 : 250 }); }, [lift, reduced, stampComplete]);
@@ -672,6 +713,14 @@ function ScopedVisionCeremony(props: VisionCeremonyProps) {
   //   setDescription(example); setInputPath('words'); setBeat('describe'); void v2Haptics.selection();
   //   AnalyticsService.track('vision_ceremony_suggestion_tapped', { anchor_id: anchorId, mode: analyticsMode });
   // };
+  /** "Neither, try again": a conversation's first round asks the same session again; otherwise the original request repeats. Limit handling is unchanged. */
+  const tryAgain = () => {
+    if (displayedRound) {
+      void generate(session?.description || descriptionRef.current, null, null, references, { operation: references.length > 1 ? 'COMPOSE' : 'CREATE', sessionId: displayedRound.sessionId });
+      return;
+    }
+    void generate(descriptionRef.current, startPhoto ? null : undefined, startPhoto ?? undefined);
+  };
   const startDescribe = () => {
     if (mode === 'add') AnalyticsService.track('vision_image_add_started', { anchor_id: anchorId, source_type: 'AI_GENERATED' });
     setBeat('describe');
@@ -724,9 +773,11 @@ function ScopedVisionCeremony(props: VisionCeremonyProps) {
         const item = state.slots[index];
         const uri = item?.imageUrl ?? undefined;
         return <VisionPrintSlot key={item?.assetId ?? `generated-print-${index}`} placement={printPlacement(index)} pointerEvents={beat === 'ask' || beat === 'describe' ? 'none' : 'auto'} testID={`vision-ceremony-slot-${index}`}>
-          <Animated.View style={[styles.fill, { zIndex: 1 }, liftStyle, beat === 'choose' && displayedRound && !refineCandidate ? { opacity: 0 } : undefined]} pointerEvents={index === chosen || beat === 'choose' ? 'auto' : 'none'}>
+          <Animated.View style={[styles.fill, { zIndex: 1 }, liftStyle, conversationChoose && !refineCandidate ? { opacity: 0 } : undefined]} pointerEvents={index === chosen || beat === 'choose' ? 'auto' : 'none'}>
             <VisionPrint uri={uri} developing={beat === 'develop'} revealMs={2400} inkRevealMs={2400} revealed={beat !== 'ask' && beat !== 'describe' && !reading}
-              empty={beat === 'ask' || beat === 'describe'} active={foreground} showCaption={showCaption && index === chosen} caption={caption} pinned={false}
+              empty={beat === 'ask' || beat === 'describe'} active={foreground} showCaption={twoUpCaption || (showCaption && index === chosen)} caption={caption} pinned={false}
+              captionStripPts={twoUpCaption ? TWO_STRIP : undefined} captionStyle={twoUpCaption ? styles.twoUpCaption : styles.handCaption}
+              placeholder={beat === 'develop' || beat === 'choose' ? developPlaceholder : null}
               revealDelayMs={0} pressed={stampComplete} imageRef={node => { printRefs.current[index] = node; }} onRevealStart={() => setRevealStarted(true)}
               onImageError={value => { setFailedImages(previous => new Set(previous).add(value)); setBeat('develop'); }}
               retryToken={item ? imageRetryTokens[item.assetId ?? item.id] ?? 0 : 0}
@@ -753,7 +804,7 @@ function ScopedVisionCeremony(props: VisionCeremonyProps) {
         </VisionSealHold>
       </Animated.View>
     </VisionPrintSlot>
-    {beat !== 'describe' && beat !== 'ask' && !(beat === 'choose' && displayedRound) ? <Animated.View key={beat} pointerEvents="box-none" entering={FadeIn.duration(fade)} exiting={FadeOut.duration(fade)} style={styles.fill}>
+    {beat !== 'describe' && beat !== 'ask' && !conversationChoose ? <Animated.View key={beat} pointerEvents="box-none" entering={FadeIn.duration(fade)} exiting={FadeOut.duration(fade)} style={styles.fill}>
       {!committed || (beat === 'pinned' && foreground) ? <Pressable accessibilityRole="button" accessibilityLabel={copy.back} onPress={back} style={[styles.back, { top: insets.top + 10 }]}><ArrowLeft size={20} color="#F4EDE0" /></Pressable> : null}
       {/* DEFERRED: replaced by VisionEntrance (Oct 2026). The old Ask copy, intention line, category eyebrow, footer and footnote:
       // {beat === 'ask' ? <>
@@ -771,21 +822,57 @@ function ScopedVisionCeremony(props: VisionCeremonyProps) {
       // </> : null}
       */}
       {beat === 'develop' || beat === 'choose' ? <>
-        {!ownPhoto ? <View style={[styles.copy, { top: insets.top + usable * .13 }]}><Text style={styles.eyebrow}>{copy.yourVision}</Text><Text accessibilityRole="header" style={styles.title}>{beat === 'choose' ? copy.choose : copy.future}</Text></View> : null}
-        {!ownPhoto && beat === 'develop' ? <Animated.View style={[styles.words, { top: insets.top + usable * .31 }, wordsStyle]}><Text style={styles.wordText}>{words.map((word, i) => <Text key={i} style={{ opacity: i < litWords ? 1 : .18 }}>{word} </Text>)}</Text></Animated.View> : null}
-        <View style={[styles.copy, { top: insets.top + usable * .7 }]}>
-          {beat === 'develop' && !ownPhoto ? <><Text accessibilityLiveRegion="polite" style={styles.status}>{status}</Text>
-            {preparationLabel ? <VisionHairline pending prominent label={preparationLabel} testID="vision-preparation-progress" />
-              : <Svg width={150} height={10} accessible={false}><Path d="M1 5 Q75 2 149 5" stroke="#F4EDE0" strokeWidth={1.3} strokeDasharray={150} strokeDashoffset={150 * (1 - (reading ? .25 : state.ready.length ? .8 : .55))} fill="none" /></Svg>}
-            <Text style={styles.note}>{preparationLabel ? 'Keep the app open while we prepare your scene.' : copy.waitNote}</Text></> : null}
-          {!ownPhoto && (state.phase === 'failed' || failedImages.size > 0) ? <><Text style={styles.status}>{copy.failed}</Text><Text style={styles.note}>{failedImages.size > 0 ? copy.unavailable : state.ready.length ? copy.failedPartial : copy.failedBody}</Text>
+        {/* DEFERRED: the "Your vision" eyebrow over the title at usable * .13. */}
+        {!ownPhoto ? <View style={[styles.copy, { top: insets.top + 56 }]}><Text accessibilityRole="header" style={styles.title}>{beat === 'choose' ? copy.choose : copy.future}</Text></View> : null}
+        {/* DEFERRED: the word-lighting block (the description's words lighting one by one). The rail below replaces it; the reading timer and its ticks still run.
+        {!ownPhoto && beat === 'develop' ? <Animated.View style={[styles.words, { top: insets.top + usable * .31 }, wordsStyle]}><Text style={styles.wordText}>{words.map((word, i) => <Text key={i} style={{ opacity: i < litWords ? 1 : .18 }}>{word} </Text>)}</Text></Animated.View> : null} */}
+        {beat === 'develop' && !ownPhoto ? <Pressable testID="vision-develop-leave" accessibilityRole="button" accessibilityLabel={copy.leave} hitSlop={8}
+          onPress={() => { Keyboard.dismiss(); latest.current.onBack(); }} style={[styles.leave, { top: insets.top + 10 }]}><Text style={styles.leaveText}>{copy.leave}</Text></Pressable> : null}
+        {beat === 'develop' && !ownPhoto && !developFailed ? <View testID="vision-develop-rail" style={[styles.rail, { top: railTop }]}>
+          <Text accessibilityLiveRegion="polite" style={styles.railLabel} numberOfLines={1}>{status}</Text>
+          {/* DEFERRED: the single arc: <Svg width={150} height={10}><Path d="M1 5 Q75 2 149 5" ... strokeDashoffset={150 * (1 - (reading ? .25 : state.ready.length ? .8 : .55))} /></Svg> */}
+          {preparationLabel ? <VisionHairline pending prominent label={preparationLabel} testID="vision-preparation-progress" />
+            : <View style={styles.segments}>{railFilled.map((on, index) => <RailSegment key={index} on={on} still={reduced || lowPerformance} testID={`vision-develop-rail-${index}`} />)}</View>}
+        </View> : null}
+        {developFailed || ((actions.notice || actions.generation.error) && !(beat === 'choose' && !conversationChoose)) ? <View style={[styles.copy, { top: railTop }]}>
+          {developFailed ? <><Text style={styles.status}>{copy.failed}</Text><Text style={styles.note}>{failedImages.size > 0 ? copy.unavailable : state.ready.length ? copy.failedPartial : copy.failedBody}</Text>
             {link(copy.retry, () => { void (failedImages.size > 0 ? retryFailedGeneratedImages() : retryGeneration()); })}{link(copy.edit, () => setBeat('describe'))}</> : null}
           {(actions.notice || actions.generation.error) && !(beat === 'choose' && limitReached) ? <Text accessibilityLiveRegion="polite" style={styles.error}>{actions.notice ?? actions.generation.error}</Text> : null}
-        </View>
-        {beat === 'choose' ? <View style={[styles.footer, { bottom: insets.bottom + 30 }]}>
+        </View> : null}
+        {beat === 'develop' && !ownPhoto && !developFailed ? <View style={[styles.slipBlock, { top: slipY }]}>
+          <Text style={styles.slipLabel}>{copy.whileDeveloping}</Text>
+          <View style={styles.slip}>
+            <TextInput testID="vision-develop-caption" accessibilityLabel={copy.captionLabel} value={caption} maxLength={80} multiline={false}
+              onChangeText={text => setCaption(text.replace(/[\r\n]/g, ' ').slice(0, 80))} returnKeyType="done" onSubmitEditing={Keyboard.dismiss}
+              style={styles.slipInput} />
+            <Pencil size={18} color="#6B5330" strokeWidth={1.8} />
+          </View>
+          {keyboardH === 0 ? <View style={styles.where}>
+            {props.placement && mode === 'add' ? <>
+              <Pressable testID="vision-develop-placement" accessibilityRole="button" accessibilityLabel={copy.placeAdd(placementSlot)} accessibilityState={{ expanded: placementOpen }}
+                onPress={() => setPlacementOpen(open => !open)} style={styles.whereRow}>
+                <VisionPlacementMap width={44} viewportHeight={54} selected={placementSlot} occupied={props.placement.occupied} />
+                <Text style={styles.whereText}>{copy.placeAdd(placementSlot)}</Text>
+              </Pressable>
+              {placementOpen ? <View style={styles.wherePicker}>
+                <Text style={styles.slipLabel}>{copy.placeChoose}</Text>
+                <VisionPlacementMap width={112} selected={placementSlot} occupied={props.placement.occupied} testID="vision-develop-placement-picker"
+                  onPick={slot => { void v2Haptics.selection(); latest.current.placement?.onChange(slot); setPlacementOpen(false); }} />
+              </View> : null}
+            </> : <View style={styles.whereRow}>
+              <VisionPlacementMap width={44} viewportHeight={54} selected={0} occupied={[]} />
+              <Text style={styles.whereText}>{copy.opensBoard}</Text>
+            </View>}
+          </View> : null}
+        </View> : null}
+        {beat === 'develop' && !ownPhoto && keyboardH === 0 && !placementOpen ? <Text style={[styles.note, styles.waitNote, { bottom: insets.bottom + 22 }]}>
+          {preparationLabel ? 'Keep the app open while we prepare your scene.' : copy.waitNote}</Text> : null}
+        {beat === 'choose' && !conversationChoose ? <View style={[styles.copy, { top: railTop }]}>
+          <Text style={styles.chooseBody}>{copy.chooseBody}</Text>
           {/* TODO(limit): SCENE jobs do not expose remaining generations; never invent a count. */}
           {limitReached ? <Text testID="vision-ceremony-limit" accessibilityLiveRegion="polite" style={styles.note}>{actions.generation.error}</Text>
-            : link(copy.neither, () => { void generate(descriptionRef.current, startPhoto ? null : undefined, startPhoto ?? undefined); })}
+            : <Pressable testID="vision-ceremony-neither" accessibilityRole="button" accessibilityLabel={copy.neither} onPress={tryAgain} style={styles.pill}><Text style={styles.pillText}>{copy.neither}</Text></Pressable>}
+          {(actions.notice || actions.generation.error) && !limitReached ? <Text accessibilityLiveRegion="polite" style={styles.error}>{actions.notice ?? actions.generation.error}</Text> : null}
         </View> : null}
       </> : null}
       {beat === 'keep' ? <>
@@ -809,7 +896,7 @@ function ScopedVisionCeremony(props: VisionCeremonyProps) {
       <VisionResumeCard session={session} anchorArt={anchorArt} onContinue={() => continueSession()} onKeep={continueSession} onStartDifferent={() => { void startDifferent(); }} />
       <Pressable accessibilityRole="button" accessibilityLabel={copy.back} onPress={onBack} style={[styles.back, { top: insets.top + 10 }]}><ArrowLeft size={20} color="#F4EDE0" /></Pressable>
     </View> : null}
-    {beat === 'choose' && displayedRound && !refineCandidate ? <Animated.View key={`round-${displayedRound.id}`} entering={reduced ? undefined : FadeIn.duration(fade)} style={[styles.fill, { zIndex: 45 }]}>
+    {conversationChoose && displayedRound && !refineCandidate ? <Animated.View key={`round-${displayedRound.id}`} entering={reduced ? undefined : FadeIn.duration(fade)} style={[styles.fill, { zIndex: 45 }]}>
       <VisionConversationSelection anchorArt={anchorArt} round={displayedRound} rounds={rounds.length ? rounds : [displayedRound]} selectedCandidateId={session?.selectedCandidateId ?? null}
         inspectCandidateId={inspectCandidateId} onInspectClosed={() => setInspectCandidateId(null)}
         onSelect={(item, index) => choose(index, item, true)} onRefine={item => openRefine(item)} onSelectRound={showRound} onViewCandidate={viewExactCandidate}
@@ -884,6 +971,28 @@ const styles = StyleSheet.create({
   error: { fontFamily: 'Inter-Regular', fontSize: 13, color: '#F4EDE0', textAlign: 'center', lineHeight: 18 },
   words: { position: 'absolute', left: 30, right: 30 }, wordText: { fontFamily: VISION_SERIF_ITALIC, fontSize: 25, lineHeight: 33, color: '#F4EDE0', textAlign: 'center' },
   status: { fontFamily: VISION_SERIF_ITALIC, fontSize: 21, color: '#F4EDE0', textAlign: 'center' },
+  leave: { position: 'absolute', right: 18, minHeight: 44, minWidth: 44, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 6 },
+  leaveText: { fontFamily: 'Inter-Medium', fontSize: 13, color: '#ADAABC' },
+  rail: { position: 'absolute', left: 22, right: 22 },
+  railLabel: { fontFamily: VISION_SERIF_ITALIC, fontSize: 19, lineHeight: 26, color: '#F4EDE0', textAlign: 'center' },
+  segments: { flexDirection: 'row', gap: 6, marginTop: 10 },
+  segment: { flex: 1, height: 2, backgroundColor: '#ffffff22', overflow: 'hidden' },
+  segmentFill: { ...StyleSheet.absoluteFill, backgroundColor: '#F4EDE0' },
+  slipBlock: { position: 'absolute', left: 22, right: 22 },
+  slipLabel: { fontFamily: 'Inter-Medium', fontSize: 13, color: '#ADAABC', marginBottom: 10 },
+  slip: { minHeight: 52, flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 14, paddingVertical: 8, borderRadius: 3, backgroundColor: '#F7F1E6',
+    transform: [{ rotate: '-0.6deg' }], shadowColor: '#000', shadowOpacity: .45, shadowRadius: 10, shadowOffset: { width: 0, height: 10 }, elevation: 6 },
+  slipInput: { flex: 1, minWidth: 0, padding: 0, fontFamily: 'Caveat-SemiBold', fontSize: 25, color: '#2A1E10' },
+  where: { marginTop: 20, paddingTop: 16, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: '#ffffff1a', gap: 12 },
+  whereRow: { flexDirection: 'row', alignItems: 'center', gap: 12, minHeight: 54 },
+  whereText: { flex: 1, fontFamily: 'Inter-Regular', fontSize: 13.5, lineHeight: 19, color: '#ADAABC' },
+  wherePicker: { alignItems: 'center' },
+  waitNote: { position: 'absolute', left: 22, right: 22, color: '#8F8CA3' },
+  chooseBody: { fontFamily: 'Inter-Regular', fontSize: 14, lineHeight: 20, color: '#ADAABC', textAlign: 'center' },
+  pill: { minHeight: 44, marginTop: 12, paddingHorizontal: 18, borderRadius: 99, borderWidth: 1, borderColor: '#ffffff2e', alignItems: 'center', justifyContent: 'center' },
+  pillText: { fontFamily: 'Inter-Medium', fontSize: 14, color: '#F4EDE0' },
+  twoUpCaption: { fontFamily: 'Caveat-SemiBold', fontSize: 17, lineHeight: 20, color: '#2A1E10' },
+  handCaption: { fontFamily: 'Caveat-SemiBold', fontSize: 25, lineHeight: 29, color: '#2A1E10' },
   // The anchor art carries its own disc; no extra border or backing (it read as a stray ring on device).
   mark: { flex: 1, borderRadius: 100 },
   ripple: { ...StyleSheet.absoluteFill, borderRadius: 100, borderWidth: 1, borderColor: '#F4EDE0' },
