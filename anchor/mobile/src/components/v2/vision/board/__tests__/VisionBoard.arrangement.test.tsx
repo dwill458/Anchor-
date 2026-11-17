@@ -102,9 +102,10 @@ describe('slot positions', () => {
   it('hands each print the tape of its slot and its own frame variant, wherever the other slots are filled', () => {
     setup([null, 'a', null, 'b', null, null, null, 'c']);
     expect(lastProps('a').tapes).toEqual([]);                                   // slot 1 is a torn print: no tape
-    expect(lastProps('b').tapes.map((t: any) => t.photo)).toEqual([3]);
-    expect(lastProps('c').tapes.map((t: any) => t.photo)).toEqual([7]);
-    expect(lastProps('a').treatment).toBe('torn'); expect(lastProps('b').treatment).toBe('polaroid');
+    // D1/D3: one pinned print language, no Classic tape.
+    expect(lastProps('b').tapes).toEqual([]);
+    expect(lastProps('c').tapes).toEqual([]);
+    expect(lastProps('a').treatment).toBe('pinned'); expect(lastProps('b').treatment).toBe('pinned');
     expect(lastProps('b').frameVariant).toBe('wide-bottom');
   });
 

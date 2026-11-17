@@ -52,10 +52,16 @@ export const BOARD_CARD_ASPECT = 1;
  * How a print is made. `torn` is a full-bleed photograph with torn paper edges, `print` a thin-bordered editorial print,
  * and `polaroid` the captioned instant-photo frame. The mix is what keeps the board from reading as a uniform gallery.
  */
-export type BoardTreatment = 'torn' | 'print' | 'polaroid' | 'flat' | 'snap';
+export type BoardTreatment = 'torn' | 'print' | 'polaroid' | 'flat' | 'snap' | 'pinned';
+/** The Classic print: an even mount border, as a fraction of the print's width, on the top and sides (and the bottom when captionless). */
+export const PINNED_BORDER = 0.026;
+/** Classic's Anchor sits on the hero's lower-right corner (D5): centre x and card width, in board widths. */
+export const CLASSIC_ANCHOR = { x: 0.86, width: 0.2 } as const;
 
 /** Shared caption geometry, in board-width units. Font metrics come from native Text. */
-export type BoardCaption = { key: string; text: string; fontSize: number; lineHeight: number; width: number; height: number; left: number; top: number; extra: number; fontFamily: string; kind: 'label' | 'band' | 'editorial' };
+export type BoardCaption = { key: string; text: string; fontSize: number; lineHeight: number; width: number; height: number; left: number; top: number; extra: number; fontFamily: string; kind: 'label' | 'band' | 'editorial';
+  /** Pinned prints: the hero's line is left aligned, clear of the Anchor; others are centred. */
+  align?: 'left' | 'center'; color?: string };
 
 export type BoardSlot = {
   /** Polaroid aperture, preserving the original wide-foot Classic print when captionless. */
@@ -70,6 +76,8 @@ export type BoardSlot = {
   /** Set on the Vision board's fixed slots; absent on count-based compositions. */
   treatment?: BoardTreatment;
   caption?: BoardCaption;
+  /** The Anchor card only: Classic rings it in the mount's paper with a hairline. */
+  ring?: 'mount';
 };
 
 export type BoardCardSlot = Omit<BoardSlot, 'frame'>;
@@ -241,7 +249,8 @@ export function selectDetailBoardLayout(imageCount: number): BoardLayout {
  * rows. Positions are normalised to the board width, so it keeps its density on every screen. The mix of treatments
  * (torn edge, thin print, polaroid) is fixed per slot, so the same board always looks the same.
  */
-const SLOT_PRINTS: readonly PrintSpec[] = [
+// DEFERRED: the mixed Classic materials and tilts. Still used, unchanged, for the Classic caption/row pass so existing boards keep every centre.
+const LEGACY_SLOT_PRINTS: readonly PrintSpec[] = [
   [0.5, 0.37, 0.97, 'landscape', -0.8, VISION_HERO_ASPECT, 'torn'],
   [0.24, 0.96, 0.43, 'portrait', -5, 0.76, 'torn'],
   [0.75, 0.94, 0.48, 'square', 2.5, 1.15, 'print'],
@@ -251,7 +260,13 @@ const SLOT_PRINTS: readonly PrintSpec[] = [
   [0.245, 2.12, 0.43, 'portrait', -3, 0.84, 'torn'],
   [0.755, 2.12, 0.43, 'portrait', 3, 0.95, 'polaroid'],
 ];
-const SLOT_TAPE: readonly TapeSpec[] = [[3, 0.5, 0.26, 3, 'gold'], [7, 0.5, 0.26, -2, 'cream']];
+/** One print language (D1): the same x, y, width, frame and aspect as before; every slot is 'pinned', with new tilts. */
+const PINNED_TILTS = [-0.8, -2.2, 1.8, 1.6, -1.4, 1.5, -1.8, 1.6] as const;
+const SLOT_PRINTS: readonly PrintSpec[] = LEGACY_SLOT_PRINTS.map(([x, y, width, frame, , aspect], slot) =>
+  [x, y, width, frame, PINNED_TILTS[slot], aspect, 'pinned'] as const);
+// DEFERRED: const SLOT_TAPE: readonly TapeSpec[] = [[3, 0.5, 0.26, 3, 'gold'], [7, 0.5, 0.26, -2, 'cream']];
+const LEGACY_SLOT_TAPE: readonly TapeSpec[] = [[3, 0.5, 0.26, 3, 'gold'], [7, 0.5, 0.26, -2, 'cream']];
+const SLOT_TAPE: readonly TapeSpec[] = [];
 /** The Anchor's centre, in board widths from the top. Fixed, so it never moves as photographs come and go. */
 const SLOT_ANCHOR_Y_WIDTHS = 0.965;
 /** Empty paper under the lowest print or the Anchor, in board widths: room for the board title and the Add control. */
@@ -285,15 +300,17 @@ export function classicSlotOutlines(): Array<{ cx: number; cy: number; width: nu
 }
 
 /** The fixed eight-slot composition on a board of the given height ratio. `photos[i]` is slot `i`. */
-export function selectSlotBoardLayout(heightRatio: number): BoardLayout {
+export function selectSlotBoardLayout(heightRatio: number, options: { legacy?: boolean } = {}): BoardLayout {
+  const prints = options.legacy ? LEGACY_SLOT_PRINTS : SLOT_PRINTS;
+  const tape = options.legacy ? LEGACY_SLOT_TAPE : SLOT_TAPE;
   return {
-    count: SLOT_PRINTS.length,
-    photos: SLOT_PRINTS.map((spec, index) => ({
+    count: prints.length,
+    photos: prints.map((spec, index) => ({
       frame: spec[3], x: spec[0], y: spec[1] / heightRatio, width: spec[2], aspectRatio: printAspect(spec), rotation: spec[4], zIndex: 12 + index,
       treatment: spec[6] ?? 'polaroid',
     })),
     card: { x: 0.5, y: SLOT_ANCHOR_Y_WIDTHS / heightRatio, width: ANCHOR_WIDTH, aspectRatio: BOARD_CARD_ASPECT, rotation: -2, zIndex: 40 },
-    decor: SLOT_TAPE.map(([photoIndex, offset, width, rotationDeg, tone]) => ({ kind: 'tape', photo: photoIndex, offset, width, rotation: rotationDeg, tone })),
+    decor: tape.map(([photoIndex, offset, width, rotationDeg, tone]) => ({ kind: 'tape', photo: photoIndex, offset, width, rotation: rotationDeg, tone })),
   };
 }
 
@@ -335,6 +352,7 @@ export function boardPhotoWindow(slot:BoardSlot,scene:Size):SceneRect {
   const photo=toSceneRect(slot,scene),t=slot.treatment;
   let x=0,y=0,width=photo.width,height=photo.height;
   if(t==='print'){x=width*.035;y=x;width-=2*x;height-=2*x;}
+  else if(t==='pinned'){x=width*PINNED_BORDER;y=x;width-=2*x;height-=2*x;}
   else if(t==='snap'){x=width*.045;y=x;height-=width*.215;width*=.91;}
   else if(t==='polaroid'){x=width*.06;y=height*.06;width*=.88;height*=(slot.apertureBottom??.78)-.06;}
   else if(!t){const f=BOARD_FRAME_WINDOW[slot.frame];x=width*f.left;y=height*f.top;width*=f.right-f.left;height*=f.bottom-f.top;}

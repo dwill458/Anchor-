@@ -28,9 +28,12 @@ describe('shared Vision board composition', () => {
     const expected = selectSlotBoardLayout(slotBoardHeightRatio(7));
     const result = composeVisionBoard({ tiles: tiles(8), width: 366 });
     expect(result.layout.photos.map(({ caption, ...slot }) => slot)).toEqual(
-      expected.photos.map((slot, index) => ({ ...slot, apertureBottom: index === 3 ? .7 : .78 })),
+      // DEFERRED: the mixed-material Classic carried polaroid apertures ({ apertureBottom: index === 3 ? .7 : .78 }).
+      expected.photos,
     );
-    expect(result.layout.card).toEqual(expected.card);
+    const hero = result.layout.photos[0];
+    expect(result.layout.card).toEqual(expect.objectContaining({ x: 0.86, width: 0.2, rotation: 0, ring: 'mount' }));
+    expect(result.layout.card.y * result.ratio).toBeCloseTo(hero.y * result.ratio + hero.width / hero.aspectRatio / 2, 6);
   });
   it('uses measured caption heights and offsets notes without writing their saved coordinates', () => {
     const input = { tiles: tiles(8, 'Long caption'), notes: [note], width: 366 };

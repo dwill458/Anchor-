@@ -227,7 +227,7 @@ export const VisionBoardScene = memo(function VisionBoardScene({
         dimmed={Boolean(focusedSceneId && focusedSceneId !== 'card')}
         onTeachingMotionChange={onTeachingMotionChange}
         reduceMotion={reduceMotion} recomposeMs={recomposeMs} onPress={interactive ? onCardPress : undefined} anchorTestID={anchorTestID} markAppearance={cinematic?.bridgeOpacity ? 'paper' : markAppearance}
-        hideMark={!showAnchorMark || (Boolean(cinematic) && !cinematic?.bridgeOpacity)} onMarkLayout={cinematic?.onMarkLayout}
+        hideMark={!showAnchorMark || (Boolean(cinematic) && !cinematic?.bridgeOpacity)} onMarkLayout={cinematic?.onMarkLayout} ring={layout.card.ring}
         paperOpacity={cinematic?.bridgeOpacity ?? cinematic?.paperOpacity} pinOpacity={cinematic?.pinOpacity} /></Animated.View> : null}
     </View>
   );

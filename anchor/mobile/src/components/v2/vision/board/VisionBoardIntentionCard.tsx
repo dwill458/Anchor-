@@ -36,6 +36,8 @@ type Props = {
   markAppearance?: 'bare' | 'paper';
   /** A cinematic compositor can own the same mark without duplicating it. */
   hideMark?: boolean;
+  /** Classic: ring the mark in the mount's paper. */
+  ring?: 'mount';
   onMarkLayout?: (rect: LayoutRectangle) => void;
   /** Optional independent layers for the cinematic return; ordinary boards default to fully visible. */
   paperOpacity?: SharedValue<number>;
@@ -45,7 +47,7 @@ type Props = {
 
 /** The persisted Anchor SVG connects the photographs without repeating the intention. */
 export const VisionBoardIntentionCard = memo(function VisionBoardIntentionCard({
-  rect, intention, category, art, reduceMotion, onPress, dimmed = false, anchorTestID, markAppearance = 'bare', hideMark = false, onMarkLayout,
+  rect, intention, category, art, reduceMotion, onPress, dimmed = false, anchorTestID, markAppearance = 'bare', hideMark = false, ring, onMarkLayout,
   paperOpacity, pinOpacity, onTeachingMotionChange,recomposeMs=MOTION.recompose.moveMs,
 }: Props) {
   const arrival = useVisionImageArrival();
@@ -112,7 +114,7 @@ export const VisionBoardIntentionCard = memo(function VisionBoardIntentionCard({
         }}>
         {!hideMark && art?.svg ? <CircularAnchorRenderer testID={anchorTestID} svg={art.svg} imageUrl={art.imageUrl}
           expression={art.expression} category={art.category ?? category} appearance={paper ? 'paper' : 'bare'}
-          size={markSize} style={paper ? styles.medallion : undefined} accessibilityLabel={`${categoryLabel(category)} Anchor`}
+          size={markSize} style={paper ? (ring === 'mount' ? styles.mountRing : styles.medallion) : undefined} accessibilityLabel={`${categoryLabel(category)} Anchor`}
           aura={art.threadStrength === undefined || art.threadStrength === null ? undefined : {
             threadStrength: art.threadStrength, variant: 'details', active: true, reducedMotion: reduceMotion,
           }} /> : null}
@@ -137,6 +139,8 @@ export const VisionBoardIntentionCard = memo(function VisionBoardIntentionCard({
 const styles = StyleSheet.create({
   card: { position: 'absolute', zIndex: 40 },
   fill: { position: 'absolute', left: 0, top: 0, width: '100%', height: '100%' },
+  // Classic (D5): the Anchor is set into the print, a 3pt ring of the mount's paper with the mount's hairline outside it.
+  mountRing: { borderWidth: 3, borderColor: '#F7F1E6', shadowColor: '#CFC5B0', shadowOpacity: 1, shadowRadius: 0.5, shadowOffset: { width: 0, height: 0 }, elevation: 4 },
   medallion: { borderWidth: 2, borderColor: 'rgba(23,23,23,0.22)', shadowColor: '#000', shadowOpacity: 0.16, shadowRadius: 8, shadowOffset: { width: 0, height: 3 }, elevation: 4 },
   content: { position: 'absolute', left: '7%', right: '7%', top: '7%', bottom: '7%', alignItems: 'center', justifyContent: 'center' },
 });

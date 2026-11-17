@@ -8,6 +8,8 @@ import { assignmentsFromMap, resolveSlotMap } from './visionBoardSlots';
 import {
   detailBoardSizeForWidth,
   selectSlotBoardLayout,
+  CLASSIC_ANCHOR,
+  PINNED_BORDER,
   slotBoardHeightRatio,
   toSceneRect,
   VISION_BOARD_PAPER_MARK_SCALE,
@@ -131,7 +133,10 @@ export function composeVisionBoard(input: Input) {
   const bySlot = slotMap.map((id) => tiles.find((tile) => tile.sceneId === id));
   const lastSlot = slotMap.reduce((last, id, i) => (id ? i : last), -1);
   const baseRatio = slotBoardHeightRatio(lastSlot, reserve);
-  const classic = selectSlotBoardLayout(baseRatio);
+  // Classic's row/caption pass runs on the legacy materials so no existing photo centre or note moves; the result is then
+  // dressed in the one pinned print language (D1/D2) and the Anchor moves to the hero's corner (D5).
+  const classic = selectSlotBoardLayout(baseRatio, { legacy: true });
+  const pinnedClassic = selectSlotBoardLayout(baseRatio);
   const shifts = [0, 0, 0, 0, 0];
   const measurements: CaptionMeasurement[] = [];
   const captions = (
@@ -222,18 +227,45 @@ export function composeVisionBoard(input: Input) {
   let photos: BoardSlot[] = [],
     card = { ...classic.card, y: 0.965 },
     ratio = baseRatio;
-  let decor = classic.decor;
+  // DEFERRED: let decor = classic.decor; (Classic tape is empty now, D3)
+  let decor = pinnedClassic.decor;
+  /** The pinned print's caption band: under the window, Caveat, centred; the hero's line runs left and stops 20% short of its edge. */
+  const pinnedCaption = (slot: number, w: number, h: number): BoardCaption | undefined => {
+    const raw = bySlot[slot]?.caption?.trim();
+    if (!raw) return undefined;
+    const border = PINNED_BORDER * w, hero = slot === 0;
+    const left = hero ? border + 6 / width : border + 4 / width;
+    // The hero's line keeps at least 20% of the print clear on the right, and always stops short of the Anchor's disc.
+    const heroX = classic.photos[0].x - w / 2;
+    const discLeft = CLASSIC_ANCHOR.x - (CLASSIC_ANCHOR.width * VISION_BOARD_PAPER_MARK_SCALE) / 2 - 0.015 - heroX;
+    const textWidth = hero ? Math.min(w * 0.8, discLeft) - left : w - 2 * left;
+    const fontFamily = VISION_CAPTION_FONTS.handwritten;
+    let fs = (hero ? 22 : w >= 0.45 ? 19 : 18) * fontScale;
+    while (estimateCaptionLines(raw, fs, textWidth * width) > 3 && fs > 15 * fontScale) fs = Math.max(15 * fontScale, fs - 1);
+    const lineHeight = fs * 1.05;
+    const key = JSON.stringify([raw, textWidth * width, fs, lineHeight, fontFamily]);
+    measurements.push({ key, text: raw, width: textWidth * width, fontSize: fs, lineHeight, fontFamily, letterSpacing: 0 });
+    const textHeight = (measured[key] ?? estimateCaptionLines(raw, fs, textWidth * width) * lineHeight) / width;
+    const top = h - border + 8 / width;
+    return {
+      key, text: raw, fontFamily, kind: 'band', align: hero ? 'left' : 'center', color: '#2A1E10',
+      fontSize: fs / width, lineHeight: lineHeight / width, width: textWidth, height: textHeight, left, top,
+      extra: Math.max(0, top + textHeight + 10 / width - h),
+    };
+  };
   if (boardLayout === 'CLASSIC') {
-    photos = classic.photos.map((p, i) => ({
+    // DEFERRED: the mixed-material Classic (torn/print/polaroid apertures and label captions from `classic.photos`).
+    // photos = classic.photos.map((p, i) => ({ ...p, y: p.y * baseRatio, apertureBottom: ..., caption: captions(i, p.width, p.width / p.aspectRatio, p.treatment) }));
+    // One print language: the same slot centres and widths, pinned material and tilts, band captions under the window.
+    photos = pinnedClassic.photos.map((p, i) => ({
       ...p,
       y: p.y * baseRatio,
-      apertureBottom: bySlot[i]?.caption?.trim()?.length
-        ? 0.78
-        : i === 3
-          ? 0.7
-          : 0.78,
-      caption: captions(i, p.width, p.width / p.aspectRatio, p.treatment),
+      caption: pinnedCaption(i, p.width, p.width / p.aspectRatio),
     }));
+    // The Anchor sits on the hero print's lower-right corner, flat, in front of everything (row 0, so it never shifts).
+    const heroPrint = photos[0];
+    card = { ...card, x: CLASSIC_ANCHOR.x, y: heroPrint.y + heroPrint.width / heroPrint.aspectRatio / 2 + (heroPrint.caption?.extra ?? 0),
+      width: CLASSIC_ANCHOR.width, rotation: 0, zIndex: 40, ring: 'mount' };
     // Paper labels share a top layer. Search their own photograph first; only a collision
     // with a later row may grow Classic. The saved slots and note coordinates never change.
     const localBounds = (p: BoardSlot, c: BoardCaption) => {
@@ -295,8 +327,8 @@ export function composeVisionBoard(input: Input) {
           .concat(
             [
               {
-                rect: bounds(card.x, card.y + shifts[1], seal, seal, 0),
-                row: 1,
+                rect: bounds(card.x, card.y, seal, seal, 0),
+                row: 0,
               },
             ],
             placed.map((rect) => ({ rect, row: -1 })),
@@ -326,6 +358,8 @@ export function composeVisionBoard(input: Input) {
           placed.push(currentBounds);
           continue;
         }
+        // A pinned band is used when it is clear (above). When a neighbour or a note covers it, the caption takes the
+        // existing paper-label placement on the photo, so captions stay readable and rows move exactly as they always have.
         let best:
           | {
               caption: BoardCaption;
@@ -397,7 +431,7 @@ export function composeVisionBoard(input: Input) {
       for (let row = push + 1; row < 5; row++) shifts[row] += 0.04;
     }
     photos = photos.map((p, i) => ({ ...p, y: p.y + shifts[ROW[i]] }));
-    card.y += shifts[1];
+    // DEFERRED: card.y += shifts[1]; (Classic's Anchor now belongs to the hero's row, which never shifts)
     const hasCaption = photos.some((p, i) => p.caption && slotMap[i]);
     if (hasCaption)
       ratio = Math.max(
@@ -416,6 +450,7 @@ export function composeVisionBoard(input: Input) {
             p.caption ? localBounds(p, p.caption).bottom + 0.05 : 0,
           ]),
       );
+
   } else {
     let y = boardLayout === 'EDITORIAL' ? 0.03 : 0.04;
     let sealPlaced = false;

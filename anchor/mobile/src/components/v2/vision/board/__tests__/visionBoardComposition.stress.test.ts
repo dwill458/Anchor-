@@ -148,6 +148,9 @@ describe('Vision shared composition collision stress matrix', () => {
     const legacy = selectSlotBoardLayout(slotBoardHeightRatio(count - 1));
     const legacySize = { width: 366, height: 366 * slotBoardHeightRatio(count - 1) };
     for (let slot = 0; slot < count; slot += 1) expect(toSceneRect(board.layout.photos[slot], board.size)).toEqual(toSceneRect(legacy.photos[slot], legacySize));
-    expect(toSceneRect(board.layout.card, board.size)).toEqual(toSceneRect(legacy.card, legacySize));
+    // D5: Classic's Anchor sits flat on the hero's lower-right corner at width 0.20.
+    const hero = board.layout.photos[0], card = board.layout.card;
+    expect(card.x).toBeCloseTo(0.86, 6); expect(card.width).toBeCloseTo(0.2, 6); expect(card.rotation).toBe(0);
+    expect(card.y * board.ratio).toBeCloseTo(hero.y * board.ratio + hero.width / hero.aspectRatio / 2, 6);
   });
 });

@@ -1,4 +1,4 @@
-import {
+import { boardPhotoWindow, PINNED_BORDER,
   BOARD_FRAME_ASPECT, selectSlotBoardLayout, slotBoardHeightRatio, slotBoardSizeForWidth, slotPrintBottomWidths, toSceneRect,
 } from '../visionBoardLayouts';
 import { VISION_SLOT_COUNT } from '../visionBoardSlots';
@@ -19,7 +19,10 @@ describe('slot layout', () => {
     const [hero, ...rest] = layout.photos.map(slot => toSceneRect(slot, size));
     rest.forEach(rect => expect(hero.width * hero.height).toBeGreaterThan(rect.width * rect.height * 1.8));
     expect(hero.width).toBeGreaterThanOrEqual(90);                                   // the hero runs nearly edge to edge
-    expect(layout.photos.map(slot => slot.treatment)).toEqual(['torn', 'torn', 'print', 'polaroid', 'torn', 'print', 'torn', 'polaroid']);
+    // D1: one pinned print language with the approved tilts; the legacy mix stays available for the row pass.
+    expect(layout.photos.map(slot => slot.treatment)).toEqual(Array(8).fill('pinned'));
+    expect(layout.photos.map(slot => slot.rotation)).toEqual([-0.8, -2.2, 1.8, 1.6, -1.4, 1.5, -1.8, 1.6]);
+    expect(selectSlotBoardLayout(1.93, { legacy: true }).photos.map(slot => slot.treatment)).toEqual(['torn', 'torn', 'print', 'polaroid', 'torn', 'print', 'torn', 'polaroid']);
     // Neighbouring prints overlap rather than sit in a grid: slot 1 reaches up into the hero, and slot 3 into slot 1.
     expect(rest[0].y).toBeLessThan(hero.y + hero.height);
     expect(rest[2].y).toBeLessThan(rest[0].y + rest[0].height);
@@ -48,7 +51,21 @@ describe('slot layout', () => {
     layout.photos.forEach((_, slot) => expect(slotPrintBottomWidths(slot)).toBeLessThan(slotBoardHeightRatio(7, true)));
   });
   it('keeps tape on the slots the composition tapes, so a taped print stays taped wherever the others are', () => {
-    expect(selectSlotBoardLayout(1.93).decor.map(tape => tape.photo)).toEqual([3, 7]);
+    // D3: Classic has no tape now; the legacy layout keeps it for the row pass.
+    expect(selectSlotBoardLayout(1.93).decor).toEqual([]);
+    expect(selectSlotBoardLayout(1.93, { legacy: true }).decor.map(tape => tape.photo)).toEqual([3, 7]);
     expect(BOARD_FRAME_ASPECT.landscape).toBeGreaterThan(1);
+  });
+
+  it('crops the Visualize breakout to the pinned window on every slot (D4)', () => {
+    const size = slotBoardSizeForWidth(400, slotBoardHeightRatio(7, true));
+    selectSlotBoardLayout(slotBoardHeightRatio(7, true)).photos.forEach(slot => {
+      const photo = toSceneRect(slot, size), window = boardPhotoWindow(slot, size), border = photo.width * PINNED_BORDER;
+      expect(window.width).toBeCloseTo(photo.width - 2 * border, 6);
+      expect(window.height).toBeCloseTo(photo.height - 2 * border, 6);
+      // The window's centre is the print's centre: the border is even on every side.
+      expect(window.x + window.width / 2).toBeCloseTo(photo.x + photo.width / 2, 6);
+      expect(window.y + window.height / 2).toBeCloseTo(photo.y + photo.height / 2, 6);
+    });
   });
 });

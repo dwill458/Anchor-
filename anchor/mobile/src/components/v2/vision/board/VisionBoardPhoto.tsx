@@ -20,7 +20,7 @@ import { VisionPolaroidFrame } from '../material/VisionPolaroidFrame';
 import { visionMaterials } from '@/assets/vision/materials/manifest';
 import type { VisionPolaroidVariant } from '@/assets/vision/materials/manifest';
 import { VISION_CAPTION_COLOR, VISION_CAPTION_FONTS, VISION_PHOTO, VISION_SHADOW, VISION_TAPE } from '../material/visionMaterialTokens';
-import { BOARD_CAPTION_BAND_FRACTION, BOARD_FRAME_WINDOW, type BoardCaption, type BoardTape, type BoardTreatment } from './visionBoardLayouts';
+import { BOARD_CAPTION_BAND_FRACTION, BOARD_FRAME_WINDOW, PINNED_BORDER, type BoardCaption, type BoardTape, type BoardTreatment } from './visionBoardLayouts';
 import { boardDelay, boardRecomposeEasing, boardSpring, boardTiming, VISION_BOARD_MOTION as MOTION } from './visionBoardMotion';
 import { boardSlotAtPoint, swapBoardOrder } from './visionBoardReorder';
 import type { BoardSlotRect, VisionBoardShared } from './useVisionBoardScene';
@@ -31,6 +31,8 @@ const BLEED = 0;
 const CAPTION_TOUCH_HEIGHT = 30;
 /** A thin editorial print's paper border, as a share of the print's width. */
 const PRINT_BORDER = 0.035;
+const PIN_SIZE = 14;
+const PINNED_MOUNT = '#F7F1E6';
 /** A paper-label caption's longest line, as a share of the print's width, and its inner padding in display points. */
 const LABEL_WIDTH_FRACTION = 0.78;
 const LABEL_PAD_X = 9;
@@ -180,7 +182,8 @@ export const VisionBoardPhoto = memo(function VisionBoardPhoto({
   const imageRef = useRef<ViewInstance>(null);
   // Polaroids always cover their window from a focal point. Torn and thin prints keep the whole photograph (blurred paper
   // beside a portrait in a wide print) until the person sets a position, which they then own.
-  const coverFill = polaroid || treatment === 'legacy' || treatment === 'flat' || treatment === 'snap' || Boolean(focal) || repositioning;
+  const pinnedPrint = treatment === 'pinned';
+  const coverFill = polaroid || treatment === 'legacy' || treatment === 'flat' || treatment === 'snap' || pinnedPrint || Boolean(focal) || repositioning;
   // The photograph fades in once decoded, so opening the board never pops prints into place or flashes an empty frame.
   const reveal = useSharedValue(reduceMotion || treatment === 'legacy' ? 1 : 0);
   const revealStyle = useAnimatedStyle(() => ({ opacity: reveal.value }));
@@ -211,9 +214,9 @@ export const VisionBoardPhoto = memo(function VisionBoardPhoto({
   const focalX = useSharedValue(focal ? focal.x : -1);
   const focalY = useSharedValue(focal ? focal.y : -1);
   const photoAspect = useSharedValue(0);
-  const windowWidth = useDerivedValue(() => treatment === 'torn' || treatment === 'flat' ? width.value : treatment === 'print' ? width.value * (1 - 2 * PRINT_BORDER) : treatment === 'snap' ? width.value*.91 : width.value * 0.88);
+  const windowWidth = useDerivedValue(() => treatment === 'torn' || treatment === 'flat' ? width.value : treatment === 'print' ? width.value * (1 - 2 * PRINT_BORDER) : treatment === 'pinned' ? width.value * (1 - 2 * PINNED_BORDER) : treatment === 'snap' ? width.value*.91 : width.value * 0.88);
   const windowHeight = useDerivedValue(() => treatment === 'torn' || treatment === 'flat' ? height.value
-    : treatment === 'print' ? height.value - 2 * PRINT_BORDER * width.value : treatment === 'snap' ? height.value - width.value*.215 : height.value * (apertureBottom!==undefined?apertureBottom-.06:captionLayout ? .72 : frameVariant === 'wide-bottom' ? 0.64 : 0.72));
+    : treatment === 'print' ? height.value - 2 * PRINT_BORDER * width.value : treatment === 'pinned' ? height.value - 2 * PINNED_BORDER * width.value : treatment === 'snap' ? height.value - width.value*.215 : height.value * (apertureBottom!==undefined?apertureBottom-.06:captionLayout ? .72 : frameVariant === 'wide-bottom' ? 0.64 : 0.72));
   const focalFrame = useMemo<VisionFocalFrame>(() => ({ windowWidth, windowHeight, focalX, focalY, aspect: photoAspect }),
     [windowWidth, windowHeight, focalX, focalY, photoAspect]);
   useEffect(() => {
@@ -492,16 +495,21 @@ export const VisionBoardPhoto = memo(function VisionBoardPhoto({
     ],
   }));
 
+  const mountColor = pinnedPrint ? PINNED_MOUNT : VISION_PHOTO.mount;
   // The print is its mount: archival paper, darkening with the page when Visualize sets its edges.
   const frameStyle = useAnimatedStyle(() => ({
     width: width.value,
     height: height.value,
-    backgroundColor: polaroid ? 'transparent' : treatment === 'flat' ? 'transparent' : edgeDarken ? interpolateColor(edgeDarken.value, [0, 1], [VISION_PHOTO.mount, colors.ink.deep]) : VISION_PHOTO.mount,
+    backgroundColor: polaroid ? 'transparent' : treatment === 'flat' ? 'transparent' : edgeDarken ? interpolateColor(edgeDarken.value, [0, 1], [mountColor, colors.ink.deep]) : mountColor,
   }));
 
   const windowStyle = useAnimatedStyle(() => {
     if (treatment === 'torn' || treatment === 'flat') return { left: 0, top: 0, width: width.value, height: height.value };
     if (treatment === 'snap') return { left: width.value*.045, top: width.value*.045, width: width.value*.91, height: height.value-width.value*.215 };
+    if (treatment === 'pinned') {
+      const inset = PINNED_BORDER * width.value;
+      return { left: inset, top: inset, width: width.value - 2 * inset, height: height.value - 2 * inset };
+    }
     if (treatment === 'print') {
       const inset = PRINT_BORDER * width.value;
       return { left: inset, top: inset, width: width.value - 2 * inset, height: height.value - 2 * inset };
@@ -525,8 +533,8 @@ export const VisionBoardPhoto = memo(function VisionBoardPhoto({
     const w=windowWidth.value,h=windowHeight.value,aspect=photoAspect.value;
     const focal=resolveVisionFocal(focalX.value,focalY.value,aspect,h>0?w/h:1);
     const image=visionCoverFrame(aspect,w,h,focal);
-    const insetX=treatment==='snap'?width.value*.045:treatment==='print'?width.value*PRINT_BORDER:polaroid?width.value*.06:0;
-    const insetY=treatment==='snap'?width.value*.045:treatment==='print'?width.value*PRINT_BORDER:polaroid?height.value*.06:0;
+    const insetX=treatment==='snap'?width.value*.045:treatment==='print'?width.value*PRINT_BORDER:treatment==='pinned'?width.value*PINNED_BORDER:polaroid?width.value*.06:0;
+    const insetY=treatment==='snap'?width.value*.045:treatment==='print'?width.value*PRINT_BORDER:treatment==='pinned'?width.value*PINNED_BORDER:polaroid?height.value*.06:0;
     return {position:'absolute',left:insetX+image.left,top:insetY+image.top,width:image.width,height:image.height,opacity:.18};
   });
 
@@ -546,7 +554,7 @@ export const VisionBoardPhoto = memo(function VisionBoardPhoto({
   const frame = (
     <Animated.View
       testID={testID}
-      style={[styles.photo, polaroid && styles.materialPhoto, treatment === 'torn' && styles.tornPhoto, treatment === 'flat' && { borderWidth: 0, shadowOpacity: 0, elevation: 0 }, frameStyle]}
+      style={[styles.photo, polaroid && styles.materialPhoto, treatment === 'torn' && styles.tornPhoto, pinnedPrint && styles.pinnedPhoto, treatment === 'flat' && { borderWidth: 0, shadowOpacity: 0, elevation: 0 }, frameStyle]}
       accessible={interactive && !exiting}
       accessibilityRole={interactive ? 'imagebutton' : 'image'}
       accessibilityLabel={accessibilityLabel}
@@ -573,6 +581,7 @@ export const VisionBoardPhoto = memo(function VisionBoardPhoto({
         {treatment === 'legacy' || treatment === 'torn' ? <VisionImageEdge hero={hero} brush={detailEdges} color={VISION_PHOTO.mount} darken={edgeDarken} /> : null}
       </Animated.View>
       {polaroid && extraScene <= 0 ? <VisionPolaroidFrame variant={captionLayout ? 'classic' : frameVariant} testID={`${testID}-material-frame`} /> : null}
+      {pinnedPrint && extraScene > 0 ? <View pointerEvents="none" testID={testID ? `${testID}-caption-band` : undefined} style={[styles.pinnedBand, { top: start.height - .5, width: start.width, height: extraScene + 1 }]} /> : null}
       {treatment === 'snap' && extraScene > 0 ? <View pointerEvents="none" style={{ position: 'absolute', top: start.height-.5, left: 0, width: start.width, height: extraScene+1, backgroundColor: VISION_PHOTO.mount }} /> : null}
       {polaroid && extraScene > 0 ? <>
         <Animated.View pointerEvents="none" style={[styles.frameSlice, { top: 0 }, frameTopStyle]}>
@@ -584,6 +593,11 @@ export const VisionBoardPhoto = memo(function VisionBoardPhoto({
       </> : null}
       {tapes.map((tape, index) => <PrintTape photographic={photographic} key={`${tape.photo}-${index}`} tape={tape} width={width}
         testID={testID ? `${testID}-tape-${index}` : undefined} />)}
+      {/* The brass pin a pinned print hangs from at rest; while it arrives, the arrival pin below drops in its place. */}
+      {pinnedPrint && !(arriving || setPrint) ? <View pointerEvents="none" testID={testID ? `${testID}-pin` : undefined}
+        style={[styles.attachment, { width: PIN_SIZE, height: PIN_SIZE, top: -PIN_SIZE / 2, left: '50%', marginLeft: -PIN_SIZE / 2 }]}>
+        <Svg width={PIN_SIZE} height={PIN_SIZE}><Defs><RadialGradient id="board-pin" cx="35%" cy="30%"><Stop offset="0" stopColor="#F3DCA0" /><Stop offset=".45" stopColor={VISION_GOLD} /><Stop offset="1" stopColor="#7d5d22" /></RadialGradient></Defs><Circle cx={PIN_SIZE / 2} cy={PIN_SIZE / 2} r={PIN_SIZE / 2} fill="url(#board-pin)" /></Svg>
+      </View> : null}
       {arriving || setPrint ? <Animated.View pointerEvents="none" testID={`${testID}-arrival-pin`} style={[styles.attachment, { width: 16, height: 16, top: -8, left: '50%', marginLeft: -8 }, pinStyle]}>
         <Svg width={16} height={16}><Defs><RadialGradient id="arrival-pin" cx="35%" cy="30%"><Stop offset="0" stopColor="#F3DCA0" /><Stop offset=".45" stopColor={VISION_GOLD} /><Stop offset="1" stopColor="#7d5d22" /></RadialGradient></Defs><Circle cx={8} cy={8} r={8} fill="url(#arrival-pin)" /></Svg>
       </Animated.View> : null}
@@ -632,7 +646,7 @@ export const VisionBoardPhoto = memo(function VisionBoardPhoto({
         <Pressable disabled={!editableCaption || repositioning} accessibilityRole={editableCaption ? 'button' : undefined}
           accessibilityLabel={editableCaption ? 'Edit photo caption' : undefined} onPress={() => onCaptionEdit?.(sceneId)} style={{ width:'100%' }}>
           <Text allowFontScaling={false} testID={`${testID}-caption`} onTextLayout={onCaptionReady ? event => { if(event.nativeEvent.lines.length)onCaptionReady(sceneId); } : undefined} style={{ fontFamily: captionLayout.fontFamily,
-            width: '100%', fontSize: captionLayout.fontSize*compositionWidth,lineHeight:captionLayout.lineHeight*compositionWidth,letterSpacing:captionLayout.kind==='editorial'?captionLayout.fontSize*compositionWidth*.1:0,color:VISION_CAPTION_COLOR,textAlign:captionLayout.kind==='editorial'?'left':'center',includeFontPadding:false }}>{captionLayout.text}</Text>
+            width: '100%', fontSize: captionLayout.fontSize*compositionWidth,lineHeight:captionLayout.lineHeight*compositionWidth,letterSpacing:captionLayout.kind==='editorial'?captionLayout.fontSize*compositionWidth*.1:0,color:captionLayout.color??VISION_CAPTION_COLOR,textAlign:captionLayout.kind==='editorial'||captionLayout.align==='left'?'left':'center',includeFontPadding:false }}>{captionLayout.text}</Text>
         </Pressable>
       </Animated.View> : compositionWidth ? null : boardMode ? (labelled ? labelCaption : boardCaption) : interactive && onCaptionEdit ? (
         <Animated.View style={[styles.captionHitArea, captionPositionStyle, captionStyle]}>
@@ -659,6 +673,9 @@ const styles = StyleSheet.create({
   materialPhoto: { borderWidth: 0, borderRadius: 0 },
   // A torn-edge photograph has no printed border; its soft contact shadow follows the paper rather than a box.
   tornPhoto: { borderWidth: 0, ...VISION_SHADOW.contact },
+  // One print language for Classic: even mount border, the mount's hairline edge, and the ambient shadow.
+  pinnedPhoto: { borderWidth: 0.5, borderColor: '#CFC5B0', borderRadius: 0 },
+  pinnedBand: { position: 'absolute', left: 0, backgroundColor: PINNED_MOUNT, borderLeftWidth: 0.5, borderRightWidth: 0.5, borderBottomWidth: 0.5, borderColor: '#CFC5B0' },
   captionLabel: { position: 'absolute', alignItems: 'center', justifyContent: 'center', backgroundColor: '#FBF7EC', borderRadius: 2,
     transform: [{ rotate: '-1.5deg' }], zIndex: 3, ...VISION_SHADOW.contact },
   layer: { position: 'absolute', left: 0, top: 0, width: '100%', height: '100%' },
