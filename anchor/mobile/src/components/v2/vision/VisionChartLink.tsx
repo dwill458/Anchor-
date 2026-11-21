@@ -5,10 +5,14 @@ import type { ChartSummary } from '@/adapters/v2/chart/chartV2Model';
 import { colors, spacing, typography } from '@/theme/v2';
 import { VisionChartRoute } from './VisionChartRoute';
 
-/** Text and artwork own their space, including when there is no Chart yet. */
-export function VisionChartLink({ chart, width, onPress }: {
-  chart?: ChartSummary | null; width: number; onPress: () => void;
+/**
+ * Text and artwork own their space, including when there is no Chart yet. `bottomInset` is the height of a floating dock
+ * over the page's foot: the text stays clear of it and the landscape runs on under it to the screen's edge.
+ */
+export function VisionChartLink({ chart, width, onPress, bottomInset = 0 }: {
+  chart?: ChartSummary | null; width: number; onPress: () => void; bottomInset?: number;
 }) {
+  const artHeight = width / 3;
   return <Pressable testID="vision-on-your-chart" accessibilityRole="button" onPress={onPress}
     accessibilityLabel={chart
       ? `On your Chart: ${chart.isFinished ? 'destination reached' : `waypoint ${chart.waypointNumber} of ${chart.total}, ${chart.waypointTitle}`}. View Chart.`
@@ -28,14 +32,17 @@ export function VisionChartLink({ chart, width, onPress }: {
       </View>
       <ChevronRight testID="vision-chart-chevron" size={20} color={colors.text.primary} />
     </View>
-    <View pointerEvents="none" style={styles.artwork}>
+    <View pointerEvents="none" style={[styles.artwork, bottomInset > 0 && { marginTop: Math.max(ARTWORK_OVERLAP, bottomInset - artHeight) }]}>
       <Image testID="vision-chart-illustration" accessible={false}
         source={require('../../../../assets/chart/vision-chart-footer-illustration.jpg')}
-        resizeMode="contain" style={{ width, height: width / 3 }} />
+        resizeMode="contain" style={{ width, height: artHeight }} />
       <LinearGradient colors={[colors.canvas, 'transparent']} style={styles.fade} />
     </View>
   </Pressable>;
 }
+
+/** How far the landscape rises behind the text when nothing floats over it. */
+const ARTWORK_OVERLAP = -64;
 
 const styles = StyleSheet.create({
   footer: { marginHorizontal: -spacing[5], marginTop: spacing[3] },
@@ -48,7 +55,7 @@ const styles = StyleSheet.create({
   position: { ...typography.labelMD, color: colors.text.primary },
   title: { fontFamily: 'EBGaramond-Medium', fontSize: 18, lineHeight: 21, color: colors.text.primary },
   description: { ...typography.bodySM, color: colors.text.secondary },
-  artwork: { marginTop: -64 },
+  artwork: { marginTop: ARTWORK_OVERLAP },
   fade: { position: 'absolute', top: 0, left: 0, right: 0, height: 36 },
   pressed: { opacity: 0.72 },
 });

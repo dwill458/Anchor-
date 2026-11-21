@@ -32,7 +32,7 @@ describe('slot layout', () => {
     expect(one).toBeGreaterThanOrEqual(empty);                        // the Anchor sets the floor
     expect(slotBoardHeightRatio(3)).toBeGreaterThan(three);
     expect(eight).toBeGreaterThan(slotBoardHeightRatio(3));
-    expect(arranging).toBe(eight); expect(arranging).toBeCloseTo(2.6, 1);
+    expect(arranging).toBe(eight); expect(arranging).toBeCloseTo(2.44, 1);
   });
   it('contains every occupied print and the Anchor, for every supported photo count and for nonconsecutive occupancy', () => {
     const occupancies: number[][] = [[], [0], [0, 1], [0, 1, 2], [0, 1, 2, 3], [0, 1, 2, 3, 4], [0, 1, 2, 3, 4, 5], [0, 1, 2, 3, 4, 5, 6], [0, 1, 2, 3, 4, 5, 6, 7], [7], [3, 5], [1, 4, 6], [2, 7]];

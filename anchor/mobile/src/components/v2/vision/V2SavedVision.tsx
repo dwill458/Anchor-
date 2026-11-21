@@ -7,11 +7,11 @@ import { Alert, Animated, Easing, Image, StatusBar, KeyboardAvoidingView, Pressa
 import { ScrollView } from 'react-native-gesture-handler';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ChevronRight, ChevronDown, Eye, MoreHorizontal, PanelsTopLeft, Plus } from 'lucide-react-native';
-import { VisionLayoutSheet } from './VisionLayoutSheet';
+import { VISION_LAYOUT_NAMES, VisionLayoutSheet } from './VisionLayoutSheet';
 // DEFERRED (E4): the floating Begin dock hook; the persistent bottom dock below replaces it.
 // import { useVisionBeginDock } from './useVisionBeginDock';
 import type { ViewInstance as DockViewInstance } from 'react-native';
-import type { VisionBoardLayout, VisionNoteLayoutPositions } from '@/adapters/v2/vision';
+import { VISION_BOARD_LAYOUTS, type VisionBoardLayout, type VisionNoteLayoutPositions } from '@/adapters/v2/vision';
 import type { VisionMutationFeedback } from '@/hooks/v2/vision/visionMutationQueue';
 import type { VisionFocal } from './visionPhotoFocus';
 import { VisionChartLink } from './VisionChartLink';
@@ -19,7 +19,7 @@ import { VisionIntentionHeading } from './VisionIntentionHeading';
 import { truncateVisionText } from './visionDetailText';
 import { V2Button } from '@/components/v2';
 import { colors, radii, spacing, typography } from '@/theme/v2';
-import { useV2ReduceMotion } from '@/hooks/v2';
+import { useV2ReduceMotion, v2Haptics } from '@/hooks/v2';
 import type { V2VisionTile } from '@/adapters/v2/vision';
 import type { VisionNote, VisionNotePresentation } from '@/adapters/v2/vision';
 import type { ChartSummary } from '@/adapters/v2/chart/chartV2Model';
@@ -185,6 +185,36 @@ export function V2SavedVision({
     catch{setNotice("Couldn't save that layout. Try again.");}
     finally{setPreviewLayout(null);setLayoutSheetOpen(false);setBusy(false);}
   };
+  // The dock's layout button cycles Classic → Editorial → Scrapbook in place. Each tap shows the next layout at once;
+  // the choice is saved once the taps stop, so stepping through the three is one save, not three.
+  const [layoutName,setLayoutName]=useState<string|null>(null);
+  const layoutSave=useRef<{timer:ReturnType<typeof setTimeout>;layout:VisionBoardLayout}|null>(null);
+  const layoutNameTimer=useRef<ReturnType<typeof setTimeout>|null>(null);
+  const saveCycledLayout=async(layout:VisionBoardLayout)=>{
+    layoutSave.current=null;
+    if(!onUpdateBoardLayout||layout===(boardLayout??'CLASSIC')){setPreviewLayout(null);return;}
+    setBusy(true);
+    try{const saved=await onUpdateBoardLayout(layout);if(!saved)setNotice("Couldn't save that layout. Your board is back as it was.");}
+    catch{setNotice("Couldn't save that layout. Try again.");}
+    finally{if(!layoutSave.current)setPreviewLayout(null);setBusy(false);}
+  };
+  const cycleLayout=()=>{
+    if(!onUpdateBoardLayout||busy)return;
+    const current=previewLayout??boardLayout??'CLASSIC';
+    const next=VISION_BOARD_LAYOUTS[(VISION_BOARD_LAYOUTS.indexOf(current)+1)%VISION_BOARD_LAYOUTS.length];
+    v2Haptics.selection();
+    setPreviewLayout(next);
+    setLayoutName(VISION_LAYOUT_NAMES[next]);
+    if(layoutNameTimer.current)clearTimeout(layoutNameTimer.current);
+    layoutNameTimer.current=setTimeout(()=>setLayoutName(null),1400);
+    if(layoutSave.current)clearTimeout(layoutSave.current.timer);
+    layoutSave.current={layout:next,timer:setTimeout(()=>{void saveCycledLayout(next);},700)};
+  };
+  // Leaving before the save fires still keeps the layout the person landed on.
+  const flushLayoutSave=useRef<()=>void>(()=>undefined);
+  flushLayoutSave.current=()=>{const pending=layoutSave.current;if(!pending)return;clearTimeout(pending.timer);layoutSave.current=null;
+    if(onUpdateBoardLayout&&pending.layout!==(boardLayout??'CLASSIC'))void onUpdateBoardLayout(pending.layout);};
+  useEffect(()=>()=>{flushLayoutSave.current();if(layoutNameTimer.current)clearTimeout(layoutNameTimer.current);},[]);
   useMilestonePresentationHold(teachingFocus.isFocused && (mode === 'edit' || manageImages || Boolean(captionSceneId) || menuOpen || busy || dragging || addSheetOpen || nativeAlertOpen || (teachingEnabled && !boardIdle) || Boolean(imageArrival?.setActive)));
   const teachingTarget = useRef<((sceneId: string | null) => Promise<TeachingRect | null>) | null>(null);
   const teachingScrollRef = useRef<ScrollViewInstance>(null);
@@ -405,7 +435,7 @@ export function V2SavedVision({
           onScrollBeginDrag={() => setTeachingScrolling(true)}
           onScrollEndDrag={() => { measureCanvas(); setTeachingScrolling(false); }}
           onMomentumScrollBegin={() => { if (!teachingControlledScroll.current) setTeachingScrolling(true); }}
-          onMomentumScrollEnd={() => { measureCanvas(); setTeachingScrolling(false); }} scrollEnabled={!dragging&&!focusLocked} contentContainerStyle={{ paddingBottom: mode === 'view' ? DOCK_HEIGHT + 36 + insets.bottom : insets.bottom + spacing[6] }}
+          onMomentumScrollEnd={() => { measureCanvas(); setTeachingScrolling(false); }} scrollEnabled={!dragging&&!focusLocked} contentContainerStyle={{ paddingBottom: mode === 'view' ? 0 : insets.bottom + spacing[6] }}
           keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
           <View style={{ paddingTop: insets.top }}>
             <StatusBar barStyle="dark-content" />
@@ -515,7 +545,7 @@ export function V2SavedVision({
                 {!visualizeReady ? <Text accessibilityLiveRegion="polite" style={styles.chartPosition}>{preparationIssue ?? 'Preparing your Vision…'}</Text> : null}
                 {preparationIssue && onRetryVisualize ? <Pressable accessibilityRole="button" onPress={onRetryVisualize} style={{ minHeight: 44 }}><Text style={styles.chartLinkText}>Retry Vision images</Text></Pressable> : null}
                 {preparationIssue && onUseAvailableImages ? <Pressable accessibilityRole="button" onPress={onUseAvailableImages} style={{ minHeight: 44 }}><Text style={styles.chartLinkText}>Continue with available images</Text></Pressable> : null}
-                <VisionChartLink chart={chartSummary} width={width} onPress={onChart} />
+                <VisionChartLink chart={chartSummary} width={width} onPress={onChart} bottomInset={DOCK_HEIGHT + 36 + insets.bottom} />
               </>
             )}
             {(notice || error) && <Text style={styles.error}>{notice || error}</Text>}
@@ -534,11 +564,15 @@ export function V2SavedVision({
         <Pressable testID="vision-board-add" accessibilityRole="button" accessibilityLabel="Add to Vision" disabled={busy} onPress={()=>addImage()} style={({pressed})=>[styles.dockRound,pressed&&{opacity:.8}]}>
           <Plus size={22} color={colors.text.primary} />
         </Pressable>
-        {onUpdateBoardLayout?<Pressable testID="vision-layout-open" accessibilityRole="button" accessibilityLabel="Board layout" disabled={busy}
-          onPress={()=>{setLayoutSheetOpen(true);setPreviewLayout(boardLayout??'CLASSIC');}} style={({pressed})=>[styles.dockRound,pressed&&{opacity:.8}]}>
+        {/* DEFERRED: the dock button opened the Board layout sheet: onPress={()=>{setLayoutSheetOpen(true);setPreviewLayout(boardLayout??'CLASSIC');}} */}
+        {onUpdateBoardLayout?<Pressable testID="vision-layout-open" accessibilityRole="button" disabled={busy}
+          accessibilityLabel={`Board layout: ${VISION_LAYOUT_NAMES[previewLayout??boardLayout??'CLASSIC']}`} accessibilityHint="Switches to the next layout"
+          onPress={cycleLayout} style={({pressed})=>[styles.dockRound,pressed&&{opacity:.8}]}>
           <PanelsTopLeft size={22} color={colors.text.primary} />
         </Pressable>:null}
       </View>:null}
+      {layoutName&&dock.visible?<View testID="vision-layout-name" pointerEvents="none" accessibilityLiveRegion="polite"
+        style={[styles.layoutName,{bottom:insets.bottom+14+DOCK_HEIGHT+12}]}><Text style={styles.layoutNameText}>{layoutName}</Text></View>:null}
       {/* DEFERRED (E1): the floating Begin dock.
       {false&&dock.visible&&visualizeReady?<Animated.View testID="vision-begin-dock-surface" pointerEvents="box-none"
         style={{position:'absolute',bottom:insets.bottom+12,alignSelf:'center',height:52,borderRadius:30,borderWidth:1,borderColor:dockBorder,backgroundColor:dockBackground,zIndex:45}}>
@@ -617,6 +651,8 @@ const styles = StyleSheet.create({
   dockBeginText: { flexShrink: 1, fontFamily: 'EBGaramond-Medium', fontSize: 20, color: '#FBF9F4' },
   dockRound: { width: DOCK_HEIGHT, height: DOCK_HEIGHT, borderRadius: DOCK_HEIGHT / 2, alignItems: 'center', justifyContent: 'center',
     backgroundColor: '#FBF9F4', borderWidth: 1, borderColor: '#DDD6C9' },
+  layoutName: { position: 'absolute', right: 18, zIndex: 46, paddingHorizontal: 14, paddingVertical: 7, borderRadius: 16, backgroundColor: '#14162B' },
+  layoutNameText: { fontFamily: 'Inter-Medium', fontSize: 13, color: '#FBF9F4' },
   boardHint: { fontFamily: 'Inter-Regular', fontSize: 12.5, lineHeight: 17, color: '#77736A', textAlign: 'center', paddingHorizontal: 24, paddingTop: 4, paddingBottom: 12 },
   sectionRule: { width: 32, height: 2, backgroundColor: VISION_GOLD, marginBottom: spacing[2] },
   root: { flex: 1 },

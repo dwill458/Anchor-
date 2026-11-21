@@ -206,17 +206,25 @@ export const VisionBoardPhoto = memo(function VisionBoardPhoto({
   const y = useSharedValue(start.y);
   const width = useSharedValue(start.width);
   const height = useSharedValue(start.height);
+  // The print's laid-out rect (FLIP). `x/y/width/height` above are where the print is *seen*; these are where it is laid out.
+  // They jump to a new slot in one step, and the container's transform carries the print from where it was seen to there.
+  // Animating left/top/width/height directly re-ran Fabric layout for every view of every print on every frame (15-20ms
+  // on the UI thread while switching layouts); transforms and opacity take Reanimated's synchronous path instead.
+  const lx = useSharedValue(start.x);
+  const ly = useSharedValue(start.y);
+  const lw = useSharedValue(start.width);
+  const lh = useSharedValue(start.height);
   // The legacy caption lives in the mount's band at the foot of the print. The band is a fraction of the print's height.
-  const captionPositionStyle = useAnimatedStyle(() => ({ top: height.value - height.value * BOARD_CAPTION_BAND_FRACTION / 2 - CAPTION_TOUCH_HEIGHT / 2 }));
+  const captionPositionStyle = useAnimatedStyle(() => ({ top: lh.value - lh.value * BOARD_CAPTION_BAND_FRACTION / 2 - CAPTION_TOUCH_HEIGHT / 2 }));
 
   // Board only: where the photograph sits in its window. `-1` means automatic (upper-biased) until the person sets one.
   const boardMode = displayScale !== undefined && displayScale > 0;
   const focalX = useSharedValue(focal ? focal.x : -1);
   const focalY = useSharedValue(focal ? focal.y : -1);
   const photoAspect = useSharedValue(0);
-  const windowWidth = useDerivedValue(() => treatment === 'torn' || treatment === 'flat' ? width.value : treatment === 'print' ? width.value * (1 - 2 * PRINT_BORDER) : treatment === 'pinned' ? width.value * (1 - 2 * PINNED_BORDER) : treatment === 'snap' ? width.value*.91 : width.value * 0.88);
-  const windowHeight = useDerivedValue(() => treatment === 'torn' || treatment === 'flat' ? height.value
-    : treatment === 'print' ? height.value - 2 * PRINT_BORDER * width.value : treatment === 'pinned' ? height.value - 2 * PINNED_BORDER * width.value : treatment === 'snap' ? height.value - width.value*.215 : height.value * (apertureBottom!==undefined?apertureBottom-.06:captionLayout ? .72 : frameVariant === 'wide-bottom' ? 0.64 : 0.72));
+  const windowWidth = useDerivedValue(() => treatment === 'torn' || treatment === 'flat' ? lw.value : treatment === 'print' ? lw.value * (1 - 2 * PRINT_BORDER) : treatment === 'pinned' ? lw.value * (1 - 2 * PINNED_BORDER) : treatment === 'snap' ? lw.value*.91 : lw.value * 0.88);
+  const windowHeight = useDerivedValue(() => treatment === 'torn' || treatment === 'flat' ? lh.value
+    : treatment === 'print' ? lh.value - 2 * PRINT_BORDER * lw.value : treatment === 'pinned' ? lh.value - 2 * PINNED_BORDER * lw.value : treatment === 'snap' ? lh.value - lw.value*.215 : lh.value * (apertureBottom!==undefined?apertureBottom-.06:captionLayout ? .72 : frameVariant === 'wide-bottom' ? 0.64 : 0.72));
   const focalFrame = useMemo<VisionFocalFrame>(() => ({ windowWidth, windowHeight, focalX, focalY, aspect: photoAspect }),
     [windowWidth, windowHeight, focalX, focalY, photoAspect]);
   useEffect(() => {
@@ -245,27 +253,27 @@ export const VisionBoardPhoto = memo(function VisionBoardPhoto({
     if (!labelPlan) return {};
     const toS = toScene;
     const boxW = labelPlan.boxWidth * toS, boxH = labelPlan.boxHeight * toS;
-    return { width: boxW, minHeight: boxH, left: Math.max(width.value * 0.05, 0), top: height.value - boxH * 0.62 };
+    return { width: boxW, minHeight: boxH, left: Math.max(lw.value * 0.05, 0), top: lh.value - boxH * 0.62 };
   });
   const toScene = boardMode ? 1 / displayScale! : 1;
   const extraScene = captionLayout && compositionWidth ? captionLayout.extra * compositionWidth : plan && captionText ? plan.extra * toScene : 0;
   const boardCaptionStyle = useAnimatedStyle(() => {
     if (!plan) return {};
     const textH = plan.textHeight * toScene, pad = CAPTION_PAD * toScene;
-    const margin = height.value * (1 - windowBottom);
-    const top = height.value * windowBottom + (plan.extra > 0 ? pad : Math.max(pad / 2, (margin - textH) / 2));
-    return { top, left: (width.value - plan.width * toScene) / 2, width: plan.width * toScene, minHeight: textH };
+    const margin = lh.value * (1 - windowBottom);
+    const top = lh.value * windowBottom + (plan.extra > 0 ? pad : Math.max(pad / 2, (margin - textH) / 2));
+    return { top, left: (lw.value - plan.width * toScene) / 2, width: plan.width * toScene, minHeight: textH };
   });
   // A caption that needs more room stretches only the frame art's bottom margin, so the paper, its torn edge and the
   // aperture all stay in register with the print; nothing is bolted on underneath.
-  const frameTopStyle = useAnimatedStyle(() => ({ height: height.value * windowBottom }));
-  const frameFootStyle = useAnimatedStyle(() => ({ top: height.value * windowBottom - 0.5, height: height.value * (1 - windowBottom) + extraScene + 0.5 }));
+  const frameTopStyle = useAnimatedStyle(() => ({ height: lh.value * windowBottom }));
+  const frameFootStyle = useAnimatedStyle(() => ({ top: lh.value * windowBottom - 0.5, height: lh.value * (1 - windowBottom) + extraScene + 0.5 }));
   const frameFootImageStyle = useAnimatedStyle(() => {
-    const strip = height.value * (1 - windowBottom) + extraScene;
+    const strip = lh.value * (1 - windowBottom) + extraScene;
     const full = strip / (1 - windowBottom);
     return { height: full, top: -full * windowBottom };
   });
-  const frameTopImageStyle = useAnimatedStyle(() => ({ height: height.value }));
+  const frameTopImageStyle = useAnimatedStyle(() => ({ height: lh.value }));
   const frameArt = visionMaterials[`polaroid-${captionLayout ? 'classic' : frameVariant}` as const].source;
   const rotation = useSharedValue(start.rotation);
   const z = useSharedValue(start.zIndex);
@@ -351,6 +359,7 @@ export const VisionBoardPhoto = memo(function VisionBoardPhoto({
       width.value = move(rect.width);
       height.value = move(rect.height);
       rotation.value = move(rect.rotation);
+      lx.value = rect.x; ly.value = rect.y; lw.value = rect.width; lh.value = rect.height;
       z.value = rect.zIndex;
       const fade = { duration: reduced.value ? 0 : MOTION.frameCrossfadeMs };
       landscape.value = boardTiming(kindWeight(0, rect.frame), fade);
@@ -379,6 +388,7 @@ export const VisionBoardPhoto = memo(function VisionBoardPhoto({
       width.value = settle(rect.width);
       height.value = settle(rect.height);
       rotation.value = settle(rect.rotation);
+      lx.value = rect.x; ly.value = rect.y; lw.value = rect.width; lh.value = rect.height;
       z.value = rect.zIndex;
       landscape.value = boardTiming(kindWeight(0, rect.frame), { duration: MOTION.frameCrossfadeMs });
       portrait.value = boardTiming(kindWeight(1, rect.frame), { duration: MOTION.frameCrossfadeMs });
@@ -479,42 +489,46 @@ export const VisionBoardPhoto = memo(function VisionBoardPhoto({
     }) : null;
   const gesture = repositionPan ?? Gesture.Race(Gesture.Simultaneous(pan, hold), tap);
 
-  const containerStyle = useAnimatedStyle(() => ({
-    left: x.value,
-    top: y.value,
-    width: width.value,
-    height: height.value + (captionLayout || boardMode ? extraScene : interactive && onCaptionEdit ? CAPTION_TOUCH_HEIGHT : 0),
-    transformOrigin: [width.value/2,height.value/2,0],
+  // Layout: changes only when the print is retargeted or lifted, so a move costs one layout pass, not one per frame.
+  const containerLayoutStyle = useAnimatedStyle(() => ({
+    left: lx.value,
+    top: ly.value,
+    width: lw.value,
+    height: lh.value + (captionLayout || boardMode ? extraScene : interactive && onCaptionEdit ? CAPTION_TOUCH_HEIGHT : 0),
+    transformOrigin: [lw.value/2,lh.value/2,0],
     zIndex: z.value + (shared.dragging.value === sceneId ? 100 : 0),
+  }));
+  // Motion: carries the laid-out print from where it is seen to its slot on the transform alone. The scale is uniform
+  // (by width) so prints and captions never stretch while they travel; a new aspect is taken at once.
+  const containerStyle = useAnimatedStyle(() => ({
     opacity: presence.value * focusOpacity.value * flightPresence.value * (cinematicOpacity?.value ?? 1),
     transform: [
-      { translateX: dragX.value },
-      { translateY: dragY.value + presenceLift.value },
+      { translateX: x.value + width.value / 2 - (lx.value + lw.value / 2) + dragX.value },
+      { translateY: y.value + height.value / 2 - (ly.value + lh.value / 2) + dragY.value + presenceLift.value },
       { rotate: `${rotation.value}deg` },
-      { scale: presenceScale.value * (1 + (MOTION.lift.scale - 1) * lift.value) },
+      { scale: (lw.value > 0 ? width.value / lw.value : 1) * presenceScale.value * (1 + (MOTION.lift.scale - 1) * lift.value) },
     ],
   }));
 
   const mountColor = pinnedPrint ? PINNED_MOUNT : VISION_PHOTO.mount;
   // The print is its mount: archival paper, darkening with the page when Visualize sets its edges.
+  const frameLayoutStyle = useAnimatedStyle(() => ({ width: lw.value, height: lh.value }));
   const frameStyle = useAnimatedStyle(() => ({
-    width: width.value,
-    height: height.value,
     backgroundColor: polaroid ? 'transparent' : treatment === 'flat' ? 'transparent' : edgeDarken ? interpolateColor(edgeDarken.value, [0, 1], [mountColor, colors.ink.deep]) : mountColor,
   }));
 
   const windowStyle = useAnimatedStyle(() => {
-    if (treatment === 'torn' || treatment === 'flat') return { left: 0, top: 0, width: width.value, height: height.value };
-    if (treatment === 'snap') return { left: width.value*.045, top: width.value*.045, width: width.value*.91, height: height.value-width.value*.215 };
+    if (treatment === 'torn' || treatment === 'flat') return { left: 0, top: 0, width: lw.value, height: lh.value };
+    if (treatment === 'snap') return { left: lw.value*.045, top: lw.value*.045, width: lw.value*.91, height: lh.value-lw.value*.215 };
     if (treatment === 'pinned') {
-      const inset = PINNED_BORDER * width.value;
-      return { left: inset, top: inset, width: width.value - 2 * inset, height: height.value - 2 * inset };
+      const inset = PINNED_BORDER * lw.value;
+      return { left: inset, top: inset, width: lw.value - 2 * inset, height: lh.value - 2 * inset };
     }
     if (treatment === 'print') {
-      const inset = PRINT_BORDER * width.value;
-      return { left: inset, top: inset, width: width.value - 2 * inset, height: height.value - 2 * inset };
+      const inset = PRINT_BORDER * lw.value;
+      return { left: inset, top: inset, width: lw.value - 2 * inset, height: lh.value - 2 * inset };
     }
-    if (polaroid) return { left: width.value * 0.06, top: height.value * 0.06, width: width.value * 0.88, height: height.value * (windowBottom-.06) };
+    if (polaroid) return { left: lw.value * 0.06, top: lh.value * 0.06, width: lw.value * 0.88, height: lh.value * (windowBottom-.06) };
     const total = landscape.value + portrait.value + square.value || 1;
     const blend = (key: 'left' | 'top' | 'right' | 'bottom') =>
       (W.landscape[key] * landscape.value + W.portrait[key] * portrait.value + W.square[key] * square.value) / total;
@@ -523,18 +537,18 @@ export const VisionBoardPhoto = memo(function VisionBoardPhoto({
     const right = blend('right') + BLEED;
     const bottom = blend('bottom') + BLEED;
     return {
-      left: left * width.value,
-      top: top * height.value,
-      width: (right - left) * width.value,
-      height: (bottom - top) * height.value,
+      left: left * lw.value,
+      top: top * lh.value,
+      width: (right - left) * lw.value,
+      height: (bottom - top) * lh.value,
     };
   });
   const fullPhotoStyle=useAnimatedStyle(()=>{
     const w=windowWidth.value,h=windowHeight.value,aspect=photoAspect.value;
     const focal=resolveVisionFocal(focalX.value,focalY.value,aspect,h>0?w/h:1);
     const image=visionCoverFrame(aspect,w,h,focal);
-    const insetX=treatment==='snap'?width.value*.045:treatment==='print'?width.value*PRINT_BORDER:treatment==='pinned'?width.value*PINNED_BORDER:polaroid?width.value*.06:0;
-    const insetY=treatment==='snap'?width.value*.045:treatment==='print'?width.value*PRINT_BORDER:treatment==='pinned'?width.value*PINNED_BORDER:polaroid?height.value*.06:0;
+    const insetX=treatment==='snap'?lw.value*.045:treatment==='print'?lw.value*PRINT_BORDER:treatment==='pinned'?lw.value*PINNED_BORDER:polaroid?lw.value*.06:0;
+    const insetY=treatment==='snap'?lw.value*.045:treatment==='print'?lw.value*PRINT_BORDER:treatment==='pinned'?lw.value*PINNED_BORDER:polaroid?lh.value*.06:0;
     return {position:'absolute',left:insetX+image.left,top:insetY+image.top,width:image.width,height:image.height,opacity:.18};
   });
 
@@ -554,7 +568,7 @@ export const VisionBoardPhoto = memo(function VisionBoardPhoto({
   const frame = (
     <Animated.View
       testID={testID}
-      style={[styles.photo, polaroid && styles.materialPhoto, treatment === 'torn' && styles.tornPhoto, pinnedPrint && styles.pinnedPhoto, treatment === 'flat' && { borderWidth: 0, shadowOpacity: 0, elevation: 0 }, frameStyle]}
+      style={[styles.photo, polaroid && styles.materialPhoto, treatment === 'torn' && styles.tornPhoto, pinnedPrint && styles.pinnedPhoto, treatment === 'flat' && { borderWidth: 0, shadowOpacity: 0, elevation: 0 }, frameLayoutStyle, frameStyle]}
       accessible={interactive && !exiting}
       accessibilityRole={interactive ? 'imagebutton' : 'image'}
       accessibilityLabel={accessibilityLabel}
@@ -591,7 +605,7 @@ export const VisionBoardPhoto = memo(function VisionBoardPhoto({
           <Animated.Image source={frameArt} resizeMode="stretch" fadeDuration={0} style={[styles.frameSliceImage, frameFootImageStyle]} />
         </Animated.View>
       </> : null}
-      {tapes.map((tape, index) => <PrintTape photographic={photographic} key={`${tape.photo}-${index}`} tape={tape} width={width}
+      {tapes.map((tape, index) => <PrintTape photographic={photographic} key={`${tape.photo}-${index}`} tape={tape} width={lw}
         testID={testID ? `${testID}-tape-${index}` : undefined} />)}
       {/* The brass pin a pinned print hangs from at rest; while it arrives, the arrival pin below drops in its place. */}
       {pinnedPrint && !(arriving || setPrint) ? <View pointerEvents="none" testID={testID ? `${testID}-pin` : undefined}
@@ -635,7 +649,7 @@ export const VisionBoardPhoto = memo(function VisionBoardPhoto({
   ) : null;
 
   const body = (
-    <Animated.View pointerEvents={exiting ? 'none' : 'auto'} style={[styles.container, containerStyle]}>
+    <Animated.View pointerEvents={exiting ? 'none' : 'auto'} style={[styles.container, containerLayoutStyle, containerStyle]}>
       {repositioning&&displayUrl&&!imageFailed?<Animated.Image pointerEvents="none" testID={`${testID}-reposition-full-photo`} source={{uri:displayUrl}} fadeDuration={0} resizeMode="stretch" resizeMethod="resize" style={fullPhotoStyle}/>:null}
       {interactive ? <GestureDetector gesture={gesture}>{frame}</GestureDetector> : frame}
       {captionLayout && compositionWidth ? <Animated.View pointerEvents={editableCaption ? 'auto' : 'none'} testID={`${testID}-shared-caption`}

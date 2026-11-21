@@ -7,7 +7,10 @@ import type { VisionNoteFontId, VisionNoteStyleId } from '@/adapters/v2/vision';
 import { useV2ReduceMotion } from '@/hooks/v2';
 import { useV2Vision } from '@/hooks/v2/vision';
 import type { VisionNotePresentation } from '@/adapters/v2/vision';
-import { clampVisionNotePresentationForAspect, defaultVisionNoteOccupancy, nextVisionNotePresentation, visionBoardAspectForCount } from '@/components/v2/vision/notes/visionNotePlacement';
+import { clampVisionNotePresentationForAspect, nextVisionNotePresentation, visionBoardAspectForCount } from '@/components/v2/vision/notes/visionNotePlacement';
+import { classicVisionNoteOccupancy } from '@/components/v2/vision/notes/classicNoteOccupancy';
+import { resolveSlotMap } from '@/components/v2/vision/board/visionBoardSlots';
+import { useVisionPresentationStore } from '@/stores/v2/visionPresentationStore';
 import { colors, radii, spacing, typography } from '@/theme/v2';
 import { VisionNoteRenderer } from '@/components/v2/vision/notes/VisionNoteRenderer';
 import { VISION_SERIF } from '@/components/v2/vision/VisionPaperChrome';
@@ -217,11 +220,19 @@ export function V2VisionNoteComposer({ route, navigation }: Props) {
     setSaving(true);
     setSaveError(null);
     const boardAspectRatio = visionBoardAspectForCount(model.tiles.length);
+    // A new note is placed against the saved board's real prints (the same slots the board draws), so it lands on paper
+    // instead of over a photograph. Note coordinates are Classic's; the other layouts place notes on their own.
+    const placeNew = () => {
+      const visionId = model.vision?.id;
+      const stored = { ...(visionId ? useVisionPresentationStore.getState().byVision[visionId]?.slots : undefined),
+        ...Object.fromEntries(model.tiles.filter(tile => tile.slotIndex != null).map(tile => [tile.sceneId, tile.slotIndex!])) };
+      const notes = model.vision?.notes ?? [];
+      const occupied = classicVisionNoteOccupancy(model.tiles, notes, resolveSlotMap(model.tiles.map(tile => tile.sceneId), stored));
+      return nextVisionNotePresentation(styleId, notes, occupied, boardAspectRatio, { wholePrints: true });
+    };
     const materialPresentation: VisionNotePresentation = editingNote
       ? { ...editingNote.presentation, styleId }
-      : clampVisionNotePresentationForAspect({
-        ...nextVisionNotePresentation(styleId, model.vision?.notes ?? [], defaultVisionNoteOccupancy(model.tiles.length), boardAspectRatio),
-      }, boardAspectRatio);
+      : clampVisionNotePresentationForAspect(placeNew(), boardAspectRatio);
     const presentation: VisionNotePresentation = family === 'editorial' ? materialPresentation : { ...materialPresentation, fontId };
     try {
       const result = route.params.noteId

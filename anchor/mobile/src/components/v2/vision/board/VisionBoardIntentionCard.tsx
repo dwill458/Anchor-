@@ -70,6 +70,11 @@ export const VisionBoardIntentionCard = memo(function VisionBoardIntentionCard({
   const width = useSharedValue(rect.width);
   const height = useSharedValue(rect.height);
   const rotation = useSharedValue(rect.rotation);
+  // Laid-out rect (FLIP): jumps to the target once; the transform carries the card there, so no per-frame layout.
+  const lx = useSharedValue(rect.x);
+  const ly = useSharedValue(rect.y);
+  const lw = useSharedValue(rect.width);
+  const lh = useSharedValue(rect.height);
   const focusOpacity = useSharedValue(dimmed ? 0.24 : 1);
   useAnimatedReaction(() => Boolean(onTeachingMotionChange) && (
     Math.abs(x.value - rect.x) > 0.1 || Math.abs(y.value - rect.y) > 0.1 ||
@@ -85,17 +90,20 @@ export const VisionBoardIntentionCard = memo(function VisionBoardIntentionCard({
     width.value = boardTiming(rect.width, config);
     height.value = boardTiming(rect.height, config);
     rotation.value = boardTiming(rect.rotation, config);
-  }, [height, rect, reduceMotion, rotation, width, x, y,recomposeMs]);
+    lx.value = rect.x; ly.value = rect.y; lw.value = rect.width; lh.value = rect.height;
+  }, [height, rect, reduceMotion, rotation, width, x, y,recomposeMs, lx, ly, lw, lh]);
   useEffect(() => {
     focusOpacity.value = boardTiming(dimmed ? 0.24 : 1, { duration: reduceMotion ? 0 : 220 });
   }, [dimmed, focusOpacity, reduceMotion]);
 
+  const layoutStyle = useAnimatedStyle(() => ({ left: lx.value, top: ly.value, width: lw.value, height: lh.value }));
   const style = useAnimatedStyle(() => ({
-    left: x.value,
-    top: y.value,
-    width: width.value,
-    height: height.value,
-    transform: [{ rotate: `${rotation.value}deg` }],
+    transform: [
+      { translateX: x.value + width.value / 2 - (lx.value + lw.value / 2) },
+      { translateY: y.value + height.value / 2 - (ly.value + lh.value / 2) },
+      { rotate: `${rotation.value}deg` },
+      { scale: lw.value > 0 ? width.value / lw.value : 1 },
+    ],
   }));
   const focusStyle = useAnimatedStyle(() => ({ opacity: focusOpacity.value }));
   const paperStyle = useAnimatedStyle(() => ({ opacity: arrival?.setActive ? 0 : paperOpacity?.value ?? 1 }));
@@ -123,7 +131,7 @@ export const VisionBoardIntentionCard = memo(function VisionBoardIntentionCard({
   </Animated.View>;
 
   return (
-    <Animated.View style={[styles.card, style, focusStyle]}>
+    <Animated.View style={[styles.card, layoutStyle, style, focusStyle]}>
       {onPress ? (
         <Pressable style={styles.fill} onPress={onPress} accessibilityRole="button" accessibilityLabel={label}
           accessibilityHint="Double tap to bring your Anchor forward and edit your Vision.">

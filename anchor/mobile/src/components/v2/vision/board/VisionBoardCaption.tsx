@@ -48,6 +48,11 @@ export const VisionBoardCaption = memo(function VisionBoardCaption({
     w = useSharedValue(initialRect.width),
     h = useSharedValue(initialRect.height),
     rotation = useSharedValue(initialRect.rotation);
+  // Laid-out rect (FLIP): set once per move; the transform carries the caption, so no per-frame layout.
+  const lx = useSharedValue(initialRect.x),
+    ly = useSharedValue(initialRect.y),
+    lw = useSharedValue(initialRect.width),
+    lh = useSharedValue(initialRect.height);
   const arrival = useVisionImageArrival(),
     print = arrival?.setPrints?.find((item) => item.sceneId === sceneId);
   const landed = !print || ['landed', 'pinned', 'failed'].includes(print.phase);
@@ -82,22 +87,33 @@ export const VisionBoardCaption = memo(function VisionBoardCaption({
       w.value = move(next.rect.width);
       h.value = move(next.rect.height);
       rotation.value = move(next.rect.rotation);
+      lx.value = next.rect.x;
+      ly.value = next.rect.y;
+      lw.value = next.rect.width;
+      lh.value = next.rect.height;
     },
     [sceneId, reduced],
   );
-  const style = useAnimatedStyle(() => ({
+  const layoutStyle = useAnimatedStyle(() => ({
     position: 'absolute',
-    left: x.value,
-    top: y.value,
-    width: w.value,
-    height: h.value,
+    left: lx.value,
+    top: ly.value,
+    width: lw.value,
+    height: lh.value,
     zIndex: 30 + Math.max(0, shared.order.value.indexOf(sceneId)),
+  }));
+  const style = useAnimatedStyle(() => ({
     opacity:
       landed && shared.dragging.value !== sceneId ? (dimmed ? 0.24 : 1) : 0,
-    transform: [{ rotate: `${rotation.value}deg` }],
+    transform: [
+      { translateX: x.value + w.value / 2 - (lx.value + lw.value / 2) },
+      { translateY: y.value + h.value / 2 - (ly.value + lh.value / 2) },
+      { rotate: `${rotation.value}deg` },
+      { scale: lw.value > 0 ? w.value / lw.value : 1 },
+    ],
   }));
   return (
-    <Animated.View pointerEvents="box-none" style={style}>
+    <Animated.View pointerEvents="box-none" style={[layoutStyle, style]}>
       <Pressable
         disabled={!onEdit}
         accessibilityRole={onEdit ? 'button' : undefined}

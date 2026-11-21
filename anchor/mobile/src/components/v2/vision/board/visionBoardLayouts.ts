@@ -269,8 +269,11 @@ const LEGACY_SLOT_TAPE: readonly TapeSpec[] = [[3, 0.5, 0.26, 3, 'gold'], [7, 0.
 const SLOT_TAPE: readonly TapeSpec[] = [];
 /** The Anchor's centre, in board widths from the top. Fixed, so it never moves as photographs come and go. */
 const SLOT_ANCHOR_Y_WIDTHS = 0.965;
-/** Empty paper under the lowest print or the Anchor, in board widths: room for the board title and the Add control. */
-const SLOT_BOARD_SLACK = 0.22;
+/**
+ * Empty paper under the lowest print or the Anchor, in board widths: enough for the prints' shadows. Add and Layout live in
+ * the saved screen's bottom dock now, so the board no longer keeps room for them (it was 0.22).
+ */
+export const SLOT_BOARD_SLACK = 0.06;
 
 const printAspect = ([, , , frame, , aspect]: PrintSpec) => aspect ?? BOARD_FRAME_ASPECT[frame];
 

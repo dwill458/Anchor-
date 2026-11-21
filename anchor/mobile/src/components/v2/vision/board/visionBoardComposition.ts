@@ -10,6 +10,7 @@ import {
   selectSlotBoardLayout,
   CLASSIC_ANCHOR,
   PINNED_BORDER,
+  SLOT_BOARD_SLACK,
   slotBoardHeightRatio,
   toSceneRect,
   VISION_BOARD_PAPER_MARK_SCALE,
@@ -452,7 +453,7 @@ export function composeVisionBoard(input: Input) {
               p.width / p.aspectRatio,
               p.rotation,
               p.caption?.kind === 'band' ? p.caption.extra : 0,
-            ).bottom + 0.22,
+            ).bottom + SLOT_BOARD_SLACK,
             p.caption ? localBounds(p, p.caption).bottom + 0.05 : 0,
           ]),
       );

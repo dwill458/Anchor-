@@ -27,13 +27,17 @@ export function defaultVisionNoteOccupancy(photoCount: number): VisionNoteOccupi
 /**
  * Suggests a normalized placement away from existing note centers. Repeated
  * notes cycle through a loose grid; board users can still reposition them.
+ * With `wholePrints` (the rects are the board's real prints, e.g. `classicVisionNoteOccupancy`) a note keeps off every
+ * print, not just its subject, and searches a finer grid for the paper between them.
  */
 export function nextVisionNotePresentation(
   styleId: VisionNotePresentation['styleId'],
   notes: readonly VisionNote[] = [],
   occupiedRects: readonly VisionNoteOccupiedRect[] = [],
   boardAspectRatio = 1,
+  options: { wholePrints?: boolean } = {},
 ): VisionNotePresentation {
+  const wholePrints = options.wholePrints === true;
   const shortSideWidth = Math.max(0.12, 0.26 * Math.min(1, boardAspectRatio));
   const noteHeight = Math.max(0.12, shortSideWidth / boardAspectRatio);
   const edgeSpots = occupiedRects.slice(0, -1).flatMap(rect => [
@@ -43,7 +47,7 @@ export function nextVisionNotePresentation(
   const spots = [...edgeSpots, ...Array.from({ length: 25 }, (_, index) => ({
     x: 0.12 + (index % 5) * 0.19,
     y: 0.12 + Math.floor(index / 5) * 0.19,
-  }))];
+  })), ...(wholePrints ? Array.from({ length: 21 * 21 }, (_, index) => ({ x: (index % 21) / 20, y: Math.floor(index / 21) / 20 })) : [])];
   const active = notes.filter(note => !note.isArchived);
   const score = (spot: { x: number; y: number }) => {
     const overlap = (rect: VisionNoteOccupiedRect) => {
@@ -55,9 +59,13 @@ export function nextVisionNotePresentation(
     // the hero, and the Anchor card. Light overlap at photo corners is welcome.
     const noteArea = shortSideWidth * noteHeight;
     const cardIndex = occupiedRects.length - 1;
-    let result = occupiedRects.reduce((sum, rect, index) => sum +
-      overlap(index === cardIndex ? rect : { ...rect, width: rect.width * 0.58, height: rect.height * 0.60 }) / noteArea *
-      (index === cardIndex ? 12 : index === 0 ? 7 : 4), 0);
+    // Real prints: on a small Classic board the note's envelope (y <= 1) can be all print, so overlap is graded. Paper and
+    // open slots first; then a smaller print's corner; never the hero's face. The middle of a print costs far more than its edge.
+    let result = occupiedRects.reduce((sum, rect, index) => sum + (wholePrints
+      ? index === cardIndex ? overlap(rect) / noteArea * 12
+        : (overlap(rect) * (index === 0 ? 8 : 3) + overlap({ ...rect, width: rect.width * 0.6, height: rect.height * 0.6 }) * (index === 0 ? 30 : 10)) / noteArea
+      : overlap(index === cardIndex ? rect : { ...rect, width: rect.width * 0.58, height: rect.height * 0.60 }) / noteArea *
+        (index === cardIndex ? 12 : index === 0 ? 7 : 4)), 0);
     if (occupiedRects.length) {
       const distance = Math.min(...occupiedRects.slice(0, -1).map(rect => Math.hypot(
         Math.max(0, Math.abs(spot.x - rect.x) - rect.width / 2),
@@ -66,7 +74,8 @@ export function nextVisionNotePresentation(
     }
     // Prefer the visible upper composition for a new note. Empty space below
     // the collage is not a better placement merely because it has no photos.
-    result += Math.max(0, spot.y - 0.38) * 8;
+    // With the real prints known, open paper lower on the board is a real place for a note, not empty space under the collage.
+    result += Math.max(0, spot.y - 0.38) * (wholePrints ? 2 : 8);
     result += Math.hypot(spot.x - 0.5, (spot.y - 0.38) * 0.5) * 0.25;
     for (const note of active) result += overlap({ x: note.presentation.x, y: note.presentation.y, width: note.presentation.width * note.presentation.scale, height: note.presentation.height * note.presentation.scale }) / noteArea * 12;
     return result;
