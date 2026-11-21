@@ -152,6 +152,8 @@ export type ChartNotificationPlanInput = {
   permissionGranted: boolean;
   /** Fire dates (ISO) of chart pushes already scheduled/sent, for the weekly cap. */
   alreadyScheduled: Array<{ kind: ChartNotificationKind; fireDate: string }>;
+  /** True when this anchor has a move reminder in the next 48 hours: the idle nudge is skipped. */
+  moveReminderSoon?: boolean;
 };
 
 export type ChartNotificationPlan = {

@@ -1,5 +1,5 @@
 import { apiClient, ApiClientError } from '@/services/ApiClient';
-import type { CompleteWaypointRequest, CompleteWaypointResponse, CourseDetail, CourseSummary, WaypointKind, WaypointProgressMode } from '@/types/chart';
+import type { CompleteWaypointRequest, CompleteWaypointResponse, CourseDetail, CourseSummary, MovePlanInput, WaypointKind, WaypointProgressMode } from '@/types/chart';
 
 /**
  * Anchor 2.0 Chart endpoints (/api/v2). Waypoint edits, reorder
@@ -34,7 +34,7 @@ export type ChartProposalWaypoint = {
   metricLabel: string | null;
   metricTarget: number | null;
   metricBaseline: number | null;
-  moves?: Array<{ title: string; rationale: string | null }>;
+  moves?: Array<{ title: string; rationale: string | null; cue?: string | null }>;
 };
 
 export type ChartProposal = {
@@ -47,7 +47,7 @@ export type ChartProposal = {
   routeScope?: 'DESTINATION' | 'NEXT_STRETCH';
   complexity: ChartComplexity;
   waypoints: ChartProposalWaypoint[];
-  suggestedOneMove: { title: string; rationale: string | null } | null;
+  suggestedOneMove: { title: string; rationale: string | null; cue?: string | null } | null;
   guidance: string | null;
   generation: { source: 'ai' | 'template'; fallbackUsed: boolean; needsNaming: boolean };
   createdAt: string;
@@ -86,7 +86,7 @@ export type RouteWaypointInput = {
   metricLabel?: string | null;
   metricBaseline?: number | null;
   metricTarget?: number | null;
-  suggestedMoves?: Array<{ title: string; rationale?: string | null }>;
+  suggestedMoves?: Array<{ title: string; rationale?: string | null; cue?: string | null }>;
 };
 
 export type MoveCompletionResult = {
@@ -221,7 +221,7 @@ export const chartV2Api = {
       routeScope?: 'DESTINATION' | 'NEXT_STRETCH';
       complexity?: ChartComplexity | null;
       waypoints: Omit<RouteWaypointInput, 'id'>[];
-      oneMove?: { title: string; rationale?: string | null } | null;
+      oneMove?: { title: string; rationale?: string | null; cue?: string | null } | null;
     }
   ): Promise<CourseDetail> {
     return call(() => apiClient.post(`/api/v2/anchors/${enc(anchorId)}/chart`, body));
@@ -238,7 +238,7 @@ export const chartV2Api = {
       adjustmentReason?: string | null;
       confirmRewrite?: boolean;
       routeScope?: 'DESTINATION' | 'NEXT_STRETCH';
-      oneMove?: { title: string; rationale?: string | null } | null;
+      oneMove?: { title: string; rationale?: string | null; cue?: string | null } | null;
     }
   ): Promise<CourseDetail> {
     return call(() => apiClient.put(`/api/v2/charts/${enc(courseId)}/route`, body));
@@ -246,7 +246,7 @@ export const chartV2Api = {
 
   addMove(
     courseId: string,
-    body: { idempotencyKey: string; waypointId: string; title: string; rationale?: string | null; makeCurrent?: boolean }
+    body: { idempotencyKey: string; waypointId: string; title: string; rationale?: string | null; makeCurrent?: boolean; plan?: MovePlanInput | null }
   ): Promise<CourseDetail> {
     return call(() => apiClient.post(`/api/v2/charts/${enc(courseId)}/moves`, body));
   },
@@ -254,7 +254,7 @@ export const chartV2Api = {
   updateMove(
     courseId: string,
     moveId: string,
-    body: { title?: string; rationale?: string | null; accept?: boolean; makeCurrent?: boolean }
+    body: { title?: string; rationale?: string | null; accept?: boolean; makeCurrent?: boolean; plan?: MovePlanInput | null }
   ): Promise<CourseDetail> {
     return call(() => apiClient.patch(`/api/v2/charts/${enc(courseId)}/moves/${enc(moveId)}`, body));
   },

@@ -14,9 +14,10 @@ import {
   type RouteWaypointInput,
 } from '@/services/v2/chartV2Api';
 import { toChartViewModel, type ChartViewModel } from '@/adapters/v2/chart/chartV2Model';
-import type { CourseDetail } from '@/types/chart';
+import type { CourseDetail, MovePlanInput } from '@/types/chart';
 import { recordCourseEvent } from '@/stores/v2/chartEventStore';
 import { cancelChartNotifications } from '@/services/notifications/chartNotifications';
+import { cancelMoveRemindersForAnchor, reconcileMoveReminders } from '@/services/notifications/chartMoveReminders';
 
 /**
  * Per-Anchor Chart state shared by every surface (Chart, Home, Vision,
@@ -40,6 +41,24 @@ function publish(anchorId: string, value: ChartForAnchor, accountId = currentAcc
   if (accountId) {
     Promise.resolve(encryptedPersistStorage.setItem(storageKey(anchorId, accountId), JSON.stringify(value))).catch(() => undefined);
   }
+  syncMoveReminders(anchorId, value, accountId);
+}
+
+/**
+ * Every server-confirmed Chart passes through `publish`, so reconciling here keeps move reminders in step
+ * after a plan change, a completion, a dismissal, an edit, a reached waypoint, an Ask apply or undo, a load,
+ * an archive or a delete. Reconcile is idempotent and never throws.
+ */
+function syncMoveReminders(anchorId: string, value: ChartForAnchor, accountId: string | null): void {
+  const chart = value.chart;
+  void reconcileMoveReminders({
+    accountId,
+    anchorId,
+    moves: chart?.moves ?? [],
+    view: chart
+      ? { active: chart.status === 'ACTIVE' && !value.anchor?.released, currentWaypointId: chart.currentWaypointId ?? null }
+      : null,
+  });
 }
 
 /** Replace only the Chart inside the cached read model. */
@@ -152,6 +171,8 @@ export type UseAnchorChartResult = {
   /** Make an existing ACTIVE Move the One Move. */
   setCurrentMove: (moveId: string) => Promise<boolean>;
   editMove: (moveId: string, title: string) => Promise<boolean>;
+  /** Set or clear (`null`) when a Move will happen. Reminders reconcile after the server confirms. */
+  setMovePlan: (moveId: string, plan: MovePlanInput | null) => Promise<boolean>;
   dismissMove: (moveId: string) => Promise<boolean>;
   suggestMoves: (waypointId: string) => Promise<'ok' | 'unavailable' | 'failed'>;
   updateProgress: (waypointId: string, value: number | null) => Promise<boolean>;
@@ -359,6 +380,18 @@ export function useAnchorChart(anchorId: string | null | undefined): UseAnchorCh
     [accountId, chart, id, run]
   );
 
+  const setMovePlan = useCallback(
+    async (moveId: string, plan: MovePlanInput | null) => {
+      if (!chart) return false;
+      const result = await run(`move-plan:${moveId}`, () => chartV2Api.updateMove(chart.id, moveId, { plan }));
+      if (!result) return false;
+      // publishChart reconciles the move reminders (R4) for the saved plan.
+      publishChart(id, result, accountId);
+      return true;
+    },
+    [accountId, chart, id, run]
+  );
+
   const dismissMove = useCallback(
     async (moveId: string) => {
       if (!chart) return false;
@@ -532,6 +565,7 @@ export function useAnchorChart(anchorId: string | null | undefined): UseAnchorCh
     });
     if (!result) return false;
     void cancelChartNotifications(id, accountId);
+    void cancelMoveRemindersForAnchor(accountId, id);
     try {
       const fresh = await loadAnchorChart(id, accountId);
       if (mounted.current && currentScope.current === scope) {
@@ -564,6 +598,7 @@ export function useAnchorChart(anchorId: string | null | undefined): UseAnchorCh
     });
     if (!result) return false;
     void cancelChartNotifications(id, accountId);
+    void cancelMoveRemindersForAnchor(accountId, id);
     try {
       const fresh = await loadAnchorChart(id, accountId);
       if (mounted.current && currentScope.current === scope) {
@@ -601,6 +636,7 @@ export function useAnchorChart(anchorId: string | null | undefined): UseAnchorCh
     acceptMove,
     setCurrentMove,
     editMove,
+    setMovePlan,
     dismissMove,
     suggestMoves,
     updateProgress,

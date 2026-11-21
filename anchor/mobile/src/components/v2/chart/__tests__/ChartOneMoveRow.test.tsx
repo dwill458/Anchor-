@@ -126,3 +126,96 @@ describe('ChartOneMoveRow', () => {
     await waitFor(() => expect(rejected.queryByTestId('chart-one-move-toast')).toBeNull());
   });
 });
+
+describe('ChartOneMoveRow plan row', () => {
+  // Monday 16 November 2026, 10:00 local.
+  const NOW = new Date(2026, 10, 16, 10, 0);
+  const planned = (plan: MoveSummary['plan']): MoveSummary => ({ ...move, plan });
+  function renderPlanned(currentMove: MoveSummary, onCheck = jest.fn(async () => true), onSavePlan = jest.fn(async () => true)) {
+    const screen = render(
+      <ChartOneMoveRow
+        accent={panelAccent('desire')}
+        move={currentMove}
+        waypointTitle="Establish a consistent gym routine"
+        checked={false}
+        busy={false}
+        reducedMotion
+        onCheck={onCheck}
+        onExpandSheet={jest.fn()}
+        onSavePlan={onSavePlan}
+        chartMoves={[currentMove]}
+        now={NOW}
+      />
+    );
+    return { screen, onCheck, onSavePlan };
+  }
+
+  it('has three separate targets: the circle completes, the body expands, the plan row opens the sheet', async () => {
+    const { screen, onCheck } = renderPlanned(move);
+    expect(screen.queryByTestId('chart-plan-save')).toBeNull();
+
+    fireEvent.press(screen.getByTestId('chart-one-move-check'));
+    await waitFor(() => expect(onCheck).toHaveBeenCalledTimes(1));
+    expect(screen.queryByTestId('chart-plan-save')).toBeNull();
+
+    fireEvent.press(screen.getByTestId('chart-one-move-body'));
+    expect(screen.getByTestId('chart-one-move-body').props.accessibilityState.expanded).toBe(true);
+    expect(screen.queryByTestId('chart-plan-save')).toBeNull();
+    expect(onCheck).toHaveBeenCalledTimes(1);
+  });
+
+  it('an unplanned move asks when, and the plan row opens the sheet', () => {
+    const { screen, onCheck } = renderPlanned(move);
+    expect(screen.getByTestId('chart-one-move-plan-ask')).toBeTruthy();
+    fireEvent.press(screen.getByTestId('chart-one-move-plan'));
+    expect(screen.getByTestId('chart-move-plan-sheet').props.visible).toBe(true);
+    expect(screen.getByTestId('chart-plan-save')).toBeTruthy();
+    expect(onCheck).not.toHaveBeenCalled();
+  });
+
+  it('shows cue, day and time chips for a planned move', () => {
+    const { screen } = renderPlanned(planned({ cue: 'After I wake up', date: '2026-11-16', time: '15:00', remind: true }));
+    expect(screen.getByTestId('chart-one-move-plan-cue').props.children).toBe('After I wake up');
+    expect(screen.getByTestId('chart-one-move-plan-when').props.children).toMatch(/^Today · (3:00 PM|15:00)$/);
+    expect(screen.getByText(CHART_COPY.plan.remindOn)).toBeTruthy();
+  });
+
+  it('a missed plan reads "Missed {day}" and asks for a new day', () => {
+    const { screen } = renderPlanned(planned({ cue: 'After work', date: '2026-11-14', time: null, remind: false }));
+    expect(screen.getByTestId('chart-one-move-plan-when').props.children).toBe('Missed Sat');
+    expect(screen.getByTestId('chart-one-move-plan').props.accessibilityLabel).toBe('Missed Sat. Pick a new day');
+  });
+
+  it('a completed move shows no plan row', () => {
+    const { screen } = renderPlanned({ ...move, status: 'COMPLETED', plan: { cue: 'After work', date: '2026-11-16', time: null, remind: false } });
+    expect(screen.queryByTestId('chart-one-move-plan')).toBeNull();
+  });
+
+  it('without a plan action the row is unchanged', () => {
+    const screen = renderRow();
+    expect(screen.queryByTestId('chart-one-move-plan')).toBeNull();
+  });
+
+  it('chips wrap instead of truncating at 360dp and font scale 1.3', () => {
+    const { screen } = renderPlanned(planned({ cue: 'After I drop the kids at school and get back home', date: '2026-11-19', time: '08:00', remind: true }));
+    const cue = screen.getByTestId('chart-one-move-plan-cue');
+    const when = screen.getByTestId('chart-one-move-plan-when');
+    expect(cue.props.numberOfLines).toBeUndefined();
+    expect(when.props.numberOfLines).toBeUndefined();
+    expect(cue.props.ellipsizeMode).toBeUndefined();
+    expect(cue.props.allowFontScaling).not.toBe(false);
+  });
+});
+
+describe('ChartOneMoveRow cue without a day', () => {
+  it('reads "{cue} · Pick a day" and opens the sheet on that cue', () => {
+    const cueOnly: MoveSummary = { ...move, plan: { cue: 'After I wake up', date: null, time: null, remind: false } };
+    const screen = render(
+      <ChartOneMoveRow accent={panelAccent('desire')} move={cueOnly} waypointTitle="W" checked={false} busy={false} reducedMotion onCheck={jest.fn(async () => true)} onSavePlan={jest.fn(async () => true)} chartMoves={[cueOnly]} now={new Date(2026, 10, 16, 10)} />
+    );
+    expect(screen.getByText('After I wake up · Pick a day')).toBeTruthy();
+    expect(screen.getByTestId('chart-one-move-plan').props.accessibilityLabel).toBe('After I wake up · Pick a day');
+    fireEvent.press(screen.getByTestId('chart-one-move-plan'));
+    expect(screen.getByTestId('chart-plan-cue-After I wake up').props.accessibilityState.selected).toBe(true);
+  });
+});

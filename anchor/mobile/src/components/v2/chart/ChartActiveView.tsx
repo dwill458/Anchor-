@@ -81,7 +81,7 @@ type ChartActions = Pick<
   | 'editWaypoint'
   | 'removeWaypoint'
 > &
-  Partial<Pick<UseAnchorChartResult, 'setCurrentMove' | 'archiveChart' | 'deleteChart'>>;
+  Partial<Pick<UseAnchorChartResult, 'setCurrentMove' | 'archiveChart' | 'deleteChart' | 'setMovePlan'>>;
 
 type Props = {
   view: ChartViewModel;
@@ -1103,8 +1103,9 @@ export function ChartActiveView({
       accountId,
       view: { destination: view.destination, oneMove: oneMoveTitle ? { title: oneMoveTitle } : null },
       moves: allMoves,
+      currentWaypointId: view.current?.id ?? null,
     });
-  }, [anchorId, accountId, view.courseId, view.version, view.destination, oneMoveTitle, allMoves, completedMoves]);
+  }, [anchorId, accountId, view.courseId, view.version, view.destination, oneMoveTitle, allMoves, completedMoves, view.current?.id]);
 
   /* ---- markers ----------------------------------------------------- */
   const markers: ChartMapMarker[] = useMemo(

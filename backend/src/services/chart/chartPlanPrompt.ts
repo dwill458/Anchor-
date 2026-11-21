@@ -134,6 +134,7 @@ export const CHART_PLANNER_SYSTEM = [
   '- WAYPOINT: a meaningful change in STATE that shows the person is materially closer. Never a task. "Reach 1,000 active users" is a waypoint; "Launch an ad campaign" is a move.',
   '- MOVE: each waypoint must include 3–4 concrete, realistic actions that move toward that waypoint. Order them from the smallest feasible next action toward completion; each must be specific enough to start, use only stated resources/skills/time, and must not simply restate the waypoint.',
   '- ONE MOVE: one concrete action the person could do next toward the FIRST waypoint. It may match the first Move for waypoint one.',
+  "Give each move a cue (an 'After …' or 'Before …' phrase) only when the person's own words or remembered availability give one; otherwise null.",
   '',
   'Route length is adaptive. Judge the destination and the person’s remaining work BEFORE choosing a count. Complexity describes dependencies, distinct required outcomes, uncertainty and known starting progress; it is not a label derived from the number of rows.',
   '- Planning guidelines: SIMPLE, a narrowly scoped goal, usually 3–4 meaningful waypoints; MODERATE, a multistage goal, usually 4–5; COMPLEX, a long-term destination with several dependent outcomes, usually 5–7. These are overlapping guidelines, not quotas. Never add filler to meet a minimum or default every route to three or five. Never more than 8.',

@@ -48,7 +48,7 @@ describe('AskSettingsSheet', () => {
     expect(screen.getByTestId('ask-style-DIRECT').props.accessibilityState).toMatchObject({ selected: false });
     fireEvent.press(screen.getByTestId('ask-style-DIRECT'));
     expect(profile.setStyle).toHaveBeenCalledWith('DIRECT');
-    expect(screen.getByText('Changes how Ask Chart talks, never what it tells you.')).toBeTruthy();
+    expect(screen.getByText('Changes how Ask Anchor talks, never what it tells you.')).toBeTruthy();
   });
 
   it('lists what is remembered with plain labels, and edits one', async () => {

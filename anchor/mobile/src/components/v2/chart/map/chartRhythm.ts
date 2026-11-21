@@ -246,7 +246,8 @@ export function planChartNotifications(input: ChartNotificationPlanInput): Chart
   }
 
   const last = validDate(input.lastMoveAt);
-  if (last && input.idleNudgeScheduledFor !== input.lastMoveAt) {
+  // A move reminder the person asked for is already coming: no idle nudge on top of it.
+  if (last && input.idleNudgeScheduledFor !== input.lastMoveAt && !input.moveReminderSoon) {
     const due = new Date(last.getTime() + CHART_IDLE_AFTER_MS);
     const fireDate = due.getTime() > now.getTime() ? intoPushWindow(due) : intoPushWindow(new Date(now.getTime() + MIN_LEAD_MS));
     plans.push({

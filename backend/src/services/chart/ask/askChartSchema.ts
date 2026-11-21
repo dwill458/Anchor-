@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { cleanProposedPlan, isCalendarDate, type ProposedPlan } from '../movePlan';
 
 /** Preferences Ask Chart may retain, per Anchor. Anything else the model proposes is dropped. */
 export const MEMORY_KEYS = [
@@ -64,13 +65,14 @@ export const ASK_TURN_JSON_SCHEMA = {
         'waypointId',
         'moves',
         'moveEdit',
+        'plans',
         'reason',
         'routeReason',
         'detail',
         'summary',
       ],
       properties: {
-        type: { type: 'string', enum: ['ADD_MOVES', 'REVISE_ROUTE'] },
+        type: { type: 'string', enum: ['ADD_MOVES', 'REVISE_ROUTE', 'PLAN_MOVES'] },
         scope: { type: 'string', enum: [...ASK_SCOPES] },
         waypointId: { type: ['string', 'null'] },
         moves: {
@@ -78,8 +80,29 @@ export const ASK_TURN_JSON_SCHEMA = {
           items: {
             type: 'object',
             additionalProperties: false,
-            required: ['title', 'detail'],
-            properties: { title: { type: 'string' }, detail: { type: ['string', 'null'] } },
+            required: ['title', 'detail', 'cue', 'date', 'time'],
+            properties: {
+              title: { type: 'string' },
+              detail: { type: ['string', 'null'] },
+              cue: { type: ['string', 'null'] },
+              date: { type: ['string', 'null'] },
+              time: { type: ['string', 'null'] },
+            },
+          },
+        },
+        // PLAN_MOVES only (empty otherwise): when existing moves on the current waypoint will happen.
+        plans: {
+          type: 'array',
+          items: {
+            type: 'object',
+            additionalProperties: false,
+            required: ['moveId', 'cue', 'date', 'time'],
+            properties: {
+              moveId: { type: 'string' },
+              cue: { type: ['string', 'null'] },
+              date: { type: ['string', 'null'] },
+              time: { type: ['string', 'null'] },
+            },
           },
         },
         reason: { type: ['string', 'null'], enum: [...REVISE_REASONS, null] },
@@ -88,8 +111,14 @@ export const ASK_TURN_JSON_SCHEMA = {
         moveEdit: {
           type: ['object', 'null'],
           additionalProperties: false,
-          required: ['title', 'detail'],
-          properties: { title: { type: 'string' }, detail: { type: ['string', 'null'] } },
+          required: ['title', 'detail', 'cue', 'date', 'time'],
+          properties: {
+            title: { type: 'string' },
+            detail: { type: ['string', 'null'] },
+            cue: { type: ['string', 'null'] },
+            date: { type: ['string', 'null'] },
+            time: { type: ['string', 'null'] },
+          },
         },
         detail: { type: ['string', 'null'] },
         summary: { type: 'string' },
@@ -116,7 +145,7 @@ const RawTurn = z.object({
   context: text(500).nullish(),
   action: z
     .object({
-      type: z.enum(['ADD_MOVES', 'REVISE_ROUTE']),
+      type: z.enum(['ADD_MOVES', 'REVISE_ROUTE', 'PLAN_MOVES']),
       scope: z.enum(ASK_SCOPES).nullish(),
       waypointId: z.string().nullish(),
       moves: z
@@ -125,13 +154,35 @@ const RawTurn = z.object({
             title: text(120),
             detail: text(280).nullish(),
             rationale: text(280).nullish(),
+            cue: z.string().nullish(),
+            date: z.string().nullish(),
+            time: z.string().nullish(),
           })
         )
         .max(5)
         .default([]),
+      plans: z
+        .array(
+          z.object({
+            moveId: z.string(),
+            cue: z.string().nullish(),
+            date: z.string().nullish(),
+            time: z.string().nullish(),
+          })
+        )
+        .max(10)
+        .default([]),
       reason: z.enum(REVISE_REASONS).nullish(),
       routeReason: text(160).nullish(),
-      moveEdit: z.object({ title: text(120), detail: text(280).nullish() }).nullish(),
+      moveEdit: z
+        .object({
+          title: text(120),
+          detail: text(280).nullish(),
+          cue: z.string().nullish(),
+          date: z.string().nullish(),
+          time: z.string().nullish(),
+        })
+        .nullish(),
       detail: text(500).nullish(),
       summary: text(200),
     })
@@ -140,19 +191,52 @@ const RawTurn = z.object({
 });
 
 export type AskTurnAction = {
-  type: 'ADD_MOVES' | 'REVISE_ROUTE';
+  type: 'ADD_MOVES' | 'REVISE_ROUTE' | 'PLAN_MOVES';
   /** Always present after normalisation: a move edit is MOVE, a route revision is WAYPOINT or ROUTE. */
   scope: AskScope;
   waypointId: string | null;
-  moves: Array<{ title: string; rationale: string | null; detail?: string | null }>;
+  moves: Array<{ title: string; rationale: string | null; detail?: string | null } & ProposedPlan>;
+  /** PLAN_MOVES only: when existing ACTIVE moves on the current waypoint will happen (1 to 3). */
+  plans: Array<{ moveId: string } & ProposedPlan>;
   reason: ReviseReason | null;
   /** One line saying what new fact makes a route change necessary. */
   routeReason: string | null;
   /** A replacement or edited next move inside the current waypoint, offered when a route change is not needed. */
-  moveEdit: { title: string; detail: string | null } | null;
+  moveEdit: ({ title: string; detail: string | null } & ProposedPlan) | null;
   detail: string | null;
   summary: string;
 };
+
+/** What the normaliser needs to clean plans: the person's local today, and which moves can be planned. */
+export type AskTurnNormalizeOptions = {
+  /** `YYYY-MM-DD` on the person's device. Without it, every proposed date is dropped. */
+  clientToday?: string | null;
+  /** ACTIVE moves on the current waypoint. PLAN_MOVES items for anything else are dropped. */
+  plannableMoveIds?: ReadonlySet<string>;
+};
+
+const WEEKDAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'] as const;
+export type ClientWeekday = (typeof WEEKDAYS)[number];
+
+/** The weekday of a calendar date (`YYYY-MM-DD`), independent of the server's time zone. */
+export function weekdayOf(date: string): ClientWeekday {
+  const [y, m, d] = date.split('-').map(Number);
+  return WEEKDAYS[new Date(Date.UTC(y, m - 1, d)).getUTCDay()];
+}
+
+/**
+ * The person's local today, as sent by the device. A bad date is dropped (not an error). A weekday that is not
+ * Mon to Sun, or that disagrees with the date, is replaced by the date's own weekday.
+ */
+export function cleanClientToday(
+  date: unknown,
+  weekday: unknown
+): { date: string; weekday: ClientWeekday } | null {
+  if (typeof date !== 'string' || !isCalendarDate(date)) return null;
+  const own = weekdayOf(date);
+  const sent = WEEKDAYS.find(day => day === weekday);
+  return { date, weekday: sent === own ? sent : own };
+}
 
 export type AskTurn = {
   reply: string;
@@ -175,17 +259,17 @@ export class AskTurnInvalidError extends Error {
 const NOT_SURE = /(not sure|unsure|don'?t know|no idea)/i;
 const NOT_SURE_REPLY = 'Not sure yet';
 
-/** A move edit can only be MOVE; a route revision is never MOVE. Missing scope means the widest level that type allows. */
+/** A move edit or a plan can only be MOVE; a route revision is never MOVE. Missing scope means the widest level that type allows. */
 export function normalizeScope(
-  type: 'ADD_MOVES' | 'REVISE_ROUTE',
+  type: 'ADD_MOVES' | 'REVISE_ROUTE' | 'PLAN_MOVES',
   scope: AskScope | null | undefined
 ): AskScope {
-  if (type === 'ADD_MOVES') return 'MOVE';
+  if (type === 'ADD_MOVES' || type === 'PLAN_MOVES') return 'MOVE';
   return scope === 'WAYPOINT' ? 'WAYPOINT' : 'ROUTE';
 }
 
 /** Validates and cleans a model response. Anything that cannot be made safe is rejected, never patched up. */
-export function normalizeAskTurn(raw: unknown): AskTurn {
+export function normalizeAskTurn(raw: unknown, options: AskTurnNormalizeOptions = {}): AskTurn {
   const parsed = RawTurn.safeParse(raw);
   if (!parsed.success) throw new AskTurnInvalidError('schema');
   const turn = parsed.data;
@@ -205,7 +289,9 @@ export function normalizeAskTurn(raw: unknown): AskTurn {
     if (suggestions.length === 4) suggestions.pop();
     suggestions.push(NOT_SURE_REPLY);
   }
-  const action = turn.action
+  // Plans are cleaned, never a reason to reject a turn: a bad plan is stripped and the move kept.
+  const today = options.clientToday ?? null;
+  let action: AskTurnAction | null = turn.action
     ? {
         type: turn.action.type,
         scope: normalizeScope(turn.action.type, turn.action.scope),
@@ -216,16 +302,34 @@ export function normalizeAskTurn(raw: unknown): AskTurn {
             title: move.title,
             rationale: move.detail ?? move.rationale ?? null,
             ...(move.detail !== undefined ? { detail: move.detail ?? null } : {}),
+            ...cleanProposedPlan(move, today),
           })),
+        plans: [],
         reason: turn.action.reason ?? null,
         routeReason: turn.action.routeReason || null,
         moveEdit: turn.action.moveEdit?.title
-          ? { title: turn.action.moveEdit.title, detail: turn.action.moveEdit.detail || null }
+          ? {
+              title: turn.action.moveEdit.title,
+              detail: turn.action.moveEdit.detail || null,
+              ...cleanProposedPlan(turn.action.moveEdit, today),
+            }
           : null,
         detail: turn.action.detail || null,
         summary: turn.action.summary,
       }
     : null;
+  if (action && turn.action?.type === 'PLAN_MOVES') {
+    const seen = new Set<string>();
+    const plans: AskTurnAction['plans'] = [];
+    for (const item of turn.action.plans) {
+      const moveId = item.moveId.trim();
+      if (!moveId || seen.has(moveId) || !options.plannableMoveIds?.has(moveId)) continue;
+      seen.add(moveId);
+      plans.push({ moveId, ...cleanProposedPlan(item, today) });
+      if (plans.length === 3) break;
+    }
+    action = plans.length ? { ...action, moves: [], moveEdit: null, plans } : null;
+  }
   return {
     reply: turn.reply.slice(0, 1600),
     suggestions,

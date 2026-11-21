@@ -8,7 +8,14 @@ import type { MemoryKey } from './askChartSchema';
  * Read-only context assembly for one Ask Chart turn. Everything is scoped to the authenticated user and the one
  * Anchor (and its one active Chart) the conversation belongs to: nothing from another Anchor is ever read.
  */
-export type AskMove = { id: string; title: string; status: 'ACTIVE' | 'COMPLETED' };
+/** A move's plan as the model sees it. No `remind`: the model never controls the reminder. */
+export type AskMovePlan = { cue: string | null; date: string | null; time: string | null };
+export type AskMove = {
+  id: string;
+  title: string;
+  status: 'ACTIVE' | 'COMPLETED';
+  plan?: AskMovePlan | null;
+};
 export type AskWaypoint = {
   id: string;
   title: string;
@@ -41,6 +48,8 @@ export type AskContext = {
   chart: AskChartState | null;
   memories: Array<{ key: MemoryKey; value: string }>;
   style: CoachStyle;
+  /** The person's local today from their device, or null when it was not sent (no dates may be proposed). */
+  today?: { date: string; weekday: string } | null;
 };
 
 export async function loadCoachStyle(userId: string): Promise<CoachStyle> {
@@ -78,7 +87,14 @@ export async function loadChartState(
           moves: {
             where: { status: { in: ['ACTIVE', 'COMPLETED'] } },
             orderBy: { position: 'asc' },
-            select: { id: true, title: true, status: true },
+            select: {
+              id: true,
+              title: true,
+              status: true,
+              planCue: true,
+              planDate: true,
+              planTime: true,
+            },
           },
         },
       },
@@ -114,6 +130,10 @@ export async function loadChartState(
         id: move.id,
         title: move.title,
         status: move.status as AskMove['status'],
+        plan:
+          move.planCue || move.planDate || move.planTime
+            ? { cue: move.planCue, date: move.planDate, time: move.planTime }
+            : null,
       })),
     })),
     recentCompletedMoves: recent.map(move => move.title),
@@ -129,7 +149,11 @@ export async function loadMemories(userId: string, anchorId: string) {
   return rows as Array<{ key: MemoryKey; value: string }>;
 }
 
-export async function loadAskContext(userId: string, anchorId: string): Promise<AskContext> {
+export async function loadAskContext(
+  userId: string,
+  anchorId: string,
+  options: { today?: { date: string; weekday: string } | null } = {}
+): Promise<AskContext> {
   // Throws ANCHOR_NOT_FOUND / ANCHOR_UNAVAILABLE for a foreign or released Anchor.
   const { anchor, vision } = await chartPlannerService.loadAnchorContext(userId, anchorId);
   const [onboarding, chart, memories, style] = await Promise.all([
@@ -162,5 +186,6 @@ export async function loadAskContext(userId: string, anchorId: string): Promise<
     chart,
     memories,
     style,
+    today: options.today ?? null,
   };
 }

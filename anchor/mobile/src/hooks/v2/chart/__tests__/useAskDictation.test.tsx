@@ -133,7 +133,7 @@ describe('useAskDictation', () => {
     const alert = jest.spyOn(Alert, 'alert').mockImplementation((_title, _body, buttons) => { buttons?.find(button => button.text === 'Not now')?.onPress?.(); });
     const { hook } = setup();
     await act(async () => { await hook.result.current.start(); });
-    expect(alert).toHaveBeenCalledWith('Talk to Ask Chart', expect.stringContaining('does not keep the audio'), expect.any(Array), expect.anything());
+    expect(alert).toHaveBeenCalledWith('Talk to Ask Anchor', expect.stringContaining('does not keep the audio'), expect.any(Array), expect.anything());
     expect(mockSpeech.requestPermissionsAsync).not.toHaveBeenCalled();
     expect(hook.result.current.state).toBe('idle');
     alert.mockRestore();

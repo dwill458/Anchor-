@@ -4,12 +4,14 @@ import { useAuthStore } from '@/stores/authStore';
 import React, { useEffect, useRef, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import Animated, { Easing, ReduceMotion, useAnimatedStyle, useSharedValue, withSequence, withTiming } from 'react-native-reanimated';
-import { Check, ChevronDown, ChevronUp } from 'lucide-react-native';
+import { Bell, Check, ChevronDown, ChevronUp, Clock, Repeat } from 'lucide-react-native';
 import { askChartApi } from '@/services/v2/askChartApi';
 import { trackChart } from '@/hooks/v2/chart/useAnchorChart';
 import { setChatAppliedBatch, useChatAppliedBatch } from '@/hooks/v2/chart/chatAppliedBatch';
-import type { MoveSummary } from '@/types/chart';
+import type { MovePlanInput, MoveSummary } from '@/types/chart';
 import { CHART_COPY } from '@/constants/v2/chartCopy';
+import { formatPlanDay, formatPlanWhen, movePlanState } from '@/adapters/v2/chart/movePlan';
+import { ChartMovePlanSheet } from './panel/ChartMovePlanSheet';
 import { CHART_MAP_TOKENS as T } from './map/chartMapTokens';
 import type { PanelAccent } from './panel/chartPanelColors';
 
@@ -30,6 +32,12 @@ type ChartOneMoveRowProps = {
   rowRef?: React.RefObject<ViewInstance | null>;
   circleRef?: React.RefObject<ViewInstance | null>;
   bodyRef?: React.RefObject<ViewInstance | null>;
+  /** Saves the Move's plan (`null` clears it). Without it the row shows no plan row. */
+  onSavePlan?: (plan: MovePlanInput | null) => Promise<boolean>;
+  planBusy?: boolean;
+  /** Every Move on the Chart, for the plan sheet's cue and time chips. */
+  chartMoves?: readonly MoveSummary[];
+  now?: Date;
 };
 
 function optionalMoveDetail(move: MoveSummary, key: 'why' | 'doneWhen'): string | null {
@@ -40,13 +48,15 @@ function optionalMoveDetail(move: MoveSummary, key: 'why' | 'doneWhen'): string 
 /** The One Move has separate completion and reading targets. */
 export function ChartOneMoveRow({
   accent, move, waypointTitle, waypointCriteria = null, progressText = null, checked, busy, reducedMotion, onCheck, onExpandSheet,
-  rowRef, circleRef, bodyRef, firstBatchMoveCompleted = false,
+  rowRef, circleRef, bodyRef, firstBatchMoveCompleted = false, onSavePlan, planBusy = false, chartMoves, now: nowProp,
 }: ChartOneMoveRowProps) {
+  const [planOpen, setPlanOpen] = useState(false);
+  const [toastText, setToastText] = useState<string>(CHART_COPY.sheet.moveDoneToast);
   const batch = useChatAppliedBatch();
   const accountId = useAuthStore(state => state.user?.id ?? null);
   const [undoing, setUndoing] = useState(false);
   const undoLock = useRef(false);
-  const updated = batch && batch.accountId === accountId && batch.courseId === move.courseId && batch.batchId === move.batchId;
+  const updated = batch && batch.accountId === accountId && batch.courseId === move.courseId && (batch.batchId === move.batchId || Boolean(batch.moveIds?.includes(move.id)));
   const undo = async () => {
     if (!batch || undoLock.current) return;
     undoLock.current = true;
@@ -99,6 +109,7 @@ export function ChartOneMoveRow({
     try {
       const succeeded = await onCheck();
       if (!succeeded) return;
+      setToastText(CHART_COPY.sheet.moveDoneToast);
       setShowToast(true);
       if (toastTimer.current) clearTimeout(toastTimer.current);
       toastTimer.current = setTimeout(() => setShowToast(false), 1800);
@@ -108,6 +119,66 @@ export function ChartOneMoveRow({
       inFlight.current = false;
     }
   };
+
+  const flashToast = (text: string) => {
+    setToastText(text);
+    setShowToast(true);
+    if (toastTimer.current) clearTimeout(toastTimer.current);
+    toastTimer.current = setTimeout(() => setShowToast(false), 2400);
+  };
+
+  const now = nowProp ?? new Date();
+  const planState = movePlanState(move, now);
+  const plan = move.plan ?? null;
+  const showPlanRow = Boolean(onSavePlan) && !checked && planState !== 'done';
+  const planWhen = plan?.date ? formatPlanWhen(plan, now) : '';
+  const missedDay = planState === 'missed' && plan?.date ? COPY_PLAN.missed.replace('{day}', formatPlanDay(plan.date, now)) : '';
+  // A cue with no day yet (a planner or Ask cue, or a cue set on its own) asks for the day.
+  const cueOnly = planState === 'planned' && Boolean(plan?.cue) && !plan?.date;
+  const planA11y = planState === 'none'
+    ? COPY_PLAN.ask
+    : cueOnly
+    ? COPY_PLAN.pickDay.replace('{cue}', plan?.cue ?? '')
+    : planState === 'missed'
+    ? COPY_PLAN.missedA11y.replace('{day}', plan?.date ? formatPlanDay(plan.date, now) : '')
+    : [plan?.cue, planWhen, plan?.remind && plan?.time ? COPY_PLAN.remindOn : null].filter(Boolean).join(', ');
+  const planRow = showPlanRow ? (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={planA11y}
+      onPress={() => setPlanOpen(true)}
+      style={({ pressed }) => [styles.planRow, pressed && { opacity: 0.75 }]}
+      testID="chart-one-move-plan"
+    >
+      {planState === 'none' || cueOnly ? (
+        <View style={[styles.planChip, styles.planChipAsk]} testID="chart-one-move-plan-ask">
+          <Clock size={13} color={T.light} strokeWidth={2.2} />
+          <Text style={styles.planChipText}>{cueOnly ? COPY_PLAN.pickDay.replace('{cue}', plan!.cue!) : COPY_PLAN.ask}</Text>
+        </View>
+      ) : (
+        <View style={[styles.planChips, planState === 'missed' && styles.planMissed]}>
+          {plan?.cue ? (
+            <View style={styles.planChip}>
+              <Repeat size={13} color={accent.text} strokeWidth={2.2} />
+              <Text style={styles.planChipText} testID="chart-one-move-plan-cue">{plan.cue}</Text>
+            </View>
+          ) : null}
+          {plan?.date ? (
+            <View style={styles.planChip}>
+              <Clock size={13} color={accent.text} strokeWidth={2.2} />
+              <Text style={styles.planChipText} testID="chart-one-move-plan-when">{missedDay || planWhen}</Text>
+            </View>
+          ) : null}
+          {plan?.remind && plan?.time && planState !== 'missed' ? (
+            <View style={styles.planChip}>
+              <Bell size={13} color={accent.text} strokeWidth={2.2} />
+              <Text style={styles.planChipText}>{COPY_PLAN.remindOn}</Text>
+            </View>
+          ) : null}
+        </View>
+      )}
+    </Pressable>
+  ) : null;
 
   const toggleExpanded = () => {
     const confirm = beginGuidanceAction(useAuthStore.getState().user?.id ?? 'guest', 'chart.next_move', 'target:words');
@@ -139,6 +210,7 @@ export function ChartOneMoveRow({
           </Pressable>
         </View>
 
+        <View style={styles.bodyCol}>
         <Pressable
           ref={bodyRef}
           collapsable={false}
@@ -175,16 +247,34 @@ export function ChartOneMoveRow({
             {expanded ? <ChevronUp size={16} color={T.muted} /> : <ChevronDown size={16} color={T.muted} />}
           </View> */}
         </Pressable>
+        {planRow}
+        </View>
         <View pointerEvents="none" style={styles.chevron}>{expanded ? <ChevronUp size={18} color={T.muted} /> : <ChevronDown size={18} color={T.muted} />}</View>
       </View>
       {updated ? <View style={styles.moveLabelRow}><Text style={styles.why}>Updated from chat</Text>{!firstBatchMoveCompleted && !checked ? <Pressable accessibilityRole="button" disabled={undoing} onPress={() => void undo()} testID="chat-proposal-undo"><Text style={styles.count}>Undo</Text></Pressable> : null}</View> : null}
       {/* DEFERRED: helper line "Tap the circle when it's done..."; the first-time teaching and the ? replay cover it. */}
-      {showToast ? <Text accessibilityLiveRegion="polite" style={styles.toast} testID="chart-one-move-toast">{CHART_COPY.sheet.moveDoneToast}</Text> : null}
+      {showToast ? <Text accessibilityLiveRegion="polite" style={styles.toast} testID="chart-one-move-toast">{toastText}</Text> : null}
+      {onSavePlan ? (
+        <ChartMovePlanSheet
+          visible={planOpen}
+          move={move}
+          chartMoves={chartMoves ?? [move]}
+          accent={accent}
+          reducedMotion={reducedMotion}
+          busy={planBusy}
+          onSave={onSavePlan}
+          onClose={(saved) => {
+            setPlanOpen(false);
+            if (saved) flashToast(saved);
+          }}
+        />
+      ) : null}
     </View>
   );
 }
 
 const SAGE = '#6F8F74';
+const COPY_PLAN = CHART_COPY.plan;
 const styles = StyleSheet.create({
   wrap: { gap: 4 },
   moveLabelRow: { minHeight: 16, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 4 },
@@ -196,7 +286,14 @@ const styles = StyleSheet.create({
   checkHit: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center' },
   checkCircle: { width: 34, height: 34, borderRadius: 17, borderWidth: 2, alignItems: 'center', justifyContent: 'center' },
   checkCircleDone: { borderColor: SAGE, backgroundColor: SAGE },
-  body: { flex: 1, minWidth: 0, paddingTop: 8, paddingBottom: 8 },
+  bodyCol: { flex: 1, minWidth: 0 },
+  body: { minWidth: 0, paddingTop: 8, paddingBottom: 8 },
+  planRow: { minHeight: 44, justifyContent: 'center', paddingBottom: 8, marginTop: -2 },
+  planChips: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
+  planMissed: { opacity: 0.55 },
+  planChip: { minHeight: 32, flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 10, paddingVertical: 6, borderRadius: 10, backgroundColor: '#222d3a', maxWidth: '100%' },
+  planChipAsk: { alignSelf: 'flex-start', backgroundColor: 'transparent', borderWidth: 1, borderStyle: 'dashed', borderColor: '#5d6977' },
+  planChipText: { flexShrink: 1, fontFamily: T.sansStrong, fontSize: 12.5, lineHeight: 17, color: T.light },
   title: { fontFamily: T.sans, fontSize: 14, lineHeight: 19, color: T.light },
   titleDone: { color: T.light },
   why: { marginTop: 2, fontFamily: T.sans, fontSize: 12, lineHeight: 17, color: T.muted },

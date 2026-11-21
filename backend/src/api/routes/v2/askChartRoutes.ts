@@ -51,6 +51,9 @@ const TurnSchema = z
     targetMoveId: z.string().min(1).max(200).nullish(),
     conversationId: z.string().min(1).max(200).nullish(),
     opening: z.boolean().default(false),
+    // The device's local day. Checked strictly in cleanClientToday; a bad value is dropped, never a 400.
+    clientToday: z.unknown().optional(),
+    clientWeekday: z.unknown().optional(),
   })
   .strict();
 
@@ -140,6 +143,8 @@ router.post(
       targetMoveId: body.targetMoveId ?? null,
       conversationId: body.conversationId ?? null,
       opening: body.opening,
+      clientToday: typeof body.clientToday === 'string' ? body.clientToday : null,
+      clientWeekday: typeof body.clientWeekday === 'string' ? body.clientWeekday : null,
     };
 
     if (!wantsStream(req)) {

@@ -112,6 +112,14 @@ export type CourseObservation = {
 
 export type MoveStatus = 'SUGGESTED' | 'ACTIVE' | 'COMPLETED' | 'DISMISSED';
 
+/** When a Move will happen. `date` is the person's local YYYY-MM-DD, `time` their local HH:MM (24h). */
+export type MovePlan = {
+  cue: string | null;
+  date: string | null;
+  time: string | null;
+  remind: boolean;
+};
+
 export type MoveSummary = {
   batchId?: string | null;
   id: string;
@@ -125,6 +133,8 @@ export type MoveSummary = {
   isCurrent: boolean;
   completedAt: string | null;
   createdAt: string;
+  /** Null when the Move has no cue, date or time. */
+  plan: MovePlan | null;
 };
 
 export type CourseSummary = {

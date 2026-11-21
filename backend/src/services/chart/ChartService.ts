@@ -27,6 +27,56 @@ import {
 } from '../CourseService';
 import { isTerminal } from '../WaypointStateService';
 import type { CourseDetail, CourseSummary } from '../../types/chart';
+import {
+  EMPTY_PLAN_COLUMNS,
+  isCalendarDate,
+  isPlanTime,
+  normalizeCueText,
+  PLAN_CUE_MAX,
+  resolvePlanWrite,
+  type MovePlanInput,
+} from './movePlan';
+
+type StoredPlan = { cue?: unknown; date?: unknown; time?: unknown };
+
+/** A planner cue saved on a new Move: cleaned, at most 60 characters, otherwise none. */
+function plannerCue(value: string | null | undefined): string | null {
+  const cue = normalizeCueText(value);
+  return cue && cue.length <= PLAN_CUE_MAX ? cue : null;
+}
+
+/**
+ * A plan stored on a proposal, re-checked at apply time without a date window: the window was applied when the
+ * proposal was made (against the person's today), and a day passing since then must not drop it.
+ */
+function storedPlanColumns(plan: StoredPlan | null | undefined): {
+  planCue: string | null;
+  planDate: string | null;
+  planTime: string | null;
+} {
+  const cue = typeof plan?.cue === 'string' ? normalizeCueText(plan.cue) : null;
+  const date = typeof plan?.date === 'string' && isCalendarDate(plan.date) ? plan.date : null;
+  const time = date && typeof plan?.time === 'string' && isPlanTime(plan.time) ? plan.time : null;
+  return {
+    planCue: cue && cue.length <= PLAN_CUE_MAX ? cue : null,
+    planDate: date,
+    planTime: time,
+  };
+}
+
+type PlanMovesAction = {
+  type: 'PLAN_MOVES';
+  status: string;
+  waypointId: string | null;
+  plans?: Array<{ moveId: string } & StoredPlan>;
+  previous?: Array<{
+    moveId: string;
+    planCue: string | null;
+    planDate: string | null;
+    planTime: string | null;
+    planRemind: boolean;
+  }>;
+};
 
 type Tx = Prisma.TransactionClient;
 
@@ -43,7 +93,7 @@ export type RouteWaypointInput = {
   requirements?: Array<{ id: string; title: string; completed: boolean }>;
   completionCriteria?: string | null;
   /** AI-proposed concrete actions, kept as suggestions until accepted by the person. */
-  suggestedMoves?: Array<{ title: string; rationale?: string | null }>;
+  suggestedMoves?: Array<{ title: string; rationale?: string | null; cue?: string | null }>;
 };
 
 export type ChartAnchorSummary = {
@@ -223,7 +273,7 @@ export class ChartService {
       proposalId?: string | null;
       complexity?: string | null;
       waypoints: RouteWaypointInput[];
-      oneMove?: { title: string; rationale?: string | null } | null;
+      oneMove?: { title: string; rationale?: string | null; cue?: string | null } | null;
     }
   ): Promise<CourseDetail> {
     const destinationText = cleanTitle(input.destinationText, 140);
@@ -313,6 +363,7 @@ export class ChartService {
                 source: 'AI',
                 status: 'SUGGESTED',
                 position: movePosition,
+                planCue: plannerCue(move.cue),
               },
             });
             movePosition += 100;
@@ -334,6 +385,7 @@ export class ChartService {
               source: input.proposalId ? 'AI' : 'USER',
               status: 'ACTIVE',
               position: 100,
+              planCue: plannerCue(input.oneMove?.cue),
             },
           });
         }
@@ -421,10 +473,14 @@ export class ChartService {
       status?: 'SUGGESTED' | 'ACTIVE';
       makeCurrent?: boolean;
       idempotencyKey: string;
+      /** Optional plan (cue, local date, local time, reminder). Validated before any write. */
+      plan?: MovePlanInput | null;
     }
   ): Promise<CourseDetail> {
     const title = cleanTitle(input.title, 120);
     if (!title) throw new AppError('A Move needs a title', 422, 'VALIDATION_ERROR');
+    const planColumns =
+      input.plan === undefined ? null : resolvePlanWrite(input.plan, EMPTY_PLAN_COLUMNS);
     return runSerializable(async tx => {
       const replay = await tx.move.findUnique({ where: { idempotencyKey: input.idempotencyKey } });
       if (replay) {
@@ -457,6 +513,7 @@ export class ChartService {
           status,
           position: await nextMovePosition(tx, waypoint.id),
           idempotencyKey: input.idempotencyKey,
+          ...(planColumns ?? {}),
         },
       });
       const becomesCurrent =
@@ -487,11 +544,22 @@ export class ChartService {
           type: string;
           status: string;
           waypointId: string | null;
-          moves: Array<{ title: string; rationale?: string | null; detail?: string | null }>;
+          moves: Array<
+            { title: string; rationale?: string | null; detail?: string | null } & StoredPlan
+          >;
         };
       } | null;
       const action = structured?.action;
       if (!message || !action) throw new AppError('Proposal not found', 404, 'PROPOSAL_NOT_FOUND');
+      if (action.type === 'PLAN_MOVES') {
+        return this.applyPlanMoves(
+          tx,
+          userId,
+          courseId,
+          message.id,
+          structured as { action: PlanMovesAction }
+        );
+      }
       if (action.type !== 'ADD_MOVES' || !action.waypointId)
         throw new AppError('Proposal unavailable', 409, 'PROPOSAL_UNAVAILABLE');
       if (action.status === 'DISMISSED')
@@ -533,6 +601,9 @@ export class ChartService {
             position: start + index * 100,
             batchId: message.id,
             idempotencyKey: `ask-move:${message.id}:${index}`,
+            // The reminder is device-local and the person turns it on: Ask never sets planRemind.
+            ...storedPlanColumns(move),
+            planRemind: false,
           },
         });
       }
@@ -560,7 +631,69 @@ export class ChartService {
     });
   }
 
-  /** Remove only incomplete moves from an owned proposal batch. */
+  /**
+   * PLAN_MOVES: writes the proposed plans onto existing moves in the caller's serializable transaction. Every move
+   * must still be ACTIVE on the current waypoint, otherwise the whole proposal is stale. Each move's previous plan
+   * is stored on the message so undo restores it exactly. A move keeps its reminder setting unless the new plan
+   * has no time.
+   */
+  private async applyPlanMoves(
+    tx: Tx,
+    userId: string,
+    courseId: string,
+    messageId: string,
+    structured: { action: PlanMovesAction }
+  ): Promise<{ chart: CourseDetail; added: number; batchId: string }> {
+    const action = structured.action;
+    if (action.status === 'DISMISSED')
+      throw new AppError('Proposal was already dismissed', 409, 'SYNC_CONFLICT');
+    const row = await findCourse(tx, userId, courseId);
+    if (action.status === 'APPLIED')
+      return { chart: projection(row), added: 0, batchId: messageId };
+    assertCourseActive(row);
+    const plans = Array.isArray(action.plans) ? action.plans.slice(0, 3) : [];
+    if (!plans.length) throw new AppError('Nothing to apply', 409, 'PROPOSAL_UNAVAILABLE');
+    const previous: NonNullable<PlanMovesAction['previous']> = [];
+    const writes: Array<{
+      id: string;
+      data: ReturnType<typeof storedPlanColumns> & { planRemind: boolean };
+    }> = [];
+    for (const plan of plans) {
+      const move = row.moves.find(item => item.id === plan.moveId);
+      if (!move || move.status !== 'ACTIVE' || move.waypointId !== row.currentWaypointId)
+        throw new AppError('That move has changed since this was suggested', 409, 'PROPOSAL_STALE');
+      previous.push({
+        moveId: move.id,
+        planCue: move.planCue,
+        planDate: move.planDate,
+        planTime: move.planTime,
+        planRemind: move.planRemind,
+      });
+      const columns = storedPlanColumns(plan);
+      writes.push({
+        id: move.id,
+        data: { ...columns, planRemind: columns.planTime ? move.planRemind : false },
+      });
+    }
+    for (const write of writes) await tx.move.update({ where: { id: write.id }, data: write.data });
+    await tx.course.update({ where: { id: courseId }, data: { version: { increment: 1 } } });
+    await tx.chartMessage.update({
+      where: { id: messageId },
+      data: {
+        structured: {
+          ...structured,
+          action: { ...action, status: 'APPLIED', previous },
+        } as unknown as Prisma.InputJsonValue,
+      },
+    });
+    return {
+      chart: projection(await findCourse(tx, userId, courseId)),
+      added: 0,
+      batchId: messageId,
+    };
+  }
+
+  /** Remove only incomplete moves from an owned proposal batch; a PLAN_MOVES undo restores the plans it replaced. */
   async undoAskProposal(userId: string, courseId: string, batchId: string): Promise<CourseDetail> {
     return runSerializable(async tx => {
       const message = await tx.chartMessage.findFirst({
@@ -569,6 +702,27 @@ export class ChartService {
       });
       const action = (message?.structured as { action?: { type: string; status: string } } | null)
         ?.action;
+      if (message && action?.type === 'PLAN_MOVES' && action.status === 'APPLIED') {
+        const structured = message.structured as unknown as { action: PlanMovesAction };
+        const row = await findCourse(tx, userId, courseId);
+        assertCourseActive(row);
+        for (const before of structured.action.previous ?? []) {
+          const move = row.moves.find(item => item.id === before.moveId);
+          if (!move) continue;
+          await tx.move.update({
+            where: { id: move.id },
+            data: {
+              planCue: before.planCue,
+              planDate: before.planDate,
+              planTime: before.planTime,
+              planRemind: before.planRemind,
+            },
+          });
+        }
+        // Status stays APPLIED, as an ADD_MOVES undo does; restoring `previous` again is a no-op.
+        await tx.course.update({ where: { id: courseId }, data: { version: { increment: 1 } } });
+        return projection(await findCourse(tx, userId, courseId));
+      }
       if (!message || action?.type !== 'ADD_MOVES' || action.status !== 'APPLIED')
         throw new AppError('Proposal not found', 404, 'PROPOSAL_NOT_FOUND');
       const row = await findCourse(tx, userId, courseId);
@@ -645,13 +799,39 @@ export class ChartService {
     userId: string,
     courseId: string,
     moveId: string,
-    input: { title?: string; rationale?: string | null; accept?: boolean; makeCurrent?: boolean }
+    input: {
+      title?: string;
+      rationale?: string | null;
+      accept?: boolean;
+      makeCurrent?: boolean;
+      /** `null` clears the plan; omitted fields inside it keep their current value. */
+      plan?: MovePlanInput | null;
+    }
   ): Promise<CourseDetail> {
     return runSerializable(async tx => {
       const row = await findCourse(tx, userId, courseId);
       assertCourseActive(row);
       const move = row.moves.find(item => item.id === moveId);
       if (!move) throw new AppError('Move not found', 404, 'MOVE_NOT_FOUND');
+      if (input.plan !== undefined && move.status !== 'SUGGESTED' && move.status !== 'ACTIVE') {
+        throw new AppError('Only open Moves can be planned', 409, 'MOVE_NOT_PLANNABLE');
+      }
+      const planColumns =
+        input.plan === undefined
+          ? null
+          : resolvePlanWrite(input.plan, {
+              planCue: move.planCue,
+              planDate: move.planDate,
+              planTime: move.planTime,
+              planRemind: move.planRemind,
+            });
+      // A plan-only write never moves the One Move, its position or its status.
+      const planOnly =
+        planColumns !== null &&
+        input.title === undefined &&
+        input.rationale === undefined &&
+        !input.accept &&
+        !input.makeCurrent;
       if (move.status === 'COMPLETED' || move.status === 'DISMISSED') {
         throw new AppError('This Move can no longer be changed', 409, 'MOVE_TRANSITION_INVALID');
       }
@@ -665,12 +845,16 @@ export class ChartService {
           ...(input.rationale !== undefined
             ? { rationale: cleanOptional(input.rationale, 280) }
             : {}),
+          ...(planColumns ?? {}),
           status,
         },
       });
       const onCurrentWaypoint = move.waypointId === row.currentWaypointId;
       const becomesCurrent =
-        status === 'ACTIVE' && onCurrentWaypoint && (input.makeCurrent || !row.currentMoveId);
+        !planOnly &&
+        status === 'ACTIVE' &&
+        onCurrentWaypoint &&
+        (input.makeCurrent || !row.currentMoveId);
       await tx.course.update({
         where: { id: courseId },
         data: { version: { increment: 1 }, ...(becomesCurrent ? { currentMoveId: moveId } : {}) },
@@ -1068,6 +1252,7 @@ export class ChartService {
                   source: 'AI',
                   status: 'SUGGESTED',
                   position: movePosition,
+                  planCue: plannerCue(move.cue),
                 },
               });
               movePosition += 100;
@@ -1104,6 +1289,7 @@ export class ChartService {
                 source: 'AI',
                 status: 'SUGGESTED',
                 position: movePosition,
+                planCue: plannerCue(move.cue),
               },
             });
             movePosition += 100;

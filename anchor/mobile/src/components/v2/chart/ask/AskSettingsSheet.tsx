@@ -12,7 +12,7 @@ type Profile = ReturnType<typeof useAskProfile>;
 
 export const AskSettingsButton = memo(function AskSettingsButton({ onPress }: { onPress: () => void }) {
   return (
-    <Pressable accessibilityRole="button" accessibilityLabel="Ask Chart settings" onPress={onPress} hitSlop={8} style={styles.moreButton} testID="ask-settings-button">
+    <Pressable accessibilityRole="button" accessibilityLabel="Ask Anchor settings" onPress={onPress} hitSlop={8} style={styles.moreButton} testID="ask-settings-button">
       <MoreHorizontal size={22} color={colors.text.primary} />
     </Pressable>
   );
@@ -49,13 +49,13 @@ export const AskSettingsSheet = memo(function AskSettingsSheet({ visible, accent
   useEffect(() => { if (!visible) setEditing(null); }, [visible]);
 
   const confirmClear = useCallback(() => {
-    Alert.alert('Clear this conversation?', 'Your messages and any photos you sent are deleted. What Ask Chart remembers stays unless you forget it too. Your Chart is not affected.', [
+    Alert.alert('Clear this conversation?', 'Your messages and any photos you sent are deleted. What Ask Anchor remembers stays unless you forget it too. Your Chart is not affected.', [
       { text: 'Cancel', style: 'cancel' },
       { text: 'Clear', style: 'destructive', onPress: () => { void profile.clearConversation().then(ok => { if (ok) { onCleared(); onClose(); } }); } },
     ]);
   }, [onClose, onCleared, profile]);
   const confirmForgetAll = useCallback(() => {
-    Alert.alert('Forget everything?', 'Ask Chart will no longer remember anything about how you work on this Anchor.', [
+    Alert.alert('Forget everything?', 'Ask Anchor will no longer remember anything about how you work on this Anchor.', [
       { text: 'Cancel', style: 'cancel' },
       { text: 'Forget', style: 'destructive', onPress: () => { void profile.forgetAll(); } },
     ]);
@@ -90,11 +90,11 @@ export const AskSettingsSheet = memo(function AskSettingsSheet({ visible, accent
               );
             })}
           </View>
-          <Text style={styles.note}>Changes how Ask Chart talks, never what it tells you.</Text>
+          <Text style={styles.note}>Changes how Ask Anchor talks, never what it tells you.</Text>
 
-          <Text style={[styles.sectionTitle, styles.sectionGap]}>What Ask Chart remembers</Text>
+          <Text style={[styles.sectionTitle, styles.sectionGap]}>What Ask Anchor remembers</Text>
           {profile.loading && !data ? <Text style={styles.note}>Loading…</Text> : null}
-          {data && data.memories.length === 0 ? <Text style={styles.note} testID="ask-memory-empty">Nothing yet. Ask Chart only remembers what you tell it about how you work, and only for this Anchor.</Text> : null}
+          {data && data.memories.length === 0 ? <Text style={styles.note} testID="ask-memory-empty">Nothing yet. Ask Anchor only remembers what you tell it about how you work, and only for this Anchor.</Text> : null}
           {data?.memories.map(memory => (
             <View key={memory.key} style={styles.memory} testID={`ask-memory-${memory.key}`}>
               <Text style={styles.memoryLabel}>{MEMORY_LABELS[memory.key]}</Text>

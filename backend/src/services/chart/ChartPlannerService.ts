@@ -975,7 +975,11 @@ export class ChartPlannerService {
   }): ChartProposal {
     const waypoints = parsePersistedWaypoints(row.waypoints);
     const isTemplate = row.generationSource.startsWith('template');
-    const oneMove = row.suggestedOneMove as { title?: unknown; rationale?: unknown } | null;
+    const oneMove = row.suggestedOneMove as {
+      title?: unknown;
+      rationale?: unknown;
+      cue?: unknown;
+    } | null;
     return {
       proposalId: row.id,
       kind: row.kind === 'ADJUST' ? 'ADJUST' : 'CREATE',
@@ -991,6 +995,8 @@ export class ChartPlannerService {
           ? {
               title: oneMove.title,
               rationale: typeof oneMove.rationale === 'string' ? oneMove.rationale : null,
+              // Proposals saved before cues existed carry none.
+              cue: typeof oneMove.cue === 'string' ? oneMove.cue : null,
             }
           : null,
       guidance: row.guidance,

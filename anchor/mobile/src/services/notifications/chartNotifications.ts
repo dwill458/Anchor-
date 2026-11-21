@@ -33,6 +33,7 @@ import { encryptedPersistStorage } from '@/stores/encryptedPersistStorage';
 import { useSessionStore } from '@/stores/sessionStore';
 import type { MoveSummary } from '@/types/chart';
 import { logger } from '@/utils/logger';
+import { hasMoveReminderWithin } from './chartMoveReminders';
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 /** Memory entries older than this are dropped (they no longer count toward any week). */
@@ -51,6 +52,8 @@ export type SyncChartNotificationsArgs = {
   accountId?: string | null;
   view: { destination: string; oneMove: { title: string } | null };
   moves: MoveSummary[];
+  /** The Chart's current waypoint, so a move reminder in the next 48h can hold back the idle nudge. */
+  currentWaypointId?: string | null;
   now?: Date;
 };
 
@@ -213,6 +216,7 @@ export async function syncChartNotifications(args: SyncChartNotificationsArgs): 
       notificationsEnabled: flags.enabled,
       permissionGranted: flags.granted,
       alreadyScheduled: [...fired, ...(keptIdle ? [keptIdle] : [])].map(({ kind, fireDate }) => ({ kind, fireDate })),
+      moveReminderSoon: args.currentWaypointId ? hasMoveReminderWithin(args.moves, args.currentWaypointId, now) : false,
     }).slice(0, CHART_MAX_PUSHES_PER_WEEK);
 
     // Replace this anchor's pending pushes (except an idle nudge that is still valid).

@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { normalizeCueText, PLAN_CUE_MAX } from './movePlan';
 
 /**
  * Strict contract for everything a model may contribute to a Chart.
@@ -64,7 +65,9 @@ const RawWaypointSchema = z.object({
   completionCriteria: z.string().nullish(),
   requirements: z.array(z.string()).max(12).nullish(),
   moves: z
-    .array(z.object({ title: z.string(), rationale: z.string().nullable() }))
+    .array(
+      z.object({ title: z.string(), rationale: z.string().nullable(), cue: z.string().nullish() })
+    )
     .max(4)
     .nullish(),
 });
@@ -72,6 +75,7 @@ const RawWaypointSchema = z.object({
 const RawMoveSchema = z.object({
   title: z.string(),
   rationale: z.string().nullable(),
+  cue: z.string().nullish(),
 });
 
 export const RawGenerationSchema = z.object({
@@ -208,8 +212,12 @@ export const GENERATION_JSON_SCHEMA = {
             items: {
               type: 'object',
               additionalProperties: false,
-              required: ['title', 'rationale'],
-              properties: { title: { type: 'string' }, rationale: { type: ['string', 'null'] } },
+              required: ['title', 'rationale', 'cue'],
+              properties: {
+                title: { type: 'string' },
+                rationale: { type: ['string', 'null'] },
+                cue: { type: ['string', 'null'] },
+              },
             },
           },
         },
@@ -218,10 +226,11 @@ export const GENERATION_JSON_SCHEMA = {
     suggestedOneMove: {
       type: ['object', 'null'],
       additionalProperties: false,
-      required: ['title', 'rationale'],
+      required: ['title', 'rationale', 'cue'],
       properties: {
         title: { type: 'string' },
         rationale: { type: ['string', 'null'] },
+        cue: { type: ['string', 'null'] },
       },
     },
     personalizedGuidance: { type: ['string', 'null'] },
@@ -264,7 +273,8 @@ export type PlannedWaypoint = {
   moves?: PlannedMove[];
 };
 
-export type PlannedMove = { title: string; rationale: string | null };
+/** `cue` is an "After …" / "Before …" phrase from the person's own words, or null. Planners never set dates. */
+export type PlannedMove = { title: string; rationale: string | null; cue?: string | null };
 
 export type ChartGenerationResult =
   | { needsMoreContext: true; followUpQuestion: string }
@@ -445,12 +455,17 @@ function normalizeWaypoint(
 }
 
 export function normalizeMove(
-  raw: { title: string; rationale: string | null } | null
+  raw: { title: string; rationale: string | null; cue?: string | null } | null
 ): PlannedMove | null {
   if (!raw) return null;
   const title = cleanTitle(raw.title, MOVE_TITLE_MAX);
   if (title.length < 3) return null;
-  return { title, rationale: cleanOptional(raw.rationale, RATIONALE_MAX) };
+  const cue = normalizeCueText(raw.cue);
+  return {
+    title,
+    rationale: cleanOptional(raw.rationale, RATIONALE_MAX),
+    cue: cue && cue.length <= PLAN_CUE_MAX ? cue : null,
+  };
 }
 
 /**

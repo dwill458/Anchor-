@@ -62,6 +62,8 @@ const RouteWaypoint = z
           .object({
             title: z.string().trim().min(1).max(120),
             rationale: z.string().max(280).nullish(),
+            // A planner cue; anything over 60 characters is dropped when saved.
+            cue: z.string().max(400).nullish(),
           })
           .strict()
       )
@@ -191,6 +193,7 @@ const CreateSchema = z
       .object({
         title: z.string().trim().min(1).max(120),
         rationale: z.string().max(280).nullish(),
+        cue: z.string().max(400).nullish(),
       })
       .strict()
       .nullish(),
@@ -210,12 +213,28 @@ const ApplyRouteSchema = z
       .object({
         title: z.string().trim().min(1).max(120),
         rationale: z.string().max(280).nullish(),
+        cue: z.string().max(400).nullish(),
       })
       .strict()
       .nullish(),
     confirmRewrite: z.boolean().optional(),
   })
   .strict();
+
+/**
+ * A Move's plan. Shapes are checked here; the rules (cue length, real dates within a year,
+ * time needs a date, reminder needs both) are checked in `resolvePlanWrite` so each failure
+ * names its field. `null` clears the whole plan.
+ */
+const MovePlanBody = z
+  .object({
+    cue: z.string().max(400).nullish(),
+    date: z.string().max(40).nullish(),
+    time: z.string().max(40).nullish(),
+    remind: z.boolean().optional(),
+  })
+  .strict()
+  .nullable();
 
 const AddMoveSchema = z
   .object({
@@ -224,6 +243,7 @@ const AddMoveSchema = z
     title: z.string().trim().min(1).max(120),
     rationale: z.string().max(280).nullish(),
     makeCurrent: z.boolean().optional(),
+    plan: MovePlanBody.optional(),
   })
   .strict();
 
@@ -233,6 +253,7 @@ const UpdateMoveSchema = z
     rationale: z.string().max(280).nullish(),
     accept: z.boolean().optional(),
     makeCurrent: z.boolean().optional(),
+    plan: MovePlanBody.optional(),
   })
   .strict();
 

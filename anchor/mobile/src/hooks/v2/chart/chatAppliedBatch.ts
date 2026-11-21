@@ -1,6 +1,13 @@
 import { useSyncExternalStore } from 'react';
 
-type AppliedBatch = { accountId: string | null; courseId: string; batchId: string; firstMoveId: string };
+type AppliedBatch = {
+  accountId: string | null;
+  courseId: string;
+  batchId: string;
+  firstMoveId: string;
+  /** PLAN_MOVES: existing moves whose plan this batch changed (they carry no batchId of their own). */
+  moveIds?: string[];
+};
 let current: AppliedBatch | null = null;
 const listeners = new Set<() => void>();
 

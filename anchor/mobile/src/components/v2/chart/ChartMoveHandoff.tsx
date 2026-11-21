@@ -5,6 +5,7 @@ import { ArrowRight } from 'lucide-react-native';
 import { encryptedPersistStorage } from '@/stores/encryptedPersistStorage';
 import { trackChart, useAnchorChart } from '@/hooks/v2/chart/useAnchorChart';
 import { CHART_COPY } from '@/constants/v2/chartCopy';
+import { formatPlanWhen } from '@/adapters/v2/chart/movePlan';
 import { colors, radii, spacing, typography } from '@/theme/v2';
 
 export type ChartHandoffSurface = 'visualize' | 'practice';
@@ -86,6 +87,8 @@ export function ChartMoveHandoff({
 
   if (!show || !oneMove || !anchorId) return null;
   const onInk = tone === 'ink';
+  // Display only: the One Move's cue and day, when it has them.
+  const planLine = [oneMove.plan?.cue?.trim(), formatPlanWhen(oneMove.plan, new Date())].filter(Boolean).join(' · ');
 
   return (
     <View testID={testID ?? `chart-handoff-${surface}`} style={[styles.card, onInk ? styles.cardInk : styles.cardCream]}>
@@ -94,6 +97,9 @@ export function ChartMoveHandoff({
       ) : null}
       <Text style={[styles.eyebrow, { color: onInk ? colors.ink.text.secondary : colors.text.secondary }]}>{CHART_COPY.labels.oneMove}</Text>
       <Text style={[styles.move, { color: onInk ? colors.ink.text.primary : colors.text.primary }]}>{oneMove.title}</Text>
+      {planLine ? (
+        <Text testID="chart-handoff-plan" style={[styles.plan, { color: onInk ? colors.ink.text.secondary : colors.text.secondary }]}>{planLine}</Text>
+      ) : null}
       <Pressable
         accessibilityRole="button"
         accessibilityLabel={`${CHART_COPY.active.viewChart}. One Move: ${oneMove.title}`}
@@ -118,6 +124,7 @@ const styles = StyleSheet.create({
   lead: { ...typography.bodyMD, marginBottom: spacing[2] },
   eyebrow: { ...typography.labelSM, letterSpacing: 1.1 },
   move: { ...typography.headingSM },
+  plan: { ...typography.bodySM },
   link: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: spacing[2], minHeight: 32, alignSelf: 'flex-start' },
   linkText: { ...typography.labelMD },
 });

@@ -12,6 +12,7 @@ import {
   validateCourseInvariants,
 } from './WaypointStateService';
 import { COURSE_EVENT_MESSAGES, courseEventService } from './CourseEventService';
+import { toMovePlan } from './chart/movePlan';
 import type {
   AnchorSnapshot,
   AddWaypointRequest,
@@ -213,6 +214,7 @@ export function toMoveSummary(
     isCurrent: move.id === currentMoveId,
     completedAt: move.completedAt?.toISOString() ?? null,
     createdAt: move.createdAt.toISOString(),
+    plan: toMovePlan(move),
   };
 }
 

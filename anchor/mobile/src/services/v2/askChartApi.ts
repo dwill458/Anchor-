@@ -25,8 +25,11 @@ export type AskSkill =
 export type CoachStyle = 'SUPPORTIVE' | 'DRIVEN' | 'DIRECT';
 export type AskActionStatus = 'PENDING' | 'APPLIED' | 'DISMISSED';
 
+/** A proposed plan: the person's local date (YYYY-MM-DD) and time (HH:MM). Ask never sets the reminder. */
+export type AskPlan = { cue: string | null; date: string | null; time: string | null };
+
 export type AskAction = {
-  type: 'ADD_MOVES' | 'REVISE_ROUTE';
+  type: 'ADD_MOVES' | 'REVISE_ROUTE' | 'PLAN_MOVES';
   /** The smallest level the change works at. The card shown depends on it. */
   scope?: 'MOVE' | 'WAYPOINT' | 'ROUTE';
   /** One line on why a route change is needed. */
@@ -35,7 +38,9 @@ export type AskAction = {
   summary: string;
   waypointId: string | null;
   waypointTitle: string | null;
-  moves: Array<{ title: string; rationale: string | null; detail?: string | null }>;
+  moves: Array<{ title: string; rationale: string | null; detail?: string | null } & Partial<AskPlan>>;
+  /** PLAN_MOVES only: the new plan for each existing move. */
+  plans?: Array<{ moveId: string; title: string } & AskPlan>;
   reason: string | null;
   detail: string | null;
   routeProposalId: string | null;
@@ -72,7 +77,21 @@ export type AskTurnBody = {
   targetMoveId?: string | null;
   conversationId?: string | null;
   opening?: boolean;
+  /** The device's local date and weekday. `turn` fills them on every request. */
+  clientToday?: string;
+  clientWeekday?: string;
 };
+
+const WEEKDAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'] as const;
+
+/** The person's local today, sent with every Ask turn so plans use their calendar, not the server's. */
+export function clientDay(now: Date = new Date()): { clientToday: string; clientWeekday: string } {
+  const pad = (value: number) => String(value).padStart(2, '0');
+  return {
+    clientToday: `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`,
+    clientWeekday: WEEKDAYS[now.getDay()],
+  };
+}
 
 export type AskTurnResult = {
   conversationId: string;
@@ -172,7 +191,7 @@ async function streamTurn(
     } catch {
       /* not JSON */
     }
-    throw new AskServerError({ code: parsed.error?.code ?? 'ASK_FAILED', message: parsed.error?.message ?? 'Ask Chart failed', status: response.status });
+    throw new AskServerError({ code: parsed.error?.code ?? 'ASK_FAILED', message: parsed.error?.message ?? 'Ask Anchor failed', status: response.status });
   }
   if (!response.body) throw new Error('stream_unavailable');
   let receivedAnything = false;
@@ -217,7 +236,8 @@ export const askChartApi = {
    * before anything arrived, the same turn is retried once as a plain request: the idempotency key makes that
    * safe, and the server returns the answer it already gave rather than asking the model again.
    */
-  async turn(anchorId: string, body: AskTurnBody, handlers: AskTurnHandlers = {}, signal?: AbortSignal): Promise<AskTurnResult> {
+  async turn(anchorId: string, input: AskTurnBody, handlers: AskTurnHandlers = {}, signal?: AbortSignal): Promise<AskTurnResult> {
+    const body: AskTurnBody = { ...input, ...clientDay() };
     try {
       return (await streamTurn(anchorId, body, handlers, signal)).result;
     } catch (error) {

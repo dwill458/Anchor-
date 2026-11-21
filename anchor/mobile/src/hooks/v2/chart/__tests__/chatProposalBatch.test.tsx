@@ -64,3 +64,87 @@ test('undo appears for the active batch and hides when its first move is complet
   await waitFor(() => expect(undoProposal).toHaveBeenCalledWith('c', 'b'));
   await waitFor(() => expect(screen.queryByText('Updated from chat')).toBeNull());
 });
+
+describe('plans in chat proposals', () => {
+  const NOW = new Date(2026, 10, 16, 10, 0);
+  const planAction = {
+    type: 'PLAN_MOVES', status: 'PENDING', summary: 'Your week', waypointId: 'w', waypointTitle: 'Mornings', moves: [],
+    plans: [
+      { moveId: 'a', title: 'Open the curtains', cue: 'After I wake up', date: '2026-11-17', time: '15:00' },
+      { moveId: 'b', title: 'Drink the water', cue: null, date: '2026-11-19', time: null },
+    ],
+  };
+  const planMessage = { id: 'plan-msg', action: planAction } as any;
+
+  test('proposed moves show their plan chips, without a bell', () => {
+    const withPlan = { ...action, moves: [{ title: 'First', rationale: null, cue: 'After lunch', date: '2026-11-16', time: '12:30' }, { title: 'Second', rationale: null, cue: null, date: null, time: null }] };
+    const screen = render(<AskProposalCard {...props} now={NOW} message={{ ...message, action: withPlan }} />);
+    expect(screen.getAllByTestId('ask-proposal-plan')).toHaveLength(1);
+    expect(screen.getByText('After lunch')).toBeTruthy();
+    expect(screen.getByText(/^Today · (12:30 PM|12:30)$/)).toBeTruthy();
+    expect(screen.queryByText('Reminder on')).toBeNull();
+  });
+
+  test('a PLAN_MOVES card lists each move with its new plan and uses the plan labels', () => {
+    const onApprove = jest.fn();
+    const screen = render(<AskProposalCard {...props} now={NOW} message={planMessage} onApprove={onApprove} />);
+    expect(screen.getAllByTestId('ask-proposal-plan-row')).toHaveLength(2);
+    expect(screen.getByText('Open the curtains')).toBeTruthy();
+    expect(screen.getByText(/^Tomorrow · (3:00 PM|15:00)$/)).toBeTruthy();
+    expect(screen.getByText('Thu')).toBeTruthy();
+    expect(screen.getByText('Use this plan')).toBeTruthy();
+    expect(screen.getByText('Not now')).toBeTruthy();
+    fireEvent.press(screen.getByTestId('ask-proposal-approve'));
+    expect(onApprove).toHaveBeenCalledTimes(1);
+  });
+
+  test('the remind chip appears only with an offer, and reads "Reminder on" once set', () => {
+    const applied = { ...planMessage, action: { ...planAction, status: 'APPLIED' } };
+    const screen = render(<AskProposalCard {...props} now={NOW} message={applied} />);
+    expect(screen.getByText('Plan saved to your Chart')).toBeTruthy();
+    expect(screen.queryByTestId('ask-proposal-remind')).toBeNull();
+    const onRemind = jest.fn();
+    screen.rerender(<AskProposalCard {...props} now={NOW} message={applied} remind={{ time: '15:00', state: 'offer' }} onRemind={onRemind} />);
+    expect(screen.getByText(/^Remind me at (3:00 PM|15:00)$/)).toBeTruthy();
+    fireEvent.press(screen.getByTestId('ask-proposal-remind'));
+    expect(onRemind).toHaveBeenCalledTimes(1);
+    screen.rerender(<AskProposalCard {...props} now={NOW} message={applied} remind={{ time: '15:00', state: 'on' }} onRemind={onRemind} />);
+    expect(screen.getByTestId('ask-proposal-remind-on')).toBeTruthy();
+  });
+
+  test('applying PLAN_MOVES reports exactly the moves that now have a day and a time', async () => {
+    const approve = jest.fn(async () => ({
+      batchId: 'plan-msg',
+      added: 0,
+      chart: {
+        moves: [
+          { id: 'a', status: 'ACTIVE', position: 100, plan: { cue: 'After I wake up', date: '2026-11-17', time: '15:00', remind: false } },
+          { id: 'b', status: 'ACTIVE', position: 200, plan: { cue: null, date: '2026-11-19', time: null, remind: false } },
+          { id: 'c', status: 'ACTIVE', position: 300, plan: { cue: null, date: '2026-11-18', time: '09:00', remind: false } },
+        ],
+      },
+    }));
+    const applied = jest.fn();
+    const hook = renderHook(() => useAskProposals({ courseId: 'c', commitChart: jest.fn(), markAction: jest.fn(), onMovesApplied: applied, onReviewRoute: jest.fn(), api: { approve, dismiss: jest.fn() } as any }));
+    await act(async () => { await hook.result.current.approve(planMessage); });
+    expect(applied).toHaveBeenCalledWith(expect.objectContaining({ messageId: 'plan-msg', timedMoveIds: ['a'], remindTime: '15:00', titles: ['Open the curtains', 'Drink the water'] }));
+  });
+
+  test('applying moves with no time offers no reminder', async () => {
+    const approve = jest.fn(async () => ({ batchId: 'm', added: 1, chart: { moves: [{ id: 'x', batchId: 'm', status: 'ACTIVE', position: 1, plan: { cue: 'After lunch', date: null, time: null, remind: false } }] } }));
+    const applied = jest.fn();
+    const hook = renderHook(() => useAskProposals({ courseId: 'c', commitChart: jest.fn(), markAction: jest.fn(), onMovesApplied: applied, onReviewRoute: jest.fn(), api: { approve, dismiss: jest.fn() } as any }));
+    await act(async () => { await hook.result.current.approve(message); });
+    expect(applied).toHaveBeenCalledWith(expect.objectContaining({ timedMoveIds: [], remindTime: null }));
+  });
+
+  test('undo shows on a move whose plan the batch changed', () => {
+    const api = require('@/services/v2/askChartApi').askChartApi;
+    api.undoProposal = jest.fn().mockResolvedValue({ chart: {} });
+    setChatAppliedBatch({ accountId: null, courseId: 'c', batchId: 'plan-msg', firstMoveId: 'a', moveIds: ['a', 'b'] });
+    const rowProps = { accent: { text: '#000' } as any, move: { id: 'a', courseId: 'c', batchId: null, title: 'Open the curtains', status: 'ACTIVE' } as any, waypointTitle: 'Waypoint', checked: false, busy: false, reducedMotion: true, onCheck: jest.fn() };
+    const screen = render(<ChartOneMoveRow {...rowProps} />);
+    expect(screen.getByTestId('chat-proposal-undo')).toBeTruthy();
+    setChatAppliedBatch(null);
+  });
+});

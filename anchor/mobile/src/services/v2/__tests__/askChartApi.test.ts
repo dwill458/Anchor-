@@ -20,7 +20,7 @@ jest.mock('@/services/ApiClient', () => {
 });
 
 import { apiClient } from '@/services/ApiClient';
-import { askChartApi, createSseParser, type AskTurnResult } from '../askChartApi';
+import { askChartApi, clientDay, createSseParser, type AskTurnResult } from '../askChartApi';
 
 const post = apiClient.post as jest.Mock;
 
@@ -68,6 +68,13 @@ describe('createSseParser', () => {
   });
 });
 
+describe('clientDay', () => {
+  it('is the device-local date and short weekday', () => {
+    expect(clientDay(new Date(2026, 10, 16, 23, 59))).toEqual({ clientToday: '2026-11-16', clientWeekday: 'Mon' });
+    expect(clientDay(new Date(2026, 10, 22, 0, 1))).toEqual({ clientToday: '2026-11-22', clientWeekday: 'Sun' });
+  });
+});
+
 describe('askChartApi.turn', () => {
   it('streams: sends auth and the SSE accept header, reports replies in order and resolves with the result', async () => {
     mockFetch.mockResolvedValue({ ok: true, body: streamBody([sse('delta', { text: 'Hi' }), sse('stage', { stage: 'preparing_change' }), sse('done', turnResult)]) });
@@ -80,7 +87,7 @@ describe('askChartApi.turn', () => {
     const [url, init] = mockFetch.mock.calls[0];
     expect(url).toBe('https://api.test/api/v2/anchors/anchor%201/chart/ask');
     expect(init.headers).toMatchObject({ Authorization: 'Bearer token-1', Accept: 'text/event-stream', 'Content-Type': 'application/json' });
-    expect(JSON.parse(init.body)).toEqual({ idempotencyKey: 'key-12345678', text: 'hello' });
+    expect(JSON.parse(init.body)).toEqual({ idempotencyKey: 'key-12345678', text: 'hello', ...clientDay() });
     expect(post).not.toHaveBeenCalled();
   });
 
@@ -101,7 +108,7 @@ describe('askChartApi.turn', () => {
     post.mockResolvedValue({ data: { success: true, data: turnResult } });
     const body = { idempotencyKey: 'key-12345678', text: 'x' };
     expect(await askChartApi.turn('a', body)).toEqual(turnResult);
-    expect(post).toHaveBeenCalledWith('/api/v2/anchors/a/chart/ask', body, expect.objectContaining({ timeout: expect.any(Number) }));
+    expect(post).toHaveBeenCalledWith('/api/v2/anchors/a/chart/ask', { ...body, ...clientDay() }, expect.objectContaining({ timeout: expect.any(Number) }));
   });
 
   it('treats a stream that dies after data as a retryable connection failure, never a made-up answer', async () => {

@@ -55,7 +55,7 @@ type ChartActions = Pick<
   | 'editWaypoint'
   | 'removeWaypoint'
 > &
-  Partial<Pick<UseAnchorChartResult, 'setCurrentMove' | 'updateRequirement'>>;
+  Partial<Pick<UseAnchorChartResult, 'setCurrentMove' | 'updateRequirement' | 'setMovePlan'>>;
 
 type VisionLike = { imageUrl: string | null; description: string | null } | null;
 
@@ -424,6 +424,10 @@ export function ChartWaypointContent({
         reducedMotion={reducedMotion}
         onCheck={() => completeMove(rowMove.id)}
         onExpandSheet={onExpandSheet}
+        onSavePlan={chart.setMovePlan ? (plan) => chart.setMovePlan!(rowMove.id, plan) : undefined}
+        planBusy={chart.busy === `move-plan:${rowMove.id}`}
+        chartMoves={allMoves}
+        now={now}
         rowRef={oneMoveRowRef}
         circleRef={oneMoveCircleRef}
         bodyRef={oneMoveBodyRef}

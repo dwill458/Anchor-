@@ -9,8 +9,8 @@ export const MAX_RECORDING_MS = 120_000;
 /** Shown once, before the first recording. Honest about where audio can go, and about what is kept. */
 export function askDictationDisclosure(onDevice: boolean): { title: string; body: string } {
   return onDevice
-    ? { title: 'Talk to Ask Chart', body: 'Anchor turns what you say into text on this device and does not keep the audio. You can edit the text before you send it.' }
-    : { title: 'Talk to Ask Chart', body: 'To turn speech into text, your phone’s speech service (Apple or Google) may process what you say. Anchor does not keep the audio. You can edit the text before you send it.' };
+    ? { title: 'Talk to Ask Anchor', body: 'Anchor turns what you say into text on this device and does not keep the audio. You can edit the text before you send it.' }
+    : { title: 'Talk to Ask Anchor', body: 'To turn speech into text, your phone’s speech service (Apple or Google) may process what you say. Anchor does not keep the audio. You can edit the text before you send it.' };
 }
 
 /**

@@ -21,7 +21,7 @@ export type DraftWaypoint = {
   metricLabel: string | null;
   metricTarget: number | null;
   metricBaseline: number | null;
-  suggestedMoves?: Array<{ title: string; rationale: string | null }>;
+  suggestedMoves?: Array<{ title: string; rationale: string | null; cue?: string | null }>;
   /** Reached waypoints are history: shown, never editable or movable. */
   locked?: boolean;
   /** Set when a revision added, changed or dropped this waypoint. A removed one stays visible, struck through, until confirmed. */

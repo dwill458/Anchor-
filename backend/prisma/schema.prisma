@@ -680,6 +680,13 @@ model Move {
   updatedAt      DateTime  @updatedAt @map("updated_at")
   idempotencyKey String?   @unique @map("idempotency_key")
   batchId        String?   @map("batch_id")
+  // Optional plan for when the Move happens. planDate is the person's local calendar date (YYYY-MM-DD)
+  // and planTime their local wall clock (HH:MM, 24h). Strings on purpose: the server never converts
+  // time zones; the reminder is scheduled on the device in device local time.
+  planCue        String?   @map("plan_cue") @db.VarChar(60)
+  planDate       String?   @map("plan_date") @db.VarChar(10)
+  planTime       String?   @map("plan_time") @db.VarChar(5)
+  planRemind     Boolean   @default(false) @map("plan_remind")
 
   currentForCourse Course? @relation("CourseCurrentMove")
 

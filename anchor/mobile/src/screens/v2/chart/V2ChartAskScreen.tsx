@@ -1,8 +1,9 @@
-import React, { useCallback, useEffect, useRef } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Alert, StatusBar } from 'react-native';
 import { useFocusEffect, useNavigation, useRoute, type RouteProp } from '@react-navigation/native';
 import { AskChartView } from '@/components/v2/chart/ask/AskChartView';
-import { AskActionUnavailable, AskProposalCard } from '@/components/v2/chart/ask/AskProposalCard';
+import { AskActionUnavailable, AskProposalCard, type ProposalRemind } from '@/components/v2/chart/ask/AskProposalCard';
+import NotificationService from '@/services/NotificationService';
 import { askAccent } from '@/components/v2/chart/ask/askChartTheme';
 import { useAskMedia } from '@/components/v2/chart/ask/useAskMedia';
 import type { AskStarter } from '@/components/v2/chart/ask/AskStarters';
@@ -78,13 +79,45 @@ export function V2ChartAskScreen() {
     }
   }, [ask.state.messages]);
 
+  // After an applied plan with a day and a time, the person can turn its reminders on in one tap, so the screen
+  // stays here instead of returning to the Chart. Without a timed move, it returns as before.
+  const [remindOffers, setRemindOffers] = useState<Record<string, ProposalRemind & { moveIds: string[] }>>({});
+  const setMovePlan = chart.setMovePlan;
+  const remindFor = useCallback(
+    async (messageId: string) => {
+      const offer = remindOffers[messageId];
+      if (!offer || offer.state === 'busy' || offer.state === 'on') return;
+      setRemindOffers(current => ({ ...current, [messageId]: { ...offer, state: 'busy' } }));
+      let granted = false;
+      try {
+        granted = await NotificationService.requestPermissions();
+      } catch {
+        granted = false;
+      }
+      if (!granted) {
+        setRemindOffers(current => ({ ...current, [messageId]: { ...offer, state: 'denied' } }));
+        return;
+      }
+      let ok = true;
+      for (const moveId of offer.moveIds) ok = (await setMovePlan(moveId, { remind: true })) && ok;
+      setRemindOffers(current => ({ ...current, [messageId]: { ...offer, state: ok ? 'on' : 'offer' } }));
+    },
+    [remindOffers, setMovePlan]
+  );
+
   const proposals = useAskProposals({
     anchorId,
     onConflict: () => { Alert.alert('', 'This changed elsewhere. Reopening your chart.'); goBack(); },
     courseId,
     commitChart: chart.commitChart,
     markAction: ask.markAction,
-    onMovesApplied: () => goBack(),
+    onMovesApplied: result => {
+      if (result.timedMoveIds.length && result.remindTime) {
+        setRemindOffers(current => ({ ...current, [result.messageId]: { time: result.remindTime!, state: 'offer', moveIds: result.timedMoveIds } }));
+        return;
+      }
+      goBack();
+    },
     onReviewRoute: message =>
       navigation.navigate('V2ChartAdjust', { anchorId, proposalId: message.action.routeProposalId, askMessageId: message.id }),
   });
@@ -118,13 +151,15 @@ export function V2ChartAskScreen() {
             onApprove={() => void proposals.approve(message)}
             onDismiss={() => void proposals.dismiss(message)}
             onReview={() => proposals.review(message)}
+            remind={remindOffers[message.id] ?? null}
+            onRemind={() => void remindFor(message.id)}
           />
         ) : null}
         {message.actionUnavailable && !message.action ? <AskActionUnavailable /> : null}
         {mediaExtra(message)}
       </>
     ),
-    [accent, mediaExtra, proposals, reducedMotion]
+    [accent, mediaExtra, proposals, reducedMotion, remindOffers, remindFor]
   );
 
   return (

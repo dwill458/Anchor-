@@ -27,10 +27,12 @@ import {
 import {
   ASK_TURN_JSON_SCHEMA,
   AskTurnInvalidError,
+  cleanClientToday,
   extractStreamingReply,
   normalizeAskTurn,
   type AskTurn,
   type AskTurnAction,
+  type AskTurnNormalizeOptions,
 } from './askChartSchema';
 import { routeTitlesMatch } from './askChartScope';
 import { loadAskContext, type AskContext } from './askChartContext';
@@ -66,6 +68,9 @@ export type AskTurnInput = {
    */
   opening?: boolean;
   requestId?: string;
+  /** The device's local date (YYYY-MM-DD) and weekday (Mon to Sun). Bad values are dropped, not errors. */
+  clientToday?: string | null;
+  clientWeekday?: string | null;
 };
 
 export type AskTurnResult = {
@@ -128,7 +133,8 @@ export class AskChartService {
       history: ChartModelTurn[];
       images: ChartModelImage[];
     },
-    onReply?: (text: string) => void
+    onReply?: (text: string) => void,
+    normalizeOptions: AskTurnNormalizeOptions = {}
   ): Promise<RunOutcome> {
     const config = this.configFactory();
     if (config.providers.length === 0)
@@ -162,7 +168,7 @@ export class AskChartService {
                   }
                 })
               : await provider.generateJson(modelRequest);
-          const turn = normalizeAskTurn(raw);
+          const turn = normalizeAskTurn(raw, normalizeOptions);
           const latencyMs = Date.now() - started;
           logger.info('ask_chart_attempt', {
             provider: provider.name,
@@ -287,6 +293,43 @@ export class AskChartService {
       return this.resolveMoveAction(chart, proposed.waypointId, proposed.moves, proposed.summary);
     }
 
+    if (proposed.type === 'PLAN_MOVES') {
+      // The normaliser already kept only ACTIVE moves on the current waypoint; titles come from the real Chart.
+      const current = chart.waypoints.find(item => item.id === chart.currentWaypointId);
+      const byId = new Map(
+        (current?.moves ?? []).filter(move => move.status === 'ACTIVE').map(move => [move.id, move])
+      );
+      const plans = proposed.plans
+        .filter(plan => byId.has(plan.moveId))
+        .map(plan => ({
+          moveId: plan.moveId,
+          title: byId.get(plan.moveId)!.title,
+          cue: plan.cue,
+          date: plan.date,
+          time: plan.time,
+        }));
+      if (!current || plans.length === 0) return { action: null, unavailable: false };
+      return {
+        action: {
+          type: 'PLAN_MOVES',
+          scope: 'MOVE',
+          routeReason: null,
+          status: 'PENDING',
+          summary: proposed.summary || 'Plan when your moves happen',
+          waypointId: current.id,
+          waypointTitle: current.title,
+          moves: [],
+          plans,
+          reason: null,
+          detail: null,
+          routeProposalId: null,
+          routeTitles: null,
+          baseCourseVersion: chart.version,
+        },
+        unavailable: false,
+      };
+    }
+
     // A route change is only worth a card when it really changes the route and says why. Otherwise the move-level
     // edit that came back in the same response is offered, so no second model call is needed.
     const moveFallback = () =>
@@ -299,6 +342,9 @@ export class AskChartService {
                 title: proposed.moveEdit.title,
                 rationale: proposed.moveEdit.detail,
                 detail: proposed.moveEdit.detail,
+                cue: proposed.moveEdit.cue,
+                date: proposed.moveEdit.date,
+                time: proposed.moveEdit.time,
               },
             ],
             proposed.summary
@@ -375,7 +421,8 @@ export class AskChartService {
     if (!text && input.attachments.length === 0)
       throw new AppError('Say something or attach a photo', 400, 'VALIDATION_ERROR');
 
-    const context = await loadAskContext(userId, input.anchorId);
+    const today = cleanClientToday(input.clientToday, input.clientWeekday);
+    const context = await loadAskContext(userId, input.anchorId, { today });
     const mode: 'CREATE' | 'ONGOING' = context.chart ? 'ONGOING' : 'CREATE';
     const courseId = context.chart?.courseId ?? null;
     const skill: AskSkill = !ASK_SKILLS.includes(input.skill)
@@ -529,7 +576,16 @@ export class AskChartService {
         history,
         images,
       },
-      hooks.onReply
+      hooks.onReply,
+      {
+        clientToday: today?.date ?? null,
+        plannableMoveIds: new Set(
+          context.chart?.waypoints
+            .find(waypoint => waypoint.id === context.chart?.currentWaypointId)
+            ?.moves.filter(move => move.status === 'ACTIVE')
+            .map(move => move.id) ?? []
+        ),
+      }
     );
     const { turn } = outcome;
 

@@ -8,8 +8,11 @@ import { MEMORY_KEYS, type MemoryKey, type ReviseReason } from './askChartSchema
 
 export type AskActionStatus = 'PENDING' | 'APPLIED' | 'DISMISSED';
 
+/** A proposed plan: the person's local date (YYYY-MM-DD) and time (HH:MM). The model never sets a reminder. */
+export type AskPlanDTO = { cue: string | null; date: string | null; time: string | null };
+
 export type AskActionDTO = {
-  type: 'ADD_MOVES' | 'REVISE_ROUTE';
+  type: 'ADD_MOVES' | 'REVISE_ROUTE' | 'PLAN_MOVES';
   /** The smallest level the change works at: MOVE, WAYPOINT or ROUTE. */
   scope: 'MOVE' | 'WAYPOINT' | 'ROUTE';
   /** One line on why a route change is needed. Always set for REVISE_ROUTE. */
@@ -18,7 +21,19 @@ export type AskActionDTO = {
   summary: string;
   waypointId: string | null;
   waypointTitle: string | null;
-  moves: Array<{ title: string; rationale: string | null; detail?: string | null }>;
+  moves: Array<
+    { title: string; rationale: string | null; detail?: string | null } & Partial<AskPlanDTO>
+  >;
+  /** PLAN_MOVES only: the new plan for each existing move. */
+  plans?: Array<{ moveId: string; title: string } & AskPlanDTO>;
+  /** PLAN_MOVES only, written when applied: each move's plan before, so undo restores it exactly. */
+  previous?: Array<{
+    moveId: string;
+    planCue: string | null;
+    planDate: string | null;
+    planTime: string | null;
+    planRemind: boolean;
+  }>;
   reason: ReviseReason | null;
   detail: string | null;
   /** REVISE_ROUTE only: the AIPlanProposal the person reviews and applies through the existing route flow. */

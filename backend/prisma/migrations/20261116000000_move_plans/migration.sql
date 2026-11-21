@@ -1,0 +1,4 @@
+ALTER TABLE "moves" ADD COLUMN "plan_cue" VARCHAR(60),
+ADD COLUMN "plan_date" VARCHAR(10),
+ADD COLUMN "plan_time" VARCHAR(5),
+ADD COLUMN "plan_remind" BOOLEAN NOT NULL DEFAULT false;

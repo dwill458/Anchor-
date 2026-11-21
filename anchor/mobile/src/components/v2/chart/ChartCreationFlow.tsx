@@ -543,7 +543,7 @@ export function ChartCreationFlow({
           metricBaseline: waypoint.metricBaseline,
           suggestedMoves: waypoint.suggestedMoves,
         })),
-        oneMove: oneMove.trim() ? { title: oneMove.trim(), rationale: proposal?.suggestedOneMove?.rationale ?? null } : null,
+        oneMove: oneMove.trim() ? { title: oneMove.trim(), rationale: proposal?.suggestedOneMove?.rationale ?? null, cue: proposal?.suggestedOneMove?.cue ?? null } : null,
       });
       trackChart('chart_route_reviewed', {
         waypointCount: waypoints.length,

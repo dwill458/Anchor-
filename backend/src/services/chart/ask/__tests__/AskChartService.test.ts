@@ -498,3 +498,84 @@ describe('approvals', () => {
     expect(db.messages[0].structured.action.status).toBe('APPLIED');
   });
 });
+
+describe('AskChartService.turn — plan-week with real days', () => {
+  const plan = (moveId: string, date: string | null, time: string | null = null, cue: string | null = 'After I wake up') => ({ moveId, cue, date, time });
+  const planWeek = (plans: unknown[]) =>
+    answer({
+      reply: 'Tuesday after you wake up: strip the paint.',
+      action: { type: 'PLAN_MOVES', scope: 'MOVE', waypointId: 'wp-1', moves: [], moveEdit: null, plans, reason: null, routeReason: null, detail: null, summary: 'Your week' },
+    });
+  const weekContext = () =>
+    baseContext({
+      memories: [{ key: 'availability', value: 'wakes at 3pm' }],
+      today: { date: '2026-11-16', weekday: 'Mon' },
+      chart: {
+        ...baseContext().chart!,
+        waypoints: [
+          { id: 'wp-0', title: 'Buy the car', state: 'REACHED', completionCriteria: null, metric: null, moves: [{ id: 'old', title: 'Pay', status: 'COMPLETED' }] },
+          {
+            id: 'wp-1', title: 'Prepare the exterior', state: 'CURRENT', completionCriteria: null, metric: null,
+            moves: [
+              { id: 'mv-1', title: 'Strip paint', status: 'ACTIVE', plan: null },
+              { id: 'mv-2', title: 'Sand the panels', status: 'ACTIVE', plan: { cue: 'After work', date: '2026-11-18', time: null } },
+              { id: 'mv-3', title: 'Prime the doors', status: 'ACTIVE', plan: null },
+              { id: 'mv-4', title: 'Mask the trim', status: 'ACTIVE', plan: null },
+              { id: 'done', title: 'Wash it', status: 'COMPLETED', plan: null },
+            ],
+          },
+        ],
+      },
+    });
+
+  it('tells the model today and each move’s plan in plain words', async () => {
+    mockContext.value = weekContext();
+    const provider = fakeProvider('openai', () => answer());
+    await service(provider).turn('user-1', input({ skill: 'PLAN_WEEK', text: 'Plan my week', clientToday: '2026-11-16', clientWeekday: 'Mon' }));
+    const user = provider.calls[0].user;
+    expect(user.split('\n')[0]).toBe('Today for the person is Mon, 2026-11-16.');
+    expect(user).toContain('"plan":"no plan"');
+    expect(user).toContain('"plan":"planned: After work, Wed 2026-11-18"');
+    expect(user).toContain('wakes at 3pm');
+  });
+
+  it('without a client today the model is told not to propose dates', async () => {
+    mockContext.value = baseContext();
+    const provider = fakeProvider('openai', () => answer());
+    await service(provider).turn('user-1', input());
+    expect(provider.calls[0].user.split('\n')[0]).toBe("You do not know today's date for the person. Do not propose dates.");
+  });
+
+  it('keeps at most three plans for real ACTIVE moves on the current waypoint, all within 14 days, with no invented times', async () => {
+    mockContext.value = weekContext();
+    const provider = fakeProvider('openai', () =>
+      planWeek([
+        plan('mv-1', '2026-11-17'),
+        plan('mv-2', '2026-11-30', '15:00'), // 14 days out: date and its time dropped
+        plan('done', '2026-11-18'), // completed: dropped
+        plan('ghost', '2026-11-18'), // unknown: dropped
+        plan('mv-3', '2026-11-19', '15:30'),
+        plan('mv-4', '2026-11-20'),
+      ])
+    );
+    const result = await service(provider).turn('user-1', input({ skill: 'PLAN_WEEK', text: 'Plan my week', clientToday: '2026-11-16', clientWeekday: 'Mon' }));
+    const action = result.assistantMessage.action!;
+    expect(action.type).toBe('PLAN_MOVES');
+    expect(action.scope).toBe('MOVE');
+    expect(action.plans).toHaveLength(3);
+    expect(action.plans!.map(item => item.moveId)).toEqual(['mv-1', 'mv-2', 'mv-3']);
+    expect(action.plans![1]).toMatchObject({ title: 'Sand the panels', date: null, time: null, cue: 'After I wake up' });
+    for (const item of action.plans!) {
+      if (item.date) expect(item.date >= '2026-11-16' && item.date <= '2026-11-29').toBe(true);
+    }
+    // Times survive only where the model attached one to a valid date; none is invented by the server.
+    expect(action.plans!.filter(item => item.time).map(item => item.time)).toEqual(['15:30']);
+  });
+
+  it('drops the whole PLAN_MOVES action when nothing plannable remains', async () => {
+    mockContext.value = weekContext();
+    const provider = fakeProvider('openai', () => planWeek([plan('done', '2026-11-17'), plan('ghost', '2026-11-17')]));
+    const result = await service(provider).turn('user-1', input({ clientToday: '2026-11-16' }));
+    expect(result.assistantMessage.action).toBeNull();
+  });
+});
